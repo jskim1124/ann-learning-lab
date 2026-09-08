@@ -1,5 +1,5 @@
 export type ActivationName = "tanh" | "relu" | "sigmoid";
-export type PresetName = "xor" | "and" | "focus" | "custom";
+export type PresetName = "sound" | "shot" | "plane" | "custom" | "xor" | "and" | "focus";
 export type Label = 0 | 1;
 
 export interface DataPoint {

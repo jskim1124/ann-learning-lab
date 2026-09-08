@@ -47,12 +47,12 @@ function safeExperiments(): ExperimentRecord[] {
 }
 
 function safeSettings(): { preset: PresetName; hiddenUnits: number; activation: ActivationName; learningRate: number } {
-  const fallback = { preset: "xor" as const, hiddenUnits: 2, activation: "tanh" as const, learningRate: 0.08 };
+  const fallback = { preset: "sound" as const, hiddenUnits: 2, activation: "tanh" as const, learningRate: 0.08 };
   try {
     const parsed = JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "null") as Partial<typeof fallback> | null;
     if (!parsed) return fallback;
     return {
-      preset: ["xor", "and", "focus", "custom"].includes(parsed.preset ?? "") ? parsed.preset as PresetName : fallback.preset,
+      preset: ["sound", "shot", "plane", "custom"].includes(parsed.preset ?? "") ? parsed.preset as PresetName : fallback.preset,
       hiddenUnits: Number.isInteger(parsed.hiddenUnits) && (parsed.hiddenUnits ?? 0) >= 1 && (parsed.hiddenUnits ?? 0) <= 6 ? parsed.hiddenUnits as number : fallback.hiddenUnits,
       activation: ["tanh", "relu", "sigmoid"].includes(parsed.activation ?? "") ? parsed.activation as ActivationName : fallback.activation,
       learningRate: typeof parsed.learningRate === "number" && parsed.learningRate >= 0.01 && parsed.learningRate <= 0.3 ? parsed.learningRate : fallback.learningRate,
@@ -70,7 +70,7 @@ function initialState(): LabState {
     preset: settings.preset, data, pointClass: 0, model,
     history: [{ epoch: 0, loss: first.loss ?? 0 }],
     experiments: safeExperiments(), testInput: { x: 0, y: 0 },
-    view: "decision", autoTraining: false, epochGoal: 1000,
+    view: "decision", autoTraining: false, epochGoal: settings.preset === "shot" || settings.preset === "plane" ? 2000 : 1000,
     explanationStep: 1, selectedNeuron: 0, quizIndex: 0, quizAnswer: null,
     lessonStep: 1,
     furthestLessonStep: 1, furthestExplanationStep: 1,
@@ -111,7 +111,7 @@ export class LabStore {
     const config = { ...this.state.model.config, hiddenUnits: PRESETS[preset].recommendedHiddenUnits };
     const model = initializeNetwork(config);
     const metrics = evaluate(model, clonePreset(preset));
-    this.state = { ...this.state, preset, data: clonePreset(preset), model, history: [{ epoch: 0, loss: metrics.loss ?? 0 }], selectedNeuron: 0, explanationStep: 1, quizAnswer: null, epochGoal: preset === "focus" ? 2000 : 1000 };
+    this.state = { ...this.state, preset, data: clonePreset(preset), model, history: [{ epoch: 0, loss: metrics.loss ?? 0 }], selectedNeuron: 0, explanationStep: 1, quizAnswer: null, epochGoal: preset === "shot" || preset === "plane" ? 2000 : 1000 };
     this.stopAuto(false); this.emit();
   }
   setPointClass(pointClass: Label): void { this.state = { ...this.state, pointClass }; this.emit(); }

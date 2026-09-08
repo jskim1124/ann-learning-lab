@@ -52,7 +52,8 @@ function renderScenario(state: LabState): void {
   element<HTMLElement>("#scenarioQuestion").textContent = preset.question;
   element<HTMLElement>("#scenarioAxisX").textContent = preset.axes[0];
   element<HTMLElement>("#scenarioAxisY").textContent = preset.axes[1];
-  element<HTMLElement>("#datasetDescription").textContent = preset.story;
+  element<HTMLElement>("#datasetDescription").textContent = preset.description;
+  element<HTMLElement>("#datasetSourceNote").textContent = preset.sourceNote;
   element<HTMLElement>("#classZeroName").textContent = preset.classes[0];
   element<HTMLElement>("#classOneName").textContent = preset.classes[1];
   element<HTMLElement>("#classZeroButton").textContent = preset.classes[0];

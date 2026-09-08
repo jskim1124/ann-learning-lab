@@ -23,11 +23,20 @@ describe("educational contrast", () => {
     expect(hiddenNodeCount(networkGraphMarkup(model, Array(5).fill(0)))).toBe(5);
   });
 
-  it("learns the more complex library-seat pattern with four rule finders", () => {
-    const data = clonePreset("focus");
+  it("learns the noisy free-throw pattern with four rule finders", () => {
+    const data = clonePreset("shot");
     const model = train(initializeNetwork({ hiddenUnits: 4, activation: "tanh", learningRate: 0.08, seed: 19 }), data, 2000);
     const metrics = evaluate(model, data);
-    expect(metrics.accuracy ?? 0).toBeGreaterThanOrEqual(0.9);
-    expect(metrics.loss ?? 1).toBeLessThan(0.25);
+    expect(metrics.accuracy ?? 0).toBeGreaterThanOrEqual(0.84);
+    expect(metrics.loss ?? 1).toBeLessThan(0.4);
+  });
+
+  it.each([
+    ["sound", 2, 1000, 0.83],
+    ["plane", 4, 2000, 0.84],
+  ] as const)("learns the visible %s investigation", (preset, hiddenUnits, epochs, minimumAccuracy) => {
+    const data = clonePreset(preset);
+    const model = train(initializeNetwork({ hiddenUnits, activation: "tanh", learningRate: 0.08, seed: 19 }), data, epochs);
+    expect(evaluate(model, data).accuracy ?? 0).toBeGreaterThanOrEqual(minimumAccuracy);
   });
 });

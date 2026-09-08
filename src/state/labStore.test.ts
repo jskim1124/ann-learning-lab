@@ -46,7 +46,7 @@ describe("lab interactions", () => {
 
   it("opens lessons in order and selects the recommended model size", () => {
     const store = new LabStore();
-    store.setPreset("focus");
+    store.setPreset("shot");
     expect(store.snapshot.model.config.hiddenUnits).toBe(4);
     store.nextLesson();
     expect(store.snapshot).toMatchObject({ lessonStep: 2, furthestLessonStep: 2 });
@@ -64,10 +64,10 @@ describe("lab interactions", () => {
 
   it("persists validated settings for the next session", () => {
     const first = new LabStore();
-    first.setPreset("and");
+    first.setPreset("plane");
     first.setConfig({ hiddenUnits: 4, activation: "relu", learningRate: 0.12 });
     const restored = new LabStore();
-    expect(restored.snapshot.preset).toBe("and");
+    expect(restored.snapshot.preset).toBe("plane");
     expect(restored.snapshot.model.config).toMatchObject({ hiddenUnits: 4, activation: "relu", learningRate: 0.12 });
   });
 
