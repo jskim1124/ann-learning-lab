@@ -7,6 +7,7 @@ export const HIDDEN_COLORS = ["#6a4bbc", "#00897b", "#d56a00", "#c23b6e", "#1976
 export interface SurfaceOptions {
   explanationStep?: 1 | 2 | 3 | 4;
   selectedNeuron?: number;
+  highlightRevealed?: boolean;
 }
 
 export type Segment = [[number, number], [number, number]];
@@ -97,6 +98,14 @@ export function drawDecisionSurface(canvas: HTMLCanvasElement, model: NetworkMod
   }
   for (const point of data) drawDataPoint(ctx, canvas, point);
   const [tx, ty] = canvasPoint(canvas, testInput.x, testInput.y);
+  if (options.highlightRevealed) {
+    const previousX = Math.max(-.9, testInput.x - .65); const [px, py] = canvasPoint(canvas, previousX, testInput.y);
+    ctx.save(); ctx.strokeStyle = "#d29b00"; ctx.fillStyle = "rgba(241,200,75,.28)"; ctx.lineWidth = 4; ctx.setLineDash([8, 5]);
+    ctx.beginPath(); ctx.arc(px, py, 17, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(px + 18, py); ctx.lineTo(tx - 18, ty); ctx.stroke(); ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(tx - 18, ty); ctx.lineTo(tx - 30, ty - 8); ctx.lineTo(tx - 30, ty + 8); ctx.closePath(); ctx.fillStyle = "#d29b00"; ctx.fill();
+    ctx.font = "800 14px system-ui"; ctx.fillStyle = "#785900"; ctx.fillText("가로 한 가지만 바꿈", px + 3, py - 23); ctx.restore();
+  }
   ctx.strokeStyle = PALETTE.test; ctx.lineWidth = 3; ctx.setLineDash([]);
   ctx.beginPath(); ctx.moveTo(tx - 11, ty); ctx.lineTo(tx + 11, ty); ctx.moveTo(tx, ty - 11); ctx.lineTo(tx, ty + 11); ctx.stroke();
   ctx.beginPath(); ctx.arc(tx, ty, 7, 0, Math.PI * 2); ctx.stroke();

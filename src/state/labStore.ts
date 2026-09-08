@@ -29,6 +29,9 @@ export interface LabState {
   selectedNeuron: number;
   quizIndex: number;
   quizAnswer: string | null;
+  highlightRevealed: boolean;
+  mediaSampleIndex: number;
+  mediaHighlight: boolean;
   lessonStep: 1 | 2 | 3 | 4 | 5;
   furthestLessonStep: 1 | 2 | 3 | 4 | 5;
   furthestExplanationStep: 1 | 2 | 3 | 4;
@@ -52,7 +55,7 @@ function safeSettings(): { preset: PresetName; hiddenUnits: number; activation: 
     const parsed = JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "null") as Partial<typeof fallback> | null;
     if (!parsed) return fallback;
     return {
-      preset: ["sound", "shot", "plane", "custom"].includes(parsed.preset ?? "") ? parsed.preset as PresetName : fallback.preset,
+      preset: ["sound", "sketch", "digits", "custom"].includes(parsed.preset ?? "") ? parsed.preset as PresetName : fallback.preset,
       hiddenUnits: Number.isInteger(parsed.hiddenUnits) && (parsed.hiddenUnits ?? 0) >= 1 && (parsed.hiddenUnits ?? 0) <= 6 ? parsed.hiddenUnits as number : fallback.hiddenUnits,
       activation: ["tanh", "relu", "sigmoid"].includes(parsed.activation ?? "") ? parsed.activation as ActivationName : fallback.activation,
       learningRate: typeof parsed.learningRate === "number" && parsed.learningRate >= 0.01 && parsed.learningRate <= 0.3 ? parsed.learningRate : fallback.learningRate,
@@ -70,8 +73,9 @@ function initialState(): LabState {
     preset: settings.preset, data, pointClass: 0, model,
     history: [{ epoch: 0, loss: first.loss ?? 0 }],
     experiments: safeExperiments(), testInput: { x: 0, y: 0 },
-    view: "decision", autoTraining: false, epochGoal: settings.preset === "shot" || settings.preset === "plane" ? 2000 : 1000,
-    explanationStep: 1, selectedNeuron: 0, quizIndex: 0, quizAnswer: null,
+    view: "decision", autoTraining: false, epochGoal: PRESETS[settings.preset].recommendedHiddenUnits >= 4 ? 2000 : 1000,
+    explanationStep: 1, selectedNeuron: 0, quizIndex: 0, quizAnswer: null, highlightRevealed: false,
+    mediaSampleIndex: 0, mediaHighlight: false,
     lessonStep: 1,
     furthestLessonStep: 1, furthestExplanationStep: 1,
   };
@@ -98,7 +102,7 @@ export class LabStore {
     const metrics = evaluate(model, this.state.data);
     this.state = {
       ...this.state, model, history: [{ epoch: 0, loss: metrics.loss ?? 0 }], autoTraining: false,
-      selectedNeuron: Math.min(this.state.selectedNeuron, model.config.hiddenUnits - 1), quizAnswer: null,
+      selectedNeuron: Math.min(this.state.selectedNeuron, model.config.hiddenUnits - 1), quizAnswer: null, highlightRevealed: false,
     };
     this.stopAuto(false);
     this.emit();
@@ -111,7 +115,7 @@ export class LabStore {
     const config = { ...this.state.model.config, hiddenUnits: PRESETS[preset].recommendedHiddenUnits };
     const model = initializeNetwork(config);
     const metrics = evaluate(model, clonePreset(preset));
-    this.state = { ...this.state, preset, data: clonePreset(preset), model, history: [{ epoch: 0, loss: metrics.loss ?? 0 }], selectedNeuron: 0, explanationStep: 1, quizAnswer: null, epochGoal: preset === "shot" || preset === "plane" ? 2000 : 1000 };
+    this.state = { ...this.state, preset, data: clonePreset(preset), model, history: [{ epoch: 0, loss: metrics.loss ?? 0 }], selectedNeuron: 0, explanationStep: 1, quizAnswer: null, highlightRevealed: false, mediaSampleIndex: 0, mediaHighlight: false, epochGoal: PRESETS[preset].recommendedHiddenUnits >= 4 ? 2000 : 1000 };
     this.stopAuto(false); this.emit();
   }
   setPointClass(pointClass: Label): void { this.state = { ...this.state, pointClass }; this.emit(); }
@@ -128,7 +132,7 @@ export class LabStore {
   nextLesson(): void { this.setLessonStep(Math.min(5, this.state.lessonStep + 1) as LabState["lessonStep"]); }
   previousLesson(): void { this.setLessonStep(Math.max(1, this.state.lessonStep - 1) as LabState["lessonStep"]); }
   setExplanationStep(explanationStep: LabState["explanationStep"]): void {
-    this.state = { ...this.state, explanationStep, view: "decision", quizAnswer: null };
+    this.state = { ...this.state, explanationStep, view: "decision", quizAnswer: null, highlightRevealed: false };
     this.emit();
   }
   setSelectedNeuron(selectedNeuron: number): void {
@@ -137,9 +141,21 @@ export class LabStore {
     this.emit();
   }
   answerQuiz(quizAnswer: string): void { this.state = { ...this.state, quizAnswer }; this.emit(); }
+  revealHighlight(): void { this.state = { ...this.state, highlightRevealed: true, quizAnswer: null }; this.emit(); }
+  nextMediaSample(): void { this.state = { ...this.state, mediaSampleIndex: (this.state.mediaSampleIndex + 1) % 2, mediaHighlight: false }; this.emit(); }
+  toggleMediaHighlight(): void { this.state = { ...this.state, mediaHighlight: !this.state.mediaHighlight }; this.emit(); }
+  prepareExplanationModel(): string | null {
+    const error = this.trainingError(); if (error) return error;
+    const fresh = initializeNetwork(this.state.model.config);
+    const model = train(fresh, this.state.data, this.state.epochGoal);
+    const metrics = evaluate(model, this.state.data);
+    this.state = { ...this.state, model, history: [{ epoch: model.epoch, loss: metrics.loss ?? 0 }], explanationStep: 1, selectedNeuron: 0, quizAnswer: null, highlightRevealed: false };
+    this.emit(); return null;
+  }
+  beginPractice(): void { this.resetModel(); this.setLessonStep(4); }
   nextQuiz(): void {
     const explanationStep = Math.min(4, this.state.explanationStep + 1) as LabState["explanationStep"];
-    this.state = { ...this.state, explanationStep, furthestExplanationStep: Math.max(this.state.furthestExplanationStep, explanationStep) as LabState["furthestExplanationStep"], quizAnswer: null };
+    this.state = { ...this.state, explanationStep, furthestExplanationStep: Math.max(this.state.furthestExplanationStep, explanationStep) as LabState["furthestExplanationStep"], quizAnswer: null, highlightRevealed: false };
     this.emit();
   }
   setTestInput(x: number, y: number): void { this.state = { ...this.state, testInput: { x: clampInput(x), y: clampInput(y) } }; this.emit(); }

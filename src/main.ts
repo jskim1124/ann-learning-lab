@@ -8,6 +8,7 @@ import { createInitialStore, type LabState, type LabStore } from "./state/labSto
 import type { ActivationName, Label, PresetName } from "./types";
 import { drawDecisionSurface, HIDDEN_COLORS } from "./visualization/decisionSurface";
 import { drawLossChart } from "./visualization/lossChart";
+import { drawMediaSample, mediaSampleText, playSoundSample, toggleMediaPixel } from "./visualization/mediaSample";
 import { networkGraphMarkup } from "./visualization/networkGraph";
 import { drawNeuronSurface } from "./visualization/neuronSurface";
 
@@ -52,6 +53,7 @@ function renderScenario(state: LabState): void {
   element<HTMLElement>("#scenarioQuestion").textContent = preset.question;
   element<HTMLElement>("#scenarioAxisX").textContent = preset.axes[0];
   element<HTMLElement>("#scenarioAxisY").textContent = preset.axes[1];
+  element<HTMLElement>("#scenarioIllustration").dataset.mediaKind = preset.mediaKind;
   element<HTMLElement>("#datasetDescription").textContent = preset.description;
   element<HTMLElement>("#datasetSourceNote").textContent = preset.sourceNote;
   element<HTMLElement>("#classZeroName").textContent = preset.classes[0];
@@ -66,6 +68,14 @@ function renderScenario(state: LabState): void {
   document.querySelectorAll<HTMLElement>(".shared-axis-y").forEach((node) => { node.textContent = preset.axes[1]; });
   element<HTMLElement>("#dataCountLabel").textContent = `관찰한 사례 ${state.data.length}개`;
   element<HTMLElement>("#probabilityName").textContent = `${preset.classes[1]}일 가능성`;
+  element<HTMLElement>("#weightPositive").textContent = preset.classes[1];
+  element<HTMLElement>("#weightNegative").textContent = preset.classes[0];
+  const mediaTitles = { sound: "소리 파형 한 개", sketch: "8×8 손그림 한 장", digits: "8×8 손글씨 한 장", points: "두 힌트 점 지도" };
+  element<HTMLElement>("#mediaTitle").textContent = mediaTitles[preset.mediaKind];
+  element<HTMLElement>("#mediaSample").hidden = preset.mediaKind === "points";
+  element<HTMLElement>("#pointEditor").hidden = preset.mediaKind !== "points";
+  element<HTMLButtonElement>("#playMediaSound").hidden = preset.mediaKind !== "sound";
+  element<HTMLElement>("#dataGraphTitle").textContent = preset.mediaKind === "points" ? "관찰 자료" : "두 힌트로 펼친 설명 지도";
 }
 
 function renderNeuronCards(state: LabState): void {
@@ -115,13 +125,13 @@ function renderCausalExplanation(state: LabState, store: LabStore): void {
   });
   const x = state.testInput.x.toFixed(2); const y = state.testInput.y.toFixed(2);
   if (state.explanationStep === 1) {
-    target.innerHTML = `<span class="scene-no">장면 1</span><h2>보라색 십자에서 출발합니다</h2><p>십자는 모델에게 새로 물어볼 자리입니다. 가로값은 <b>${x}</b>, 세로값은 <b>${y}</b>입니다. 아직 모델이 만든 선은 보여 주지 않습니다.</p><div class="plain-rule">관찰한 점 = 모델이 연습한 사례<br>보라색 십자 = 이제 판단해 볼 새 사례</div>`;
+    target.innerHTML = `<span class="scene-no">장면 1</span><h2>같은 높이에서 옆으로만 움직입니다</h2><p>노란 점과 보라색 십자는 세로 위치가 같습니다. 가로 방향의 힌트 하나만 바꾸면 무엇이 달라지는지 살펴봅니다.</p><div class="plain-rule">노란 점 = 바꾸기 전<br>보라색 십자 = 가로 힌트 하나만 바꾼 뒤</div>`;
     return;
   }
   const neuronButtons = result.z.map((value, index) => `<button type="button" class="neuron-choice ${index === state.selectedNeuron ? "active" : ""}" data-neuron="${index}" style="--neuron-color:${HIDDEN_COLORS[index % HIDDEN_COLORS.length]}"><span>규칙 ${index + 1}</span><strong>중간 점수 ${signed(value)}</strong></button>`).join("");
   if (state.explanationStep === 2) {
     const index = state.selectedNeuron; const weights = state.model.parameters.inputHidden[index] ?? [0, 0]; const bias = state.model.parameters.hiddenBias[index] ?? 0;
-    target.innerHTML = `<span class="scene-no">장면 2</span><h2>칸마다 기준선 하나를 찾습니다</h2><p>색 선을 누르면 그 칸의 계산을 볼 수 있습니다. 화살표 쪽으로 갈수록 그 칸의 중간 점수가 커집니다.</p><div class="neuron-choices">${neuronButtons}</div><div class="plain-rule"><b>규칙 ${index + 1}</b><br>${weights[0].toFixed(2)} × ${x} + ${weights[1].toFixed(2)} × ${y} + 기준값 ${bias.toFixed(2)}<br>= 중간 점수 <b>${signed(result.z[index] ?? 0)}</b></div><p>색 선 위에서는 중간 점수가 0입니다. 이 색 선 하나가 마지막 답은 아닙니다.</p>`;
+    target.innerHTML = `<span class="scene-no">장면 2</span><h2>색 선은 작은 질문 하나입니다</h2><p>가로 힌트 하나를 바꾸어 색 선의 어느 쪽에 놓이는지 봅니다. 색 선 하나만으로 최종 답을 정하지는 않습니다.</p><div class="neuron-choices">${neuronButtons}</div><div class="plain-rule"><b>규칙 ${index + 1}</b><br>색 선을 기준으로 양쪽을 다르게 봅니다.<br>지금 십자의 규칙값: <b>${signed(result.z[index] ?? 0)}</b></div>`;
     target.querySelectorAll<HTMLButtonElement>("[data-neuron]").forEach((button) => button.addEventListener("click", () => store.setSelectedNeuron(Number(button.dataset.neuron))));
     return;
   }
@@ -129,26 +139,27 @@ function renderCausalExplanation(state: LabState, store: LabStore): void {
   const max = Math.max(.0001, ...contributions.map(Math.abs));
   const rows = contributions.map((value, index) => `<div class="contribution-row"><span>규칙 ${index + 1}</span><div class="contribution-track"><i class="${value >= 0 ? "positive" : "negative"}" style="width:${Math.max(3, Math.abs(value) / max * 50)}%"></i></div><b>${signed(value)}</b></div>`).join("");
   if (state.explanationStep === 3) {
-    target.innerHTML = `<span class="scene-no">장면 3</span><h2>여러 칸의 영향을 모두 합칩니다</h2><p>오른쪽 막대는 결과 1 쪽, 왼쪽 막대는 결과 0 쪽으로 미는 힘입니다. 길수록 영향이 큽니다.</p><div class="contribution-list">${rows}</div><div class="sum-line"><span>시작값 ${signed(state.model.parameters.outputBias)}</span><strong>모두 합친 점수 ${signed(result.logit)}</strong></div>`;
+    target.innerHTML = `<span class="scene-no">장면 3</span><h2>작은 질문들의 표를 모읍니다</h2><p>오른쪽 막대는 ${PRESETS[state.preset].classes[1]} 쪽, 왼쪽 막대는 ${PRESETS[state.preset].classes[0]} 쪽 표입니다. 긴 막대의 표가 더 셉니다.</p><div class="contribution-list">${rows}</div><div class="sum-line"><span>모든 표를 더하면</span><strong>합친 값 ${signed(result.logit)}</strong></div>`;
     return;
   }
-  target.innerHTML = `<span class="scene-no">장면 4</span><h2>합친 점수가 0인 곳을 이으면 검은 선이 됩니다</h2><p>검은 선의 한쪽에서는 결과 0 쪽 힘이 더 크고, 반대쪽에서는 결과 1 쪽 힘이 더 큽니다. 어느 색 선 하나를 그대로 따라가는 것이 아닙니다.</p><div class="final-equation"><span>십자 위치의 합친 점수</span><strong>${signed(result.logit)}</strong><span>${PRESETS[state.preset].classes[1]}일 가능성</span><strong>${(result.probability * 100).toFixed(1)}%</strong><span>모델의 답</span><strong>${result.probability >= .5 ? PRESETS[state.preset].classes[1] : PRESETS[state.preset].classes[0]}</strong></div><div class="plain-rule">검은 선 위: 두 결과의 가능성이 똑같은 50%<br>검은 선 양쪽: 더 가능성이 큰 결과가 달라짐</div>`;
+  target.innerHTML = `<span class="scene-no">장면 4</span><h2>표가 똑같아지는 곳이 검은 선입니다</h2><p>검은 선의 양쪽에서는 더 많은 표를 받은 답이 달라집니다. 검은 선은 어느 색 선 하나를 그대로 베낀 것이 아닙니다.</p><div class="final-equation"><span>${PRESETS[state.preset].classes[1]}일 가능성</span><strong>${(result.probability * 100).toFixed(1)}%</strong><span>지금 모델의 답</span><strong>${result.probability >= .5 ? PRESETS[state.preset].classes[1] : PRESETS[state.preset].classes[0]}</strong></div><div class="plain-rule">검은 선 위에서는 두 답이 50%씩<br>선을 건너면 더 많은 표를 받은 답이 바뀜</div>`;
 }
 
 function quizDefinition(state: LabState): { question: string; choices: Array<[string, string]>; correct: string; explanation: string } {
   const result = forward(state.model, state.testInput.x, state.testInput.y);
-  if (state.explanationStep === 1) return { question: "그래프의 보라색 십자는 무엇일까요?", choices: [["old", "이미 연습한 사례"], ["new", "새로 판단할 사례"]], correct: "new", explanation: "보라색 십자는 모델에게 결과를 물어볼 새 사례입니다." };
-  if (state.explanationStep === 2) return { question: "색 선에서 화살표 쪽으로 움직이면 무엇이 커질까요?", choices: [["score", "그 칸의 중간 점수"], ["data", "관찰한 점의 개수"]], correct: "score", explanation: "화살표는 그 규칙 찾기 칸의 중간 점수가 커지는 방향을 보여 줍니다." };
+  const previousX = Math.max(-.9, state.testInput.x - .65); const previous = forward(state.model, previousX, state.testInput.y);
+  if (state.explanationStep === 1) return { question: "노란 점에서 십자로 갈 때 그대로인 것은?", choices: [["height", "세로 높이"], ["side", "가로 위치"]], correct: "height", explanation: "옆으로만 움직였으므로 세로 높이는 그대로입니다." };
+  if (state.explanationStep === 2) return { question: "이번에 우리가 바꾼 힌트는 몇 개일까요?", choices: [["one", "한 개"], ["two", "두 개"]], correct: "one", explanation: "가로 힌트만 바꾸고 세로 힌트는 그대로 두었습니다." };
   if (state.explanationStep === 3) {
-    const values = result.hidden.map((value, index) => Math.abs(value * (state.model.parameters.hiddenOutput[index] ?? 0)));
-    const largest = values.indexOf(Math.max(...values));
-    return { question: "지금 십자에서 가장 긴 영향 막대는 어느 칸일까요?", choices: values.map((_, index) => [`rule${index}`, `규칙 ${index + 1}`]), correct: `rule${largest}`, explanation: `막대 길이를 비교하면 규칙 ${largest + 1}의 영향이 가장 큽니다.` };
+    const increased = result.probability >= previous.probability;
+    return { question: `가로 힌트 하나를 바꾼 뒤 ${PRESETS[state.preset].classes[1]} 가능성은?`, choices: [["up", "더 커졌다"], ["down", "더 작아졌다"]], correct: increased ? "up" : "down", explanation: `가능성이 ${(previous.probability * 100).toFixed(0)}%에서 ${(result.probability * 100).toFixed(0)}%로 바뀌었습니다.` };
   }
-  return { question: "검은 선 위에서는 두 결과의 가능성이 어떻게 될까요?", choices: [["same", "50% 대 50%로 같다"], ["certain", "한 결과가 100%다"]], correct: "same", explanation: "두 쪽의 힘이 같아지는 곳을 이어 그린 것이 마지막 검은 선입니다." };
+  return { question: "검은 선 바로 위에서는 두 답의 표가?", choices: [["same", "똑같다"], ["one", "한쪽만 있다"]], correct: "same", explanation: "두 답이 같은 만큼 표를 받는 곳을 이은 것이 검은 선입니다." };
 }
 
 function renderQuiz(state: LabState, store: LabStore): void {
   const quiz = quizDefinition(state); const correct = state.quizAnswer === quiz.correct;
+  element<HTMLElement>("#stepQuiz").hidden = !state.highlightRevealed;
   element<HTMLElement>("#quizQuestion").textContent = quiz.question;
   const choices = element<HTMLDivElement>("#quizChoices"); choices.replaceChildren();
   quiz.choices.forEach(([value, label]) => {
@@ -161,7 +172,18 @@ function renderQuiz(state: LabState, store: LabStore): void {
   const feedback = element<HTMLElement>("#quizFeedback");
   feedback.hidden = state.quizAnswer === null; feedback.className = state.quizAnswer ? `quiz-feedback ${correct ? "correct" : "wrong"}` : "quiz-feedback";
   feedback.textContent = state.quizAnswer ? `${correct ? "맞았습니다! " : "그래프를 다시 보고 골라 보세요. "}${quiz.explanation}` : "";
-  const next = element<HTMLButtonElement>("#nextQuiz"); next.hidden = !correct; next.textContent = state.explanationStep === 4 ? "새 값으로 시험하기 →" : "다음 장면 →";
+  const next = element<HTMLButtonElement>("#nextQuiz"); next.hidden = !correct; next.textContent = state.explanationStep === 4 ? "직접 연습시키기 →" : "다음 장면 →";
+}
+
+function renderHighlightGuide(state: LabState): void {
+  const preset = PRESETS[state.preset]; const previousX = Math.max(-.9, state.testInput.x - .65);
+  const before = forward(state.model, previousX, state.testInput.y); const after = forward(state.model, state.testInput.x, state.testInput.y);
+  element<HTMLElement>("#highlightInstruction").textContent = `${preset.axes[0].replace("설명 지도: ", "")}만 바꾸고 세로 높이는 그대로 둡니다.`;
+  const button = element<HTMLButtonElement>("#revealHighlight"); button.disabled = state.highlightRevealed;
+  button.textContent = state.highlightRevealed ? "그래프에 변화가 표시되었습니다" : "그래프에서 한 가지만 바꿔 보기";
+  element<HTMLElement>("#highlightResult").textContent = state.highlightRevealed
+    ? `노란 점 → 보라 십자 · ${preset.classes[1]} 가능성 ${(before.probability * 100).toFixed(0)}% → ${(after.probability * 100).toFixed(0)}%`
+    : "버튼을 누르면 노란 점과 이동 화살표가 나타납니다. 그다음 확인 문제가 열립니다.";
 }
 
 function render(state: LabState, store: LabStore): void {
@@ -180,15 +202,23 @@ function render(state: LabState, store: LabStore): void {
   element<HTMLButtonElement>("#neuronTab").classList.toggle("active", state.view === "neurons");
   element<HTMLButtonElement>("#decisionTab").setAttribute("aria-selected", String(state.view === "decision"));
   element<HTMLButtonElement>("#neuronTab").setAttribute("aria-selected", String(state.view === "neurons"));
-  if (state.lessonStep === 2) drawDecisionSurface(element<HTMLCanvasElement>("#dataCanvas"), state.model, state.data, state.testInput, { explanationStep: 1 });
-  if (state.lessonStep === 3) {
+  if (state.lessonStep === 2) {
+    drawDecisionSurface(element<HTMLCanvasElement>("#dataCanvas"), state.model, state.data, state.testInput, { explanationStep: 1 });
+    if (preset.mediaKind !== "points") {
+      drawMediaSample(element<HTMLCanvasElement>("#mediaCanvas"), preset.mediaKind, state.mediaSampleIndex, state.mediaHighlight);
+      element<HTMLCanvasElement>("#mediaCanvas").dataset.drawable = String(preset.mediaKind === "sketch" || preset.mediaKind === "digits");
+      element<HTMLElement>("#mediaSampleText").textContent = mediaSampleText(preset.mediaKind, state.mediaSampleIndex, state.mediaHighlight);
+      element<HTMLButtonElement>("#toggleMediaHighlight").textContent = state.mediaHighlight ? "강조 지우기" : "한 부분만 강조";
+    }
+  }
+  if (state.lessonStep === 4) {
     drawDecisionSurface(element<HTMLCanvasElement>("#modelCanvas"), state.model, state.data, state.testInput, { explanationStep: 4, selectedNeuron: state.selectedNeuron });
     renderNeuronCards(state); drawLossChart(element<HTMLCanvasElement>("#lossCanvas"), state.history);
     element<SVGSVGElement>("#networkSvg").innerHTML = networkGraphMarkup(state.model, prediction.hidden);
   }
-  if (state.lessonStep === 4) {
-    drawDecisionSurface(element<HTMLCanvasElement>("#decisionCanvas"), state.model, state.data, state.testInput, { explanationStep: state.explanationStep, selectedNeuron: state.selectedNeuron });
-    renderCausalExplanation(state, store); renderQuiz(state, store);
+  if (state.lessonStep === 3) {
+    drawDecisionSurface(element<HTMLCanvasElement>("#decisionCanvas"), state.model, state.data, state.testInput, { explanationStep: state.explanationStep, selectedNeuron: state.selectedNeuron, highlightRevealed: state.highlightRevealed });
+    renderCausalExplanation(state, store); renderHighlightGuide(state); renderQuiz(state, store);
   }
   element<HTMLElement>("#epochMetric").textContent = String(state.model.epoch);
   element<HTMLElement>("#lossMetric").textContent = metrics.loss === null ? "—" : metrics.loss.toFixed(4);
@@ -204,8 +234,8 @@ function render(state: LabState, store: LabStore): void {
   const values = element<HTMLDivElement>("#activationValues"); values.replaceChildren();
   prediction.hidden.forEach((value, index) => { const item = document.createElement("span"); item.textContent = `규칙 ${index + 1}: ${value.toFixed(3)}`; values.append(item); });
   element<HTMLPreElement>("#formulaPanel").textContent = calculationText(state);
-  const titles = ["새 점의 위치", "칸마다 찾은 기준선", "여러 영향 합치기", "마지막 검은 선"];
-  const subtitles = ["보라색 십자가 지금 판단할 새 사례입니다.", "색 선과 화살표를 비교해 보세요.", "배경색은 여러 칸의 영향을 모두 합친 결과입니다.", "검은 선 양쪽에서 모델의 답이 달라집니다."];
+  const titles = ["옆으로 한 가지만 바꾸기", "작은 질문의 색 선", "여러 표를 한데 모으기", "두 답이 같아지는 검은 선"];
+  const subtitles = ["노란 점과 보라 십자의 세로 높이를 비교하세요.", "한 번에 가로 힌트 하나만 바꿉니다.", "바꾸기 전과 뒤의 가능성을 비교하세요.", "검은 선 위에서는 두 답이 같은 표를 받습니다."];
   element<HTMLElement>("#plotTitle").textContent = titles[state.explanationStep - 1]!;
   element<HTMLElement>("#plotSubtitle").textContent = subtitles[state.explanationStep - 1]!;
   if (state.lessonStep === 5) renderExperiments(state, store);
@@ -223,8 +253,8 @@ export function mountApp(store = createInitialStore()): LabStore {
   document.querySelectorAll<HTMLButtonElement>("[data-go-step]").forEach((button) => button.addEventListener("click", () => { const step = Number(button.dataset.goStep) as LabState["lessonStep"]; if (step <= store.snapshot.furthestLessonStep) store.setLessonStep(step); }));
   document.querySelectorAll<HTMLButtonElement>("[data-back]").forEach((button) => button.addEventListener("click", () => store.previousLesson()));
   element<HTMLButtonElement>("#scenarioNext").addEventListener("click", () => store.setLessonStep(2));
-  element<HTMLButtonElement>("#dataNext").addEventListener("click", () => { if (store.snapshot.data.length < 2) return showToast("서로 다른 결과의 사례를 먼저 두 개 이상 만들어 주세요."); store.setLessonStep(3); });
-  element<HTMLButtonElement>("#modelNext").addEventListener("click", () => { if (store.snapshot.model.epoch === 0) return showToast("모델을 적어도 한 번 연습시켜 주세요."); store.setLessonStep(4); });
+  element<HTMLButtonElement>("#dataNext").addEventListener("click", () => { if (store.snapshot.data.length < 2) return showToast("서로 다른 결과의 사례를 먼저 두 개 이상 만들어 주세요."); const error = store.prepareExplanationModel(); if (error) return showToast(error); store.setLessonStep(3); });
+  element<HTMLButtonElement>("#modelNext").addEventListener("click", () => { if (store.snapshot.model.epoch === 0) return showToast("모델을 적어도 한 번 연습시켜 주세요."); store.setLessonStep(5); });
   element<HTMLButtonElement>("#restoreData").addEventListener("click", () => { store.setPreset(store.snapshot.preset); showToast("처음 자료로 되돌렸습니다."); });
   element<HTMLButtonElement>("#undoPoint").addEventListener("click", () => store.undoDataPoint());
   document.querySelectorAll<HTMLButtonElement>("#classPicker button").forEach((button) => button.addEventListener("click", () => store.setPointClass(Number(button.dataset.class) as Label)));
@@ -237,8 +267,16 @@ export function mountApp(store = createInitialStore()): LabStore {
   ([["#trainOne", 1], ["#trainTen", 10], ["#trainHundred", 100]] as const).forEach(([selector, count]) => element<HTMLButtonElement>(selector).addEventListener("click", () => { const error = store.trainEpochs(count); if (error) showToast(error); }));
   element<HTMLButtonElement>("#autoTrain").addEventListener("click", () => { const error = store.toggleAuto(); if (error) showToast(error); });
   element<HTMLCanvasElement>("#dataCanvas").addEventListener("click", (event) => addPointFromCanvas(event, store));
+  element<HTMLButtonElement>("#nextMediaSample").addEventListener("click", () => store.nextMediaSample());
+  element<HTMLButtonElement>("#toggleMediaHighlight").addEventListener("click", () => store.toggleMediaHighlight());
+  element<HTMLButtonElement>("#playMediaSound").addEventListener("click", () => playSoundSample(store.snapshot.mediaSampleIndex));
+  element<HTMLCanvasElement>("#mediaCanvas").addEventListener("click", (event) => {
+    const state = store.snapshot; const kind = PRESETS[state.preset].mediaKind;
+    if (toggleMediaPixel(event.currentTarget as HTMLCanvasElement, event, kind, state.mediaSampleIndex, state.mediaHighlight)) showToast("그림 한 칸을 바꿨습니다. 전체 모양이 어떻게 달라지는지 보세요.");
+  });
   document.querySelectorAll<HTMLButtonElement>("[data-explanation-step]").forEach((button) => button.addEventListener("click", () => { const step = Number(button.dataset.explanationStep) as LabState["explanationStep"]; if (step <= store.snapshot.furthestExplanationStep) store.setExplanationStep(step); }));
-  element<HTMLButtonElement>("#nextQuiz").addEventListener("click", () => { if (store.snapshot.explanationStep === 4) store.setLessonStep(5); else store.nextQuiz(); });
+  element<HTMLButtonElement>("#revealHighlight").addEventListener("click", () => store.revealHighlight());
+  element<HTMLButtonElement>("#nextQuiz").addEventListener("click", () => { if (store.snapshot.explanationStep === 4) store.beginPractice(); else store.nextQuiz(); });
   const updateInput = () => store.setTestInput(Number(element<HTMLInputElement>("#testX").value), Number(element<HTMLInputElement>("#testY").value));
   element<HTMLInputElement>("#testX").addEventListener("input", updateInput); element<HTMLInputElement>("#testY").addEventListener("input", updateInput);
   element<HTMLButtonElement>("#toggleFormula").addEventListener("click", (event) => { const panel = element<HTMLPreElement>("#formulaPanel"); panel.hidden = !panel.hidden; (event.currentTarget as HTMLButtonElement).textContent = panel.hidden ? "계산 자세히" : "계산 닫기"; });

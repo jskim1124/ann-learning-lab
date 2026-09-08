@@ -46,7 +46,7 @@ describe("lab interactions", () => {
 
   it("opens lessons in order and selects the recommended model size", () => {
     const store = new LabStore();
-    store.setPreset("shot");
+    store.setPreset("sketch");
     expect(store.snapshot.model.config.hiddenUnits).toBe(4);
     store.nextLesson();
     expect(store.snapshot).toMatchObject({ lessonStep: 2, furthestLessonStep: 2 });
@@ -64,11 +64,28 @@ describe("lab interactions", () => {
 
   it("persists validated settings for the next session", () => {
     const first = new LabStore();
-    first.setPreset("plane");
+    first.setPreset("digits");
     first.setConfig({ hiddenUnits: 4, activation: "relu", learningRate: 0.12 });
     const restored = new LabStore();
-    expect(restored.snapshot.preset).toBe("plane");
+    expect(restored.snapshot.preset).toBe("digits");
     expect(restored.snapshot.model.config).toMatchObject({ hiddenUnits: 4, activation: "relu", learningRate: 0.12 });
+  });
+
+  it("reveals one highlighted change before resetting the next quiz", () => {
+    const store = new LabStore();
+    store.revealHighlight();
+    expect(store.snapshot.highlightRevealed).toBe(true);
+    store.answerQuiz("height"); store.nextQuiz();
+    expect(store.snapshot).toMatchObject({ explanationStep: 2, highlightRevealed: false, quizAnswer: null });
+  });
+
+  it("shows a completed example before starting the learner's own practice", () => {
+    const store = new LabStore();
+    expect(store.prepareExplanationModel()).toBeNull();
+    expect(store.snapshot.model.epoch).toBe(store.snapshot.epochGoal);
+    store.setLessonStep(3); store.beginPractice();
+    expect(store.snapshot).toMatchObject({ lessonStep: 4 });
+    expect(store.snapshot.model.epoch).toBe(0);
   });
 
   it("starts and pauses continuous training", () => {
