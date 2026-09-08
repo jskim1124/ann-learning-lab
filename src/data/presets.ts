@@ -48,12 +48,12 @@ export const PRESETS: Record<PresetName, DatasetPreset> = {
     ],
   },
   digits: {
-    title: "친구들의 손글씨를 읽을 수 있을까?",
-    description: "같은 숫자도 사람마다 달라지는 손글씨를 여러 픽셀의 무늬로 비교합니다.",
-    story: "출석 번호를 손으로 쓰면 같은 숫자도 크기와 기울기, 선의 굵기가 모두 다릅니다. ‘6은 아래가 둥글다’ 같은 조건 하나만으로는 모든 글씨를 읽기 어렵습니다. 컴퓨터는 그림의 많은 칸을 함께 보며 비슷한 무늬를 찾습니다.",
-    question: "처음 보는 손글씨 6과 9를 컴퓨터가 그림 전체로 구별할 수 있을까요?",
-    axes: ["설명 지도: 아래쪽 잉크가 적음 → 많음", "설명 지도: 위쪽 잉크가 적음 → 많음"],
-    classes: ["숫자 6", "숫자 9"], difficulty: "여러 칸으로 보기", sourceNote: "원래 입력은 글씨를 잘게 나눈 64개 밝기입니다. 64칸을 모두 쓰는 모델의 경계는 평면에 그릴 수 없어, 이 수업에서는 두 힌트를 배우는 작은 모델로 원리를 설명합니다.", mediaKind: "digits", recommendedHiddenUnits: 4,
+    title: "내가 그린 숫자를 읽을까?",
+    description: "14×14 그림의 196개 칸을 실제 입력으로 써서 0·1·2를 구별합니다.",
+    story: "종이에 쓴 숫자는 크기와 기울기, 선 굵기가 모두 다릅니다. 그림을 두 가지 말로 줄이지 않고 14×14칸의 밝기 196개를 그대로 신경망에 보여 줍니다.",
+    question: "처음 보는 손글씨 0·1·2를 그림 전체로 구별할 수 있을까요?",
+    axes: ["픽셀 가로 위치", "픽셀 세로 위치"],
+    classes: ["숫자 그림", "숫자 그림"], difficulty: "그림 직접 학습", sourceNote: "실제 입력은 14×14 그림의 밝기 196개입니다.", mediaKind: "digits", recommendedHiddenUnits: 4,
     points: [
       { x: .78, y: -.51, label: 0 }, { x: .63, y: -.18, label: 0 }, { x: .41, y: -.63, label: 0 }, { x: .86, y: .06, label: 0 },
       { x: .25, y: -.29, label: 0 }, { x: .54, y: .25, label: 0 }, { x: .09, y: -.48, label: 0 }, { x: .34, y: .48, label: 0 },
@@ -61,6 +61,13 @@ export const PRESETS: Record<PresetName, DatasetPreset> = {
       { x: -.24, y: .53, label: 1 }, { x: -.57, y: .09, label: 1 }, { x: -.9, y: -.17, label: 1 }, { x: -.31, y: -.36, label: 1 },
       { x: -.08, y: .22, label: 1 }, { x: -.72, y: -.58, label: 1 }, { x: .04, y: .64, label: 1 }, { x: .16, y: .08, label: 0 },
     ],
+  },
+  omr: {
+    title: "OMR 답을 읽을 수 있을까?",
+    description: "한 문항 그림의 196개 칸을 보고 ①~⑤ 가운데 칠한 답을 찾습니다.",
+    story: "연필로 칠한 OMR 표시는 위치가 조금씩 비뚤고 진하기도 다릅니다. 한 문항 그림 전체를 14×14칸으로 바꾸어 신경망에 보여 줍니다.",
+    question: "비뚤게 칠한 OMR 표시도 그림 전체를 보고 읽을 수 있을까요?",
+    axes: ["픽셀 가로 위치", "픽셀 세로 위치"], classes: ["OMR", "OMR"], difficulty: "5가지 그림 분류", sourceNote: "실제 입력은 한 문항 그림의 밝기 196개입니다.", mediaKind: "omr", recommendedHiddenUnits: 4, points: [],
   },
   shot: {
     title: "자유투가 들어갈까?",

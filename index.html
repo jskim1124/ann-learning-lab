@@ -25,18 +25,17 @@
         <header class="page-heading"><span class="page-kicker">1 · 문제 고르기</span><h1 id="scenarioTitle">어떤 학교생활 문제를 풀어 볼까요?</h1><p>모델은 여러 번 본 사례에서 규칙을 찾아, 처음 보는 상황의 결과를 예상합니다.</p></header>
         <div class="scenario-layout">
           <div class="scenario-cards" role="list" aria-label="문제 상황">
-            <button class="scenario-card" data-preset="sound" type="button"><span class="card-no">01</span><span class="card-level">소리 전체로</span><strong>박수일까, 책상 소리일까?</strong><small>녹음된 파형을 잘게 나누어 보기</small></button>
-            <button class="scenario-card" data-preset="sketch" type="button"><span class="card-no">02</span><span class="card-level">그림 전체로</span><strong>급히 그린 ○일까, △일까?</strong><small>64개 그림 칸을 한꺼번에 비교</small></button>
-            <button class="scenario-card" data-preset="digits" type="button"><span class="card-no">03</span><span class="card-level">여러 모양으로</span><strong>친구들의 손글씨 읽기</strong><small>사람마다 다른 6과 9의 무늬 찾기</small></button>
-            <button class="scenario-card" data-preset="custom" type="button"><span class="card-no">04</span><span class="card-level">두 힌트 지도</span><strong>구분선 직접 실험</strong><small>두 측정값일 때만 점을 직접 놓기</small></button>
+            <button class="scenario-card" data-preset="digits" type="button"><span class="card-no">01</span><span class="card-level">그림 그대로</span><strong>내가 그린 숫자 읽기</strong><small>196개 픽셀 → 0·1·2</small></button>
+            <button class="scenario-card" data-preset="omr" type="button"><span class="card-no">02</span><span class="card-level">5가지 답</span><strong>OMR 한 문항 읽기</strong><small>196개 픽셀 → ①~⑤</small></button>
+            <button class="scenario-card" data-preset="xor" type="button"><span class="card-no">03</span><span class="card-level">원리 실험</span><strong>복도 양쪽 스위치</strong><small>두 값일 때 구분선 하나만 살펴보기</small></button>
           </div>
-          <article class="scenario-story" aria-live="polite"><div class="scenario-illustration" id="scenarioIllustration" role="img" aria-label="선택한 문제의 수업 삽화"></div><span id="scenarioDifficulty"></span><h2 id="scenarioName"></h2><p id="scenarioStory"></p><div class="story-question"><span>우리가 풀 질문</span><strong id="scenarioQuestion"></strong></div><dl><div><dt>설명 지도 가로</dt><dd id="scenarioAxisX"></dd></div><div><dt>설명 지도 세로</dt><dd id="scenarioAxisY"></dd></div></dl><button class="button primary next-wide" id="scenarioNext" type="button">이 문제로 시작하기 <span>→</span></button></article>
+          <article class="scenario-story" aria-live="polite"><div class="scenario-illustration" id="scenarioIllustration" role="img" aria-label="선택한 문제의 수업 삽화"></div><span id="scenarioDifficulty"></span><h2 id="scenarioName"></h2><p id="scenarioStory"></p><div class="story-question"><span>우리가 풀 질문</span><strong id="scenarioQuestion"></strong></div><dl id="axisSummary"><div><dt>가로 입력</dt><dd id="scenarioAxisX"></dd></div><div><dt>세로 입력</dt><dd id="scenarioAxisY"></dd></div></dl><div class="pixel-summary" id="pixelSummary" hidden><b>입력</b> 14×14 그림의 밝기 196개 <span>→</span> <b>출력</b> 여러 답의 가능성</div><button class="button primary next-wide" id="scenarioNext" type="button">이 문제로 시작하기 <span>→</span></button></article>
         </div>
       </section>
 
       <section class="lesson-page" data-app-page="2" aria-labelledby="dataTitle" hidden>
         <header class="page-heading compact"><span class="page-kicker">2 · 자료 살펴보기</span><h1 id="dataTitle">모델이 배울 사례를 먼저 읽어 봅시다</h1><p id="datasetDescription"></p></header>
-        <div class="two-column">
+        <div class="two-column" id="boundaryDataView">
           <aside class="workbook-panel">
             <section class="raw-sample" id="mediaSample"><div class="title-line"><div><span>원래 자료</span><h2 id="mediaTitle">파형 한 개</h2></div><button class="button secondary compact-button" id="nextMediaSample" type="button">다른 예시</button></div><canvas id="mediaCanvas" width="310" height="150" aria-label="숫자 두 개로 줄이기 전의 원래 자료"></canvas><p id="mediaSampleText"></p><div class="media-actions"><button class="button secondary" id="toggleMediaHighlight" type="button">한 부분만 강조</button><button class="button secondary" id="playMediaSound" type="button">소리 듣기</button></div><p class="data-source" id="datasetSourceNote"></p></section>
             <div id="pointEditor"><h2>점은 무엇을 뜻할까요?</h2><p>점 하나는 한 번의 측정 사례입니다. 위치는 두 측정값, 모양과 색은 그때 나온 결과를 뜻합니다.</p>
@@ -49,12 +48,16 @@
           </aside>
           <article class="graph-sheet"><div class="graph-heading"><div><span id="dataCountLabel"></span><h2 id="dataGraphTitle">설명용 비교 지도</h2></div><div class="legend"><span><i class="circle zero"></i><b id="legendZero"></b></span><span><i class="square one"></i><b id="legendOne"></b></span></div></div><div class="canvas-wrap"><canvas id="dataCanvas" width="760" height="540" aria-label="원래 자료에서 뽑은 두 힌트의 설명용 지도"></canvas><span class="axis-y" id="dataAxisY"></span><span class="axis-x" id="dataAxisX"></span></div></article>
         </div>
+        <div class="pixel-data-layout" id="pixelDataView" hidden>
+          <aside class="workbook-panel pixel-draw-panel"><span class="page-kicker">직접 그리기</span><h2 id="pixelDrawTitle">14×14칸에 숫자를 그려 보세요</h2><canvas id="pixelDataCanvas" class="pixel-board" width="420" height="420" aria-label="직접 그림을 그리는 14 곱하기 14 칸"></canvas><div class="button-row"><button class="button secondary" id="pixelClear" type="button">지우기</button><button class="button primary" id="pixelAdd" type="button">학습 자료에 추가</button></div><div id="pixelClassPicker" class="pixel-class-picker"></div></aside>
+          <article class="graph-sheet pixel-samples"><div class="graph-heading"><div><span id="pixelDataCount"></span><h2>신경망이 실제로 볼 그림</h2></div><p>그림 한 장 = 밝기 196개</p></div><div id="pixelSamples" class="pixel-sample-grid"></div><div class="think-box"><strong>중요한 점</strong><p>‘둥근 정도’처럼 사람이 정한 두 숫자는 없습니다. 칸 하나하나의 밝기가 그대로 입력됩니다.</p></div></article>
+        </div>
         <footer class="page-nav"><button class="button back" data-back type="button">← 문제 고르기</button><button class="button primary" id="dataNext" type="button">먼저 원리 이해하기 →</button></footer>
       </section>
 
       <section class="lesson-page" data-app-page="4" aria-labelledby="trainTitle" hidden>
         <header class="page-heading compact"><span class="page-kicker">4 · 직접 연습시키기</span><h1 id="trainTitle">이제 모델이 스스로 고치게 해 봅시다</h1><p>완성된 예시를 이해했으니, 처음 상태에서 직접 연습시켜 보세요.</p></header>
-        <div class="training-layout">
+        <div class="training-layout" id="boundaryTrainingView">
           <aside class="workbook-panel controls">
             <h2>규칙 찾기 칸 정하기</h2><label class="field"><span class="label-line">규칙 찾기 칸 <output id="hiddenUnitsOut">2개</output></span><input id="hiddenUnits" type="range" min="1" max="6" value="2" /><small>칸마다 서로 다른 기준선을 하나씩 찾습니다.</small></label>
             <label class="field">중간값을 바꾸는 방법<select id="activation"><option value="tanh">양쪽 변화를 모두 살리기</option><option value="relu">큰 쪽 변화만 살리기</option><option value="sigmoid">작은 값과 큰 값 사이로 바꾸기</option></select></label>
@@ -71,12 +74,30 @@
           </article>
           <aside class="connection-panel"><div class="title-line"><h2>연결 지도</h2><span>굵을수록 영향이 큼</span></div><svg id="networkSvg" viewBox="0 0 330 230" role="img" aria-label="현재 모델의 연결과 영향 크기"></svg><div class="weight-legend"><span><i class="positive"></i><b id="weightPositive"></b> 쪽</span><span><i class="negative"></i><b id="weightNegative"></b> 쪽</span></div><p>연습할 때마다 연결의 방향과 크기가 바뀝니다.</p></aside>
         </div>
+        <div class="training-layout" id="pixelTrainingView" hidden>
+          <aside class="workbook-panel controls pixel-shared-controls">
+            <h2>은닉 뉴런 정하기</h2>
+            <label class="field"><span class="label-line">은닉 뉴런 <output id="pixelHiddenOut">2개</output></span><input id="pixelHiddenUnits" type="range" min="2" max="20" step="1" value="2"><small>자료 점은 그대로 두고 분류선을 처음부터 다시 찾습니다.</small></label>
+            <label class="field">중간값을 바꾸는 방법<select disabled><option>양쪽 변화를 모두 살리기</option></select></label>
+            <label class="field"><span class="label-line">한 번에 고치는 크기 <output id="pixelLearningRateOut">0.12</output></span><input id="pixelLearningRate" type="range" min="0.02" max="0.30" step="0.01" value="0.12"><small>너무 크면 답을 지나치고, 너무 작으면 오래 걸립니다.</small></label>
+            <button class="button secondary full" id="pixelResetModel" type="button">연습 전 상태로 되돌리기</button>
+            <div class="mini-metrics"><div><span>연습 횟수</span><strong id="pixelEpoch">0</strong></div><div><span>틀린 정도</span><strong id="pixelLoss">—</strong></div><div><span>맞힌 비율</span><strong id="pixelAccuracy">—</strong></div><div><span>자료 수</span><strong id="pixelTrainCount">0장</strong></div></div>
+            <section class="pixel-mini-input"><div><b>지금 넣은 그림</b><span>십자로 표시</span></div><canvas id="pixelTrainCanvas" class="pixel-board mini" width="280" height="280"></canvas><div class="button-row"><button class="button secondary" id="pixelTrainClear" type="button">지우기</button><button class="button secondary" id="pixelTrainSample" type="button">다른 예시</button></div></section>
+          </aside>
+          <article class="training-stage">
+            <div class="stage-toolbar"><div class="tabs" role="tablist"><button class="active" id="pixelDecisionTab" role="tab" aria-selected="true" type="button">판단 영역</button><button id="pixelNeuronTab" role="tab" aria-selected="false" type="button">은닉 뉴런이 찾은 선</button></div><p>자료 점은 그대로 있고 검은 분류선만 바뀝니다.</p></div>
+            <div class="latent-map-wrap"><canvas id="pixelLatentCanvas" width="760" height="500" aria-label="고정된 그림 지도와 현재 모델의 분류선"></canvas><span>축과 자료 점은 고정 · 검은 분류선만 학습하며 바뀜</span></div>
+            <div class="trainer"><div class="train-buttons"><button class="button secondary" id="pixelTrainOne" type="button">1번</button><button class="button secondary" id="pixelTrainTen" type="button">10번</button><button class="button primary" id="pixelTrainHundred" type="button">100번 연습</button><button class="button ink" id="pixelAutoTrain" type="button">계속 연습</button></div><div class="progress-copy"><span>지금까지</span><strong><span id="pixelEpochNow">0</span> / 1000번</strong><div class="progress"><i id="pixelProgressBar"></i></div></div></div>
+            <div class="loss-strip"><div><strong>틀린 정도의 변화</strong><span>선이 내려갈수록 정답에 가까워집니다.</span></div><canvas id="pixelLossCanvas" width="600" height="120"></canvas></div>
+          </article>
+          <aside class="connection-panel"><div class="title-line"><h2>연결 지도</h2><span>굵을수록 영향이 큼</span></div><svg id="pixelNetworkSvg" viewBox="0 0 330 300" role="img" aria-label="196개 픽셀과 은닉 뉴런과 출력 범주의 연결 지도"></svg><p>196개 선을 한 묶음으로 표시했습니다. 연습할 때마다 연결의 크기가 바뀝니다.</p><div id="pixelTrainBars" class="probability-bars compact-side-bars"></div></aside>
+        </div>
         <footer class="page-nav"><button class="button back" data-back type="button">← 원리 다시 보기</button><button class="button primary" id="modelNext" type="button">새 값에 써 보기 →</button></footer>
       </section>
 
       <section class="lesson-page" data-app-page="3" aria-labelledby="whyTitle" hidden>
-        <header class="page-heading compact"><span class="page-kicker">3 · 먼저 원리 이해하기</span><h1 id="whyTitle">왜 구분선이 저기에 생겼을까요?</h1><p>완성된 예시에서 한 가지만 바꿔 강조해 본 뒤, 짧은 확인 문제를 풉니다.</p></header>
-        <div class="why-layout">
+        <header class="page-heading compact"><span class="page-kicker">3 · 먼저 원리 이해하기</span><h1 id="whyTitle">왜 구분선이 저기에 생겼을까요?</h1><p id="whySubtitle">한 가지만 바꿔 강조해 본 뒤, 짧은 확인 문제를 풉니다.</p></header>
+        <div class="why-layout" id="boundaryWhyView">
           <article class="graph-sheet why-graph"><div class="graph-heading"><div><span>지금 보는 장면</span><h2 id="plotTitle"></h2></div><p id="plotSubtitle"></p></div><div class="canvas-wrap"><canvas id="decisionCanvas" width="760" height="590" aria-label="구분선이 만들어지는 네 단계"></canvas><span class="axis-y shared-axis-y"></span><span class="axis-x shared-axis-x"></span></div></article>
           <aside class="why-notebook">
             <div class="cause-steps" role="group" aria-label="구분선 설명 순서"><button class="active" data-explanation-step="1" type="button"><span>1</span>새 점</button><button data-explanation-step="2" type="button"><span>2</span>기준선</button><button data-explanation-step="3" type="button"><span>3</span>영향 합치기</button><button data-explanation-step="4" type="button"><span>4</span>마지막 선</button></div>
@@ -85,16 +106,21 @@
             <section class="step-quiz" id="stepQuiz" aria-labelledby="quizQuestion" hidden><span>방금 본 것 확인하기</span><strong id="quizQuestion"></strong><div id="quizChoices" class="quiz-choices"></div><p id="quizFeedback" class="quiz-feedback" hidden></p><button id="nextQuiz" class="button primary full" type="button" hidden>다음 장면 →</button></section>
           </aside>
         </div>
-        <footer class="page-nav"><button class="button back" data-back type="button">← 자료 보기</button><span>노란 점에서 보라색 십자로, 가로 한 가지만 바꿉니다.</span></footer>
+        <div class="pixel-why-layout" id="pixelWhyView" hidden>
+          <article class="graph-sheet pixel-why-picture"><div class="graph-heading"><div><span>지금 모델이 보는 것</span><h2 id="pixelWhyTitle">14×14 그림</h2></div></div><canvas id="pixelWhyCanvas" class="pixel-board" width="560" height="560"></canvas></article>
+          <aside class="why-notebook"><div class="cause-steps pixel-steps"><button data-pixel-step="1" class="active" type="button"><span>1</span>그림 칸</button><button data-pixel-step="2" type="button"><span>2</span>함께 보기</button><button data-pixel-step="3" type="button"><span>3</span>답 비교</button></div><div id="pixelExplanation" class="causal-explanation"></div><section class="guided-highlight"><span>먼저 그림에서 확인하기</span><strong id="pixelHighlightInstruction"></strong><button id="pixelRevealHighlight" class="button highlight-button full" type="button">변화를 표시해 보기</button><p id="pixelHighlightResult"></p></section><section class="step-quiz" id="pixelQuiz" hidden><span>방금 본 것 확인하기</span><strong id="pixelQuizQuestion"></strong><div id="pixelQuizChoices" class="quiz-choices"></div><p id="pixelQuizFeedback" class="quiz-feedback" hidden></p><button id="pixelQuizNext" class="button primary full" type="button" hidden>다음 장면 →</button></section></aside>
+        </div>
+        <footer class="page-nav"><button class="button back" data-back type="button">← 자료 보기</button><span id="whyFooterNote">노란 점에서 보라색 십자로, 가로 한 가지만 바꿉니다.</span></footer>
       </section>
 
       <section class="lesson-page" data-app-page="5" aria-labelledby="useTitle" hidden>
         <header class="page-heading compact"><span class="page-kicker">5 · 새 상황에 써 보기</span><h1 id="useTitle">새 값을 넣어 보고, 만든 모델을 가져가세요</h1><p>연습에 없던 값을 넣었을 때도 알맞게 판단하는지 확인합니다.</p></header>
-        <div class="use-layout">
+        <div class="use-layout" id="boundaryUseView">
           <section class="workbook-panel test-panel"><h2>새 위치로 확인하기</h2><p>두 막대를 움직이면 그래프의 십자가 옮겨집니다. 내부 숫자를 몰라도 위치 변화를 볼 수 있습니다.</p><div class="input-pair"><label><span class="shared-axis-x"></span><input id="testX" type="range" min="-1" max="1" step="0.1" value="0" /></label><label><span class="shared-axis-y"></span><input id="testY" type="range" min="-1" max="1" step="0.1" value="0" /></label></div><div class="prediction"><div><span id="probabilityName">주황 답일 가능성</span><strong id="predictionValue">50.0%</strong></div><div class="probability"><i id="probabilityBar"></i></div><p id="predictionLabel"></p></div><div class="readout"><div class="title-line"><span>규칙 찾기 칸의 중간값</span><button id="toggleFormula" class="text-button" type="button">계산 자세히</button></div><div id="activationValues"></div><pre id="formulaPanel" hidden></pre></div></section>
           <section class="export-sheet"><span class="page-kicker">SCRATCH</span><h2>Scratch에서 내가 만든 판단 블록 쓰기</h2><p><b>공식 Scratch용 파일</b>을 열면 ‘Neural Lab 예측하기’ 블록과 결과 변수가 들어 있습니다.</p><div class="export-actions"><button class="button scratch" id="exportScratchProject" type="button">공식 Scratch 블록 (.sb3)</button><button class="button secondary" id="exportScratch" type="button">TurboWarp 확장 (.js)</button><button class="button secondary" id="exportJson" type="button">모델 보관 (.json)</button><label class="button secondary" for="importJson">보관한 모델 열기</label><input id="importJson" type="file" accept="application/json" hidden /></div></section>
           <section class="compare-sheet"><div><h2>내 실험 기록</h2><button class="button secondary" id="saveRun" type="button">지금 결과 기록</button></div><div class="table-wrap"><table><thead><tr><th>번호</th><th>규칙 칸</th><th>방법</th><th>고치는 크기</th><th>연습</th><th>틀린 정도</th><th>맞힌 비율</th><th><span class="sr-only">삭제</span></th></tr></thead><tbody id="experimentRows"></tbody></table></div></section>
         </div>
+        <div class="pixel-use-layout" id="pixelUseView" hidden><section class="workbook-panel"><span class="page-kicker">새 그림</span><h2>내 그림으로 확인하기</h2><canvas id="pixelUseCanvas" class="pixel-board" width="480" height="480"></canvas><div class="button-row"><button class="button secondary" id="pixelUseClear" type="button">지우기</button><button class="button secondary" id="pixelUseSample" type="button">예시 불러오기</button></div></section><section class="export-sheet"><span class="page-kicker">모델의 답</span><h2 id="pixelPredictionAnswer"></h2><div id="pixelUseBars" class="probability-bars"></div><p>가장 긴 막대가 모델이 고른 답입니다. 다른 막대도 함께 보면 얼마나 헷갈렸는지 알 수 있어요.</p><div class="export-actions"><button class="button scratch" id="pixelExportScratch" type="button">Scratch 그림 판단 블록 (.sb3)</button><button class="button secondary" id="pixelExportJson" type="button">픽셀 모델 보관 (.json)</button></div><div class="think-box"><strong>Scratch에서 쓰는 방법</strong><p>파일을 Scratch에서 열고 ‘그림 밝기’ 목록 196칸을 채운 뒤, ‘픽셀 그림 예측하기’ 나의 블록을 실행합니다.</p></div></section></div>
         <footer class="page-nav"><button class="button back" data-back type="button">← 모델 연습</button><button class="button secondary" data-go-step="1" type="button">다른 문제 고르기</button></footer>
       </section>
     </main>

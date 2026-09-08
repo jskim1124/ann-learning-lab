@@ -50,12 +50,12 @@ function safeExperiments(): ExperimentRecord[] {
 }
 
 function safeSettings(): { preset: PresetName; hiddenUnits: number; activation: ActivationName; learningRate: number } {
-  const fallback = { preset: "sound" as const, hiddenUnits: 2, activation: "tanh" as const, learningRate: 0.08 };
+  const fallback = { preset: "digits" as const, hiddenUnits: 4, activation: "tanh" as const, learningRate: 0.08 };
   try {
     const parsed = JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "null") as Partial<typeof fallback> | null;
     if (!parsed) return fallback;
     return {
-      preset: ["sound", "sketch", "digits", "custom"].includes(parsed.preset ?? "") ? parsed.preset as PresetName : fallback.preset,
+      preset: ["digits", "omr", "xor"].includes(parsed.preset ?? "") ? parsed.preset as PresetName : fallback.preset,
       hiddenUnits: Number.isInteger(parsed.hiddenUnits) && (parsed.hiddenUnits ?? 0) >= 1 && (parsed.hiddenUnits ?? 0) <= 6 ? parsed.hiddenUnits as number : fallback.hiddenUnits,
       activation: ["tanh", "relu", "sigmoid"].includes(parsed.activation ?? "") ? parsed.activation as ActivationName : fallback.activation,
       learningRate: typeof parsed.learningRate === "number" && parsed.learningRate >= 0.01 && parsed.learningRate <= 0.3 ? parsed.learningRate : fallback.learningRate,
