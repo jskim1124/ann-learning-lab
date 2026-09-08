@@ -25,6 +25,10 @@ export interface LabState {
   view: "decision" | "neurons";
   autoTraining: boolean;
   epochGoal: number;
+  explanationStep: 1 | 2 | 3 | 4;
+  selectedNeuron: number;
+  quizIndex: number;
+  quizAnswer: string | null;
 }
 
 type Listener = (state: LabState) => void;
@@ -64,6 +68,7 @@ function initialState(): LabState {
     history: [{ epoch: 0, loss: first.loss ?? 0 }],
     experiments: safeExperiments(), testInput: { x: 0, y: 0 },
     view: "decision", autoTraining: false, epochGoal: 1000,
+    explanationStep: 1, selectedNeuron: 0, quizIndex: 0, quizAnswer: null,
   };
 }
 
@@ -86,7 +91,10 @@ export class LabStore {
   }
   private replaceModel(model: NetworkModel): void {
     const metrics = evaluate(model, this.state.data);
-    this.state = { ...this.state, model, history: [{ epoch: 0, loss: metrics.loss ?? 0 }], autoTraining: false };
+    this.state = {
+      ...this.state, model, history: [{ epoch: 0, loss: metrics.loss ?? 0 }], autoTraining: false,
+      selectedNeuron: Math.min(this.state.selectedNeuron, model.config.hiddenUnits - 1), quizAnswer: null,
+    };
     this.stopAuto(false);
     this.emit();
   }
@@ -105,6 +113,17 @@ export class LabStore {
   }
   undoDataPoint(): void { this.state = { ...this.state, preset: "custom", data: undoPoint(this.state.data) }; this.resetModel(); }
   setView(view: LabState["view"]): void { this.state = { ...this.state, view }; this.emit(); }
+  setExplanationStep(explanationStep: LabState["explanationStep"]): void {
+    this.state = { ...this.state, explanationStep, view: "decision" };
+    this.emit();
+  }
+  setSelectedNeuron(selectedNeuron: number): void {
+    const last = Math.max(0, this.state.model.config.hiddenUnits - 1);
+    this.state = { ...this.state, selectedNeuron: Math.max(0, Math.min(last, Math.floor(selectedNeuron))) };
+    this.emit();
+  }
+  answerQuiz(quizAnswer: string): void { this.state = { ...this.state, quizAnswer }; this.emit(); }
+  nextQuiz(): void { this.state = { ...this.state, quizIndex: (this.state.quizIndex + 1) % 3, quizAnswer: null }; this.emit(); }
   setTestInput(x: number, y: number): void { this.state = { ...this.state, testInput: { x: clampInput(x), y: clampInput(y) } }; this.emit(); }
   trainingError(): string | null { return validateTrainingData(this.state.data); }
   trainEpochs(epochs: number): string | null {

@@ -32,6 +32,18 @@ describe("lab interactions", () => {
     expect(store.snapshot.testInput).toEqual({ x: 1, y: -1 });
   });
 
+  it("moves through the causal explanation and quiz without changing the model", () => {
+    const store = new LabStore();
+    const model = store.snapshot.model;
+    store.setExplanationStep(3);
+    store.setSelectedNeuron(1);
+    store.answerQuiz("no");
+    expect(store.snapshot).toMatchObject({ explanationStep: 3, selectedNeuron: 1, quizAnswer: "no" });
+    expect(store.snapshot.model).toBe(model);
+    store.nextQuiz();
+    expect(store.snapshot).toMatchObject({ quizIndex: 1, quizAnswer: null });
+  });
+
   it("records and deletes trained experiments", () => {
     const store = new LabStore();
     expect(store.saveExperiment()).toMatch(/먼저/);
