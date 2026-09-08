@@ -66,7 +66,7 @@ function drawHiddenBoundaries(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasE
     const length = Math.hypot(wA, wB) || 1; const nx = (wA / length) * 28; const ny = -(wB / length) * 28;
     ctx.setLineDash([]); ctx.beginPath(); ctx.moveTo(mx, my); ctx.lineTo(mx + nx, my + ny); ctx.stroke();
     const angle = Math.atan2(ny, nx); ctx.beginPath(); ctx.moveTo(mx + nx, my + ny); ctx.lineTo(mx + nx - 8 * Math.cos(angle - .45), my + ny - 8 * Math.sin(angle - .45)); ctx.moveTo(mx + nx, my + ny); ctx.lineTo(mx + nx - 8 * Math.cos(angle + .45), my + ny - 8 * Math.sin(angle + .45)); ctx.stroke();
-    ctx.font = `700 ${selected ? 17 : 14}px system-ui`; ctx.fillStyle = ctx.strokeStyle; ctx.fillText(`H${index + 1}  z>0`, mx + nx + 5, my + ny - 5);
+    ctx.font = `700 ${selected ? 17 : 14}px system-ui`; ctx.fillStyle = ctx.strokeStyle; ctx.fillText(`규칙 ${index + 1}  큰 쪽`, mx + nx + 5, my + ny - 5);
     ctx.restore();
   });
 }

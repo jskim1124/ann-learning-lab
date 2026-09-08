@@ -1,4 +1,5 @@
 import type { DataPoint, NetworkModel, StoredModelV2 } from "../types";
+import { PRESETS } from "../data/presets";
 
 const FORMAT = "neural-lab/model-v2" as const;
 
@@ -17,8 +18,8 @@ export function createStoredModel(
     format: FORMAT,
     createdAt: new Date().toISOString(),
     task,
-    inputs: { names: ["스위치 A", "스위치 B"], range: [-1, 1] },
-    classes: ["꺼짐", "켜짐"],
+    inputs: { names: PRESETS[task].axes, range: [-1, 1] },
+    classes: PRESETS[task].classes,
     model: structuredClone(model),
     metrics: { loss, accuracy },
     data: data.map((point) => ({ ...point })),
@@ -38,7 +39,7 @@ export function parseStoredModel(source: string): StoredModelV2 {
   const model = candidate.model;
   if (!model || !model.config || !model.parameters) throw new Error("모델 파라미터가 없습니다.");
   const hidden = model.config.hiddenUnits;
-  if (!Number.isInteger(hidden) || hidden < 1 || hidden > 6) throw new Error("은닉 뉴런 수가 범위를 벗어났습니다.");
+  if (!Number.isInteger(hidden) || hidden < 1 || hidden > 6) throw new Error("규칙 찾기 칸 수가 범위를 벗어났습니다.");
   if (!["tanh", "relu", "sigmoid"].includes(model.config.activation)) throw new Error("지원하지 않는 활성화 함수입니다.");
   const p = model.parameters;
   if (

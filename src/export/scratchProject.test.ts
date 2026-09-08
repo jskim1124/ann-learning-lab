@@ -11,7 +11,7 @@ describe("official Scratch project export", () => {
     const prototype = sprite.blocks.prototype_neural_lab;
     expect(prototype.opcode).toBe("procedures_prototype");
     expect(prototype.mutation.proccode).toBe("Neural Lab 예측하기 A %s B %s");
-    expect((Object.values(sprite.variables) as Array<[string, number]>).map((entry) => entry[0])).toEqual(expect.arrayContaining(["범주 1 확률", "예측 범주", "은닉 H3"]));
+    expect((Object.values(sprite.variables) as Array<[string, number]>).map((entry) => entry[0])).toEqual(expect.arrayContaining(["결과 1 가능성", "예측 결과", "규칙 3 값"]));
     expect(project.extensions).toEqual([]);
   });
 

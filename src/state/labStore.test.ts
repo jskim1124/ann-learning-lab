@@ -41,7 +41,15 @@ describe("lab interactions", () => {
     expect(store.snapshot).toMatchObject({ explanationStep: 3, selectedNeuron: 1, quizAnswer: "no" });
     expect(store.snapshot.model).toBe(model);
     store.nextQuiz();
-    expect(store.snapshot).toMatchObject({ quizIndex: 1, quizAnswer: null });
+    expect(store.snapshot).toMatchObject({ explanationStep: 4, quizAnswer: null });
+  });
+
+  it("opens lessons in order and selects the recommended model size", () => {
+    const store = new LabStore();
+    store.setPreset("focus");
+    expect(store.snapshot.model.config.hiddenUnits).toBe(4);
+    store.nextLesson();
+    expect(store.snapshot).toMatchObject({ lessonStep: 2, furthestLessonStep: 2 });
   });
 
   it("records and deletes trained experiments", () => {

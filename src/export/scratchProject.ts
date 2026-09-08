@@ -88,7 +88,7 @@ function createBlocks(model: NetworkModel, variableIds: Record<string, string>):
 
   let previous = defineId;
   for (let h = 0; h < model.config.hiddenUnits; h += 1) {
-    const name = `은닉 H${h + 1}`;
+    const name = `규칙 ${h + 1} 값`;
     if (model.config.activation !== "relu") {
       const setId = createSet(name, activationExpression(h), previous);
       chain(previous, setId); previous = setId;
@@ -105,15 +105,15 @@ function createBlocks(model: NetworkModel, variableIds: Record<string, string>):
 
   let logit: Expression = number(model.parameters.outputBias);
   for (let h = 0; h < model.config.hiddenUnits; h += 1) {
-    logit = add(logit, mul(number(model.parameters.hiddenOutput[h] ?? 0), variable(`은닉 H${h + 1}`)));
+    logit = add(logit, mul(number(model.parameters.hiddenOutput[h] ?? 0), variable(`규칙 ${h + 1} 값`)));
   }
-  const probabilitySet = createSet("범주 1 확률", sigmoidExpression(logit), previous);
+  const probabilitySet = createSet("결과 1 가능성", sigmoidExpression(logit), previous);
   chain(previous, probabilitySet); previous = probabilitySet;
   const classIf = id("class_if");
   blocks[classIf] = { opcode: "control_if_else", next: null, parent: previous, inputs: {}, fields: {}, shadow: false, topLevel: false };
-  blocks[classIf].inputs.CONDITION = binary("operator_gt", variable("범주 1 확률"), number(0.499999), "OPERAND1", "OPERAND2")(classIf);
-  const setOne = createSet("예측 범주", number(1), classIf);
-  const setZero = createSet("예측 범주", number(0), classIf);
+  blocks[classIf].inputs.CONDITION = binary("operator_gt", variable("결과 1 가능성"), number(0.499999), "OPERAND1", "OPERAND2")(classIf);
+  const setOne = createSet("예측 결과", number(1), classIf);
+  const setZero = createSet("예측 결과", number(0), classIf);
   blocks[classIf].inputs.SUBSTACK = [2, setOne]; blocks[classIf].inputs.SUBSTACK2 = [2, setZero];
   chain(previous, classIf);
 
@@ -126,13 +126,13 @@ function createBlocks(model: NetworkModel, variableIds: Record<string, string>):
     inputs: { inputA: [1, [4, "-0.8"]], inputB: [1, [4, "0.8"]] }, fields: {}, shadow: false, topLevel: false,
     mutation: { tagName: "mutation", children: [], proccode, argumentids: '["inputA","inputB"]', warp: "true" },
   };
-  blocks[sayId] = { opcode: "looks_say", next: null, parent: callId, inputs: { MESSAGE: variable("예측 범주")(sayId) }, fields: {}, shadow: false, topLevel: false };
+  blocks[sayId] = { opcode: "looks_say", next: null, parent: callId, inputs: { MESSAGE: variable("예측 결과")(sayId) }, fields: {}, shadow: false, topLevel: false };
   return blocks;
 }
 
 export function createScratchProjectFiles(model: NetworkModel): Record<string, Uint8Array> {
   const encoder = new TextEncoder();
-  const variableNames = ["범주 1 확률", "예측 범주", ...Array.from({ length: model.config.hiddenUnits }, (_, i) => `은닉 H${i + 1}`)];
+  const variableNames = ["결과 1 가능성", "예측 결과", ...Array.from({ length: model.config.hiddenUnits }, (_, i) => `규칙 ${i + 1} 값`)];
   const variableIds = Object.fromEntries(variableNames.map((name, index) => [name, `neural_var_${index}`]));
   const variables = Object.fromEntries(variableNames.map((name) => [variableIds[name], [name, 0]]));
   const project = {

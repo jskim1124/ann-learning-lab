@@ -2,7 +2,7 @@ import { createStoredModel } from "../core/modelSchema";
 import { initializeNetwork } from "../core/initialization";
 import { evaluate, train } from "../core/neuralNetwork";
 import { addPoint, clampInput, undoPoint, validateTrainingData } from "../data/dataset";
-import { clonePreset } from "../data/presets";
+import { clonePreset, PRESETS } from "../data/presets";
 import type {
   ActivationName,
   DataPoint,
@@ -29,6 +29,9 @@ export interface LabState {
   selectedNeuron: number;
   quizIndex: number;
   quizAnswer: string | null;
+  lessonStep: 1 | 2 | 3 | 4 | 5;
+  furthestLessonStep: 1 | 2 | 3 | 4 | 5;
+  furthestExplanationStep: 1 | 2 | 3 | 4;
 }
 
 type Listener = (state: LabState) => void;
@@ -49,7 +52,7 @@ function safeSettings(): { preset: PresetName; hiddenUnits: number; activation: 
     const parsed = JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "null") as Partial<typeof fallback> | null;
     if (!parsed) return fallback;
     return {
-      preset: ["xor", "and", "custom"].includes(parsed.preset ?? "") ? parsed.preset as PresetName : fallback.preset,
+      preset: ["xor", "and", "focus", "custom"].includes(parsed.preset ?? "") ? parsed.preset as PresetName : fallback.preset,
       hiddenUnits: Number.isInteger(parsed.hiddenUnits) && (parsed.hiddenUnits ?? 0) >= 1 && (parsed.hiddenUnits ?? 0) <= 6 ? parsed.hiddenUnits as number : fallback.hiddenUnits,
       activation: ["tanh", "relu", "sigmoid"].includes(parsed.activation ?? "") ? parsed.activation as ActivationName : fallback.activation,
       learningRate: typeof parsed.learningRate === "number" && parsed.learningRate >= 0.01 && parsed.learningRate <= 0.3 ? parsed.learningRate : fallback.learningRate,
@@ -69,6 +72,8 @@ function initialState(): LabState {
     experiments: safeExperiments(), testInput: { x: 0, y: 0 },
     view: "decision", autoTraining: false, epochGoal: 1000,
     explanationStep: 1, selectedNeuron: 0, quizIndex: 0, quizAnswer: null,
+    lessonStep: 1,
+    furthestLessonStep: 1, furthestExplanationStep: 1,
   };
 }
 
@@ -103,8 +108,11 @@ export class LabStore {
     this.replaceModel(initializeNetwork({ ...this.state.model.config, ...change }));
   }
   setPreset(preset: PresetName): void {
-    this.state = { ...this.state, preset, data: clonePreset(preset) };
-    this.resetModel();
+    const config = { ...this.state.model.config, hiddenUnits: PRESETS[preset].recommendedHiddenUnits };
+    const model = initializeNetwork(config);
+    const metrics = evaluate(model, clonePreset(preset));
+    this.state = { ...this.state, preset, data: clonePreset(preset), model, history: [{ epoch: 0, loss: metrics.loss ?? 0 }], selectedNeuron: 0, explanationStep: 1, quizAnswer: null, epochGoal: preset === "focus" ? 2000 : 1000 };
+    this.stopAuto(false); this.emit();
   }
   setPointClass(pointClass: Label): void { this.state = { ...this.state, pointClass }; this.emit(); }
   addDataPoint(x: number, y: number): void {
@@ -113,8 +121,14 @@ export class LabStore {
   }
   undoDataPoint(): void { this.state = { ...this.state, preset: "custom", data: undoPoint(this.state.data) }; this.resetModel(); }
   setView(view: LabState["view"]): void { this.state = { ...this.state, view }; this.emit(); }
+  setLessonStep(lessonStep: LabState["lessonStep"]): void {
+    this.state = { ...this.state, lessonStep, furthestLessonStep: Math.max(this.state.furthestLessonStep, lessonStep) as LabState["furthestLessonStep"] };
+    this.emit();
+  }
+  nextLesson(): void { this.setLessonStep(Math.min(5, this.state.lessonStep + 1) as LabState["lessonStep"]); }
+  previousLesson(): void { this.setLessonStep(Math.max(1, this.state.lessonStep - 1) as LabState["lessonStep"]); }
   setExplanationStep(explanationStep: LabState["explanationStep"]): void {
-    this.state = { ...this.state, explanationStep, view: "decision" };
+    this.state = { ...this.state, explanationStep, view: "decision", quizAnswer: null };
     this.emit();
   }
   setSelectedNeuron(selectedNeuron: number): void {
@@ -123,7 +137,11 @@ export class LabStore {
     this.emit();
   }
   answerQuiz(quizAnswer: string): void { this.state = { ...this.state, quizAnswer }; this.emit(); }
-  nextQuiz(): void { this.state = { ...this.state, quizIndex: (this.state.quizIndex + 1) % 3, quizAnswer: null }; this.emit(); }
+  nextQuiz(): void {
+    const explanationStep = Math.min(4, this.state.explanationStep + 1) as LabState["explanationStep"];
+    this.state = { ...this.state, explanationStep, furthestExplanationStep: Math.max(this.state.furthestExplanationStep, explanationStep) as LabState["furthestExplanationStep"], quizAnswer: null };
+    this.emit();
+  }
   setTestInput(x: number, y: number): void { this.state = { ...this.state, testInput: { x: clampInput(x), y: clampInput(y) } }; this.emit(); }
   trainingError(): string | null { return validateTrainingData(this.state.data); }
   trainEpochs(epochs: number): string | null {

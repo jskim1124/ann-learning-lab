@@ -22,4 +22,12 @@ describe("educational contrast", () => {
     expect(model.parameters.hiddenOutput).toHaveLength(5);
     expect(hiddenNodeCount(networkGraphMarkup(model, Array(5).fill(0)))).toBe(5);
   });
+
+  it("learns the more complex library-seat pattern with four rule finders", () => {
+    const data = clonePreset("focus");
+    const model = train(initializeNetwork({ hiddenUnits: 4, activation: "tanh", learningRate: 0.08, seed: 19 }), data, 2000);
+    const metrics = evaluate(model, data);
+    expect(metrics.accuracy ?? 0).toBeGreaterThanOrEqual(0.9);
+    expect(metrics.loss ?? 1).toBeLessThan(0.25);
+  });
 });
