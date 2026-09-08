@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="데이터부터 가중치와 판단 영역까지 직접 관찰하는 교육용 신경망 실험실" />
+    <title>Neural Lab — 신경망 패턴 학습 실험실</title>
+  </head>
+  <body>
+    <a class="skip-link" href="#workspace">실험실로 바로가기</a>
+    <header class="topbar">
+      <a class="brand" href="#workspace" aria-label="Neural Lab 처음으로"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>NEURAL LAB</span></a>
+      <div class="top-actions"><span class="saved"><i></i>기록은 이 브라우저에 저장됩니다</span><button class="plain-button" id="openGuide" type="button">활동 안내</button></div>
+    </header>
+
+    <main id="workspace" class="workspace">
+      <header class="workspace-heading">
+        <div><p class="eyebrow">신경망 패턴 학습 실험실</p><h1>데이터가 판단으로 바뀌는 과정을 관찰하세요</h1></div>
+        <ol class="flow" aria-label="활동 순서"><li class="active"><span>1</span>데이터</li><li><span>2</span>모델</li><li><span>3</span>학습</li><li><span>4</span>검증</li></ol>
+      </header>
+
+      <section class="lab-grid">
+        <aside class="panel controls" aria-label="데이터와 모델 설정">
+          <section><div class="section-heading"><span class="step">STEP 1</span><h2>데이터 만들기</h2></div>
+            <label class="field">활동 상황<select id="datasetPreset"><option value="xor">양쪽 스위치와 전등 · XOR</option><option value="and">안전장치 이중 확인 · AND</option><option value="custom">빈 화면에서 직접 만들기</option></select></label>
+            <p id="datasetDescription" class="help"></p>
+            <fieldset class="field"><legend>추가할 점의 범주</legend><div class="segmented" id="classPicker"><button class="active class-zero" data-class="0" type="button"><i></i>꺼짐 · 0</button><button class="class-one" data-class="1" type="button"><i></i>켜짐 · 1</button></div><p class="help">가운데 좌표 평면을 클릭해 점을 추가합니다.</p></fieldset>
+            <div class="button-row"><button class="button secondary" id="undoPoint" type="button">마지막 점 되돌리기</button><button class="button secondary" id="restoreData" type="button">기본 XOR 복원</button></div>
+          </section>
+          <section><div class="section-heading"><span class="step">STEP 2</span><h2>신경망 구성하기</h2></div>
+            <label class="field"><span class="label-line">은닉 뉴런 <output id="hiddenUnitsOut">2개</output></span><input id="hiddenUnits" type="range" min="1" max="6" value="2" /></label>
+            <label class="field">활성화 함수<select id="activation"><option value="tanh">tanh · 양·음 모두 표현</option><option value="relu">ReLU · 양수만 활성화</option><option value="sigmoid">sigmoid · 0~1로 변환</option></select></label>
+            <label class="field"><span class="label-line">학습률 <output id="learningRateOut">0.08</output></span><input id="learningRate" type="range" min="0.01" max="0.30" step="0.01" value="0.08" /><span class="help">가중치를 한 번에 얼마나 크게 바꿀지 정합니다.</span></label>
+            <button class="button secondary full" id="resetModel" type="button">같은 초기값으로 모델 다시 만들기</button>
+          </section>
+        </aside>
+
+        <section class="panel stage" aria-label="학습 시각화">
+          <div class="stage-heading"><div><span class="step">STEP 3</span><h2>학습 과정 관찰하기</h2></div><div class="tabs" role="tablist" aria-label="시각화 선택"><button class="active" id="decisionTab" role="tab" aria-selected="true" type="button">최종 판단</button><button id="neuronTab" role="tab" aria-selected="false" type="button">뉴런별 경계</button></div></div>
+          <div class="plot-card"><div class="plot-heading"><div><h3 id="plotTitle">최종 판단 영역</h3><p id="plotSubtitle">배경색은 범주 1 확률, 검은 선은 최종 0.5 경계입니다.</p></div><div class="legend"><span><i class="circle zero"></i>범주 0</span><span><i class="square one"></i>범주 1</span></div></div>
+            <div id="decisionView" class="canvas-wrap"><canvas id="decisionCanvas" width="720" height="620" aria-label="최종 판단 영역과 학습 데이터"></canvas><span class="axis-y">스위치 B</span><span class="axis-x">스위치 A</span></div>
+            <div id="neuronView" class="neuron-grid" hidden></div>
+          </div>
+          <div class="trainer"><div class="train-buttons"><button class="button secondary" id="trainOne" type="button">1회</button><button class="button secondary" id="trainTen" type="button">10회</button><button class="button primary" id="trainHundred" type="button">100회 학습</button><button class="button dark" id="autoTrain" type="button">▶ 연속 학습</button></div><div class="progress-copy"><span>학습 진행</span><strong><span id="epochNow">0</span> / <span id="epochGoal">1000</span>회</strong><div class="progress"><i id="progressBar"></i></div></div></div>
+          <div class="loss-card"><div><h3>손실의 변화</h3><p>정답과 예측의 차이가 실제로 줄어드는지 확인합니다.</p></div><canvas id="lossCanvas" width="720" height="150" aria-label="epoch에 따른 실제 손실"></canvas></div>
+        </section>
+
+        <aside class="panel inspector" aria-label="모델 내부와 입력 검증">
+          <section><div class="section-heading"><span class="step live">LIVE</span><h2>현재 학습 상태</h2></div><div class="metrics"><div><span>반복</span><strong id="epochMetric">0</strong></div><div><span>손실</span><strong id="lossMetric">—</strong></div><div><span>정확도</span><strong id="accuracyMetric">—</strong></div><div><span>데이터</span><strong id="dataMetric">12개</strong></div></div></section>
+          <section><div class="title-line"><h3>실제 가중치 네트워크</h3><span>선 굵기 = |가중치|</span></div><svg id="networkSvg" viewBox="0 0 330 230" role="img" aria-label="현재 신경망 구조와 가중치"></svg><div class="weight-legend"><span><i class="positive"></i>양의 가중치</span><span><i class="negative"></i>음의 가중치</span></div></section>
+          <section><div class="section-heading"><span class="step">STEP 4</span><h2>새 입력으로 검증하기</h2></div><div class="input-pair"><label>스위치 A<input id="testX" type="number" min="-1" max="1" step="0.1" value="0" /></label><label>스위치 B<input id="testY" type="number" min="-1" max="1" step="0.1" value="0" /></label></div><div class="prediction"><div><span>범주 1 예측 확률</span><strong id="predictionValue">50.0%</strong></div><div class="probability"><i id="probabilityBar"></i></div><p id="predictionLabel"></p></div><div class="readout"><div class="title-line"><span>은닉 뉴런 활성화값</span><button id="toggleFormula" class="text-button" type="button">계산식 보기</button></div><div id="activationValues"></div><pre id="formulaPanel" hidden></pre></div></section>
+        </aside>
+      </section>
+
+      <section class="compare-card"><div><span class="step">COMPARE</span><h2>한 번에 한 설정만 바꾸어 비교하세요</h2><p>데이터·초기값·학습 횟수를 고정하면 은닉 뉴런 수가 결과에 미친 영향을 확인할 수 있습니다.</p><button class="button primary" id="saveRun" type="button">현재 실험 결과 기록</button></div><div class="table-wrap"><table><thead><tr><th>실험</th><th>은닉 뉴런</th><th>활성화</th><th>학습률</th><th>epoch</th><th>손실</th><th>정확도</th><th><span class="sr-only">삭제</span></th></tr></thead><tbody id="experimentRows"></tbody></table></div></section>
+      <section class="export-card"><div><span class="step inverse">EXPORT</span><h2>학습한 모델을 다른 프로젝트에서 사용하기</h2><p>모델 전체를 JSON으로 보관하거나 TurboWarp용 사용자 정의 확장으로 내보냅니다. 공식 Scratch 웹사이트는 임의 확장을 직접 불러올 수 없습니다.</p></div><div class="export-actions"><button class="button light" id="exportJson" type="button">모델 JSON</button><button class="button accent" id="exportScratch" type="button">Scratch 확장 JS</button><label class="button outline-light" for="importJson">모델 불러오기</label><input id="importJson" type="file" accept="application/json" hidden /></div></section>
+    </main>
+
+    <dialog id="guideDialog"><form method="dialog" class="dialog-card"><button class="dialog-close" aria-label="닫기">×</button><span class="step">ACTIVITY</span><h2>은닉 뉴런 1개와 2개를 공정하게 비교해 보세요</h2><ol><li><strong>XOR · tanh · 학습률 0.08</strong><span>나머지 조건을 그대로 둡니다.</span></li><li><strong>은닉 뉴런 1개로 1,000회</strong><span>결과를 기록합니다.</span></li><li><strong>은닉 뉴런만 2개로 변경</strong><span>같은 초기값 규칙으로 다시 1,000회 학습합니다.</span></li><li><strong>과정 근거 비교</strong><span>정확도뿐 아니라 중간 경계들이 최종 판단 영역을 만드는 모습을 봅니다.</span></li></ol><hr><h3>TurboWarp에서 확장 사용</h3><p>확장 추가 → 사용자 정의 확장 → 파일을 선택하고, 비샌드박스 실행에 동의하세요. 파일은 예측만 수행하며 외부 서버로 데이터를 보내지 않습니다.</p><button class="button primary full" value="close">실험 시작</button></form></dialog>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
+
