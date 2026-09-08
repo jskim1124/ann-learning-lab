@@ -84,4 +84,3 @@ dialog { width: min(580px, calc(100% - 28px)); padding: 0; border: 0; border-rad
   .topbar { height: 58px; padding: 0 14px; }.saved { display: none; }.brand { font-size: .78rem; }.workspace-heading { margin-bottom: 13px; }.workspace-heading h1 { font-size: 1.35rem; }.flow li::after { width: 14px; }.stage-heading, .plot-heading { align-items: flex-start; flex-direction: column; }.legend { align-self: flex-end; }.trainer { grid-template-columns: 1fr; }.train-buttons { display: grid; grid-template-columns: 1fr 1fr; }.loss-card { grid-template-columns: 1fr; }.neuron-grid { grid-template-columns: 1fr; }.compare-card, .export-card { padding: 18px 15px; }.export-actions { display: grid; width: 100%; grid-template-columns: 1fr; }.button-row { grid-template-columns: 1fr; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; } }
-

@@ -32,4 +32,3 @@ export function probabilityColor(probability: number): string {
   const amount = probability < 0.5 ? probability * 2 : (probability - 0.5) * 2;
   return `rgb(${source.map((value, i) => Math.round(value + ((target[i] ?? value) - value) * amount)).join(",")})`;
 }
-

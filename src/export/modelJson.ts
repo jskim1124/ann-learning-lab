@@ -18,4 +18,3 @@ export function downloadText(filename: string, text: string, type: string): void
   anchor.click();
   URL.revokeObjectURL(url);
 }
-

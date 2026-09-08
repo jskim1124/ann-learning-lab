@@ -62,4 +62,3 @@ describe("lab interactions", () => {
     vi.unstubAllGlobals();
   });
 });
-

@@ -179,4 +179,3 @@ export class LabStore {
 }
 
 export function createInitialStore(): LabStore { return new LabStore(); }
-

@@ -26,4 +26,3 @@ export function initializeNetwork(config: NetworkConfig): NetworkModel {
     epoch: 0,
   };
 }
-

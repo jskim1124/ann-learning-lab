@@ -24,4 +24,3 @@ describe("Scratch export", () => {
     expect(extension.category(args)).toBe(web.probability >= 0.5 ? 1 : 0);
   });
 });
-

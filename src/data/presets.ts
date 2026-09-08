@@ -37,4 +37,3 @@ export const PRESETS: Record<PresetName, DatasetPreset> = {
 export function clonePreset(name: PresetName): DataPoint[] {
   return PRESETS[name].points.map((point) => ({ ...point }));
 }
-

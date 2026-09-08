@@ -55,4 +55,3 @@ export function parseStoredModel(source: string): StoredModelV2 {
   )) throw new Error("학습 데이터가 올바르지 않습니다.");
   return candidate as StoredModelV2;
 }
-

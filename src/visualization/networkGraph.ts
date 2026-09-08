@@ -25,4 +25,3 @@ export function networkGraphMarkup(model: NetworkModel, activations: number[]): 
 export function hiddenNodeCount(markup: string): number {
   return (markup.match(/data-kind="hidden"/g) ?? []).length;
 }
-

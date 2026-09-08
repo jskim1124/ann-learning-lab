@@ -153,4 +153,3 @@ export function mountApp(store = createInitialStore()): LabStore {
 }
 
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => mountApp()); else mountApp();
-

@@ -66,4 +66,3 @@ export interface StoredModelV2 {
   metrics: { loss: number; accuracy: number };
   data: DataPoint[];
 }
-

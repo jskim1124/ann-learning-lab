@@ -35,4 +35,3 @@ export function drawNeuronSurface(canvas: HTMLCanvasElement, model: NetworkModel
     }
   }
 }
-

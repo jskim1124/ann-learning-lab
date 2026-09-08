@@ -66,4 +66,3 @@ function drawDataPoint(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement,
   else ctx.rect(x - 6, y - 6, 12, 12);
   ctx.fill(); ctx.stroke();
 }
-

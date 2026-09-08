@@ -23,4 +23,3 @@ describe("educational contrast", () => {
     expect(hiddenNodeCount(networkGraphMarkup(model, Array(5).fill(0)))).toBe(5);
   });
 });
-

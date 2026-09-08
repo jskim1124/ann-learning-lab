@@ -18,4 +18,3 @@ export function validateTrainingData(data: DataPoint[]): string | null {
   if (labels.size < 2) return "범주 0과 범주 1의 점을 모두 추가해야 학습할 수 있습니다.";
   return null;
 }
-

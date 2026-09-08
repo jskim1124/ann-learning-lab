@@ -107,4 +107,3 @@ export function train(model: NetworkModel, data: DataPoint[], epochs: number): N
   for (let index = 0; index < epochs; index += 1) next = trainOne(next, data);
   return next;
 }
-

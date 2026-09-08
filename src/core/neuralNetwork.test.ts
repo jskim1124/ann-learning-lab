@@ -44,4 +44,3 @@ describe("neural network engine", () => {
     expect(() => parseStoredModel(JSON.stringify(stored))).toThrow(/파라미터 크기/);
   });
 });
-

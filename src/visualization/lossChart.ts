@@ -18,4 +18,3 @@ export function drawLossChart(canvas: HTMLCanvasElement, history: HistoryPoint[]
   });
   ctx.stroke();
 }
-
