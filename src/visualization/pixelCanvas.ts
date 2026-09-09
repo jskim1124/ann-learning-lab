@@ -31,8 +31,9 @@ export function drawOmrInputCanvas(canvas: HTMLCanvasElement, pixels: number[]):
   context.strokeStyle = "rgba(90,98,112,.12)"; context.lineWidth = Math.max(.65, canvas.width / 900);
   for (let index = 0; index <= PIXEL_SIZE; index += 1) { context.beginPath(); context.moveTo(index * cell, 0); context.lineTo(index * cell, canvas.height); context.stroke(); context.beginPath(); context.moveTo(0, index * cell); context.lineTo(canvas.width, index * cell); context.stroke(); }
   OMR_CENTERS.forEach((center, index) => {
-    context.beginPath(); context.ellipse(center * cell, 7.5 * cell, cell * 1.02, cell * 1.52, 0, 0, Math.PI * 2);
-    context.strokeStyle = index === selected ? "#26313f" : "#78828e"; context.lineWidth = index === selected ? Math.max(5, cell * .35) : Math.max(1.8, cell * .09); context.stroke();
+    const left = (center - 1) * cell; const top = 4 * cell; const width = 2 * cell; const height = 7 * cell;
+    if (index === selected) { context.fillStyle = "#17191d"; context.fillRect(left, top, width, height); }
+    context.strokeStyle = "#17191d"; context.lineWidth = Math.max(1.5, cell * .07); context.strokeRect(left, top, width, height);
   });
 }
 

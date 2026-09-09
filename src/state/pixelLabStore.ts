@@ -20,6 +20,8 @@ export interface PixelLabState {
   showNeuronBoundaries: boolean;
   showDecisionBoundary: boolean;
   featureView: PixelFeatureView;
+  exploredFeatures: PixelFeatureView[];
+  scoreCalcStep: 0 | 1 | 2 | 3;
   mapExampleIndex: number | null;
 }
 
@@ -29,7 +31,7 @@ export class PixelLabStore {
   constructor(task: PixelTaskName = "digits") { this.state = this.fresh(task); }
   private fresh(task: PixelTaskName): PixelLabState {
     const info = PIXEL_TASKS[task]; const data = createPixelDataset(task); const projection = createPixelProjection(data); const model = constrainPixelModelToProjection(initializePixelModel(PIXEL_INPUTS, info.hiddenUnits, info.classes.length), projection);
-    return { task, data, model, drawing: sampleForClass(task, 0), selectedLabel: 0, learningRate: .12, history: [{ epoch: 0, loss: evaluatePixelModel(model, data).loss }], understandStep: 1, highlightRevealed: false, quizPassed: false, projection, showNeuronBoundaries: true, showDecisionBoundary: true, featureView: "position", mapExampleIndex: null };
+    return { task, data, model, drawing: sampleForClass(task, 0), selectedLabel: 0, learningRate: .12, history: [{ epoch: 0, loss: evaluatePixelModel(model, data).loss }], understandStep: 1, highlightRevealed: false, quizPassed: false, projection, showNeuronBoundaries: true, showDecisionBoundary: true, featureView: "position", exploredFeatures: [], scoreCalcStep: 0, mapExampleIndex: null };
   }
   get snapshot(): PixelLabState { return this.state; }
   subscribe(listener: (state: PixelLabState) => void): () => void { this.listeners.add(listener); listener(this.state); return () => this.listeners.delete(listener); }
@@ -46,12 +48,13 @@ export class PixelLabStore {
   setActivation(activation: ActivationName): void { const model = constrainPixelModelToProjection(initializePixelModel(PIXEL_INPUTS, this.state.model.hiddenUnits, PIXEL_TASKS[this.state.task].classes.length, 31, activation), this.state.projection); this.state = { ...this.state, model, history: [{ epoch: 0, loss: evaluatePixelModel(model, this.state.data).loss }] }; this.emit(); }
   setLearningRate(learningRate: number): void { this.state = { ...this.state, learningRate: Math.max(.01, Math.min(.3, learningRate)) }; this.emit(); }
   setLayers(layers: { showNeuronBoundaries?: boolean; showDecisionBoundary?: boolean }): void { this.state = { ...this.state, ...layers }; this.emit(); }
-  setFeatureView(featureView: PixelFeatureView): void { this.state = { ...this.state, featureView }; this.emit(); }
+  setFeatureView(featureView: PixelFeatureView): void { this.state = { ...this.state, featureView, exploredFeatures: this.state.exploredFeatures.includes(featureView) ? this.state.exploredFeatures : [...this.state.exploredFeatures, featureView] }; this.emit(); }
   selectMapExample(index: number | null): void { this.state = { ...this.state, mapExampleIndex: index !== null && index >= 0 && index < this.state.data.length ? index : null }; this.emit(); }
-  revealHighlight(): void { this.state = { ...this.state, highlightRevealed: true }; this.emit(); }
+  revealHighlight(): void { this.state = { ...this.state, highlightRevealed: true, scoreCalcStep: this.state.understandStep === 2 ? 1 : this.state.scoreCalcStep, exploredFeatures: this.state.understandStep === 3 && !this.state.exploredFeatures.includes(this.state.featureView) ? [...this.state.exploredFeatures, this.state.featureView] : this.state.exploredFeatures }; this.emit(); }
+  advanceScoreCalc(): void { this.state = { ...this.state, scoreCalcStep: Math.min(3, this.state.scoreCalcStep + 1) as 0 | 1 | 2 | 3 }; this.emit(); }
   passQuiz(): void { this.state = { ...this.state, quizPassed: true }; this.emit(); }
-  nextUnderstand(): void { const step = Math.min(4, this.state.understandStep + 1) as 1 | 2 | 3 | 4; this.state = { ...this.state, understandStep: step, highlightRevealed: false, quizPassed: false }; this.emit(); }
-  resetUnderstanding(): void { this.state = { ...this.state, understandStep: 1, highlightRevealed: false, quizPassed: false }; this.emit(); }
+  nextUnderstand(): void { const step = Math.min(4, this.state.understandStep + 1) as 1 | 2 | 3 | 4; this.state = { ...this.state, understandStep: step, highlightRevealed: false, quizPassed: false, scoreCalcStep: 0 }; this.emit(); }
+  resetUnderstanding(): void { this.state = { ...this.state, understandStep: 1, highlightRevealed: false, quizPassed: false, scoreCalcStep: 0, exploredFeatures: [] }; this.emit(); }
   probabilities(): number[] { return forwardPixels(this.state.model, this.state.drawing).probabilities; }
   metrics() { return evaluatePixelModel(this.state.model, this.state.data); }
 }

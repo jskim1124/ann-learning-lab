@@ -9,9 +9,9 @@ describe("OMR 그림 입력", () => {
     expect(empty.every((value) => value < .4)).toBe(true);
   });
 
-  it("선택한 선지의 테두리 픽셀만 진하게 만든다", () => {
+  it("선택한 답 칸은 내부까지 진하게 채운다", () => {
     const first = sampleForClass("omr", 0, 1); const fifth = sampleForClass("omr", 4, 1);
-    expect(first.filter((value) => value >= .4).length).toBeGreaterThan(0);
+    expect(first.filter((value) => value >= .4).length).toBeGreaterThan(10);
     expect(first.filter((value) => value >= .4).length).toBeLessThan(first.filter((value) => value > 0).length);
     expect(first).not.toEqual(fifth);
   });

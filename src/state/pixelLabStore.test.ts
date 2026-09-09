@@ -20,7 +20,16 @@ describe("그림 지도 설명 상태", () => {
   it("서로 다른 특징 후보를 같은 자료로 비교한다", () => {
     const store = new PixelLabStore("omr");
     store.setFeatureView("ink"); expect(store.snapshot.featureView).toBe("ink");
-    store.setFeatureView("learned"); expect(store.snapshot.featureView).toBe("learned");
+    store.setFeatureView("learned"); store.setFeatureView("position"); expect(store.snapshot.featureView).toBe("position");
+    expect(store.snapshot.exploredFeatures).toEqual(["ink", "learned", "position"]);
+  });
+
+  it("대표 한 칸의 점수 계산을 세 단계로 따라간다", () => {
+    const store = new PixelLabStore("digits"); store.nextUnderstand(); store.revealHighlight();
+    expect(store.snapshot).toMatchObject({ understandStep: 2, scoreCalcStep: 1 });
+    store.advanceScoreCalc(); store.advanceScoreCalc(); store.advanceScoreCalc();
+    expect(store.snapshot.scoreCalcStep).toBe(3);
+    store.nextUnderstand(); expect(store.snapshot.scoreCalcStep).toBe(0);
   });
 
   it.each(["digits", "omr"] as const)("%s의 두 그림 기준으로 실제 분류 성능을 낸다", (task) => {
