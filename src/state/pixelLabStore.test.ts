@@ -46,9 +46,14 @@ describe("그림 지도 설명 상태", () => {
     expect(store.snapshot.projection.horizontal).not.toEqual(learned);
   });
 
-  it("OMR은 진한 위치 특징으로도 실제 신경망 학습 성능을 낸다", () => {
-    const store = new PixelLabStore("omr"); store.setTrainingFeature("position"); store.train(400);
-    expect(store.metrics().accuracy).toBeGreaterThan(.85);
+  it("직접 그린 자료는 맨 앞에 추가되고 해당 특징 지도도 다시 계산한다", () => {
+    const store = new PixelLabStore("omr"); const originalLength = store.snapshot.data.length; store.clear(); store.paintMany([2, 3, 17], 1); store.selectLabel(4); store.addDrawing();
+    expect(store.snapshot.data).toHaveLength(originalLength + 1); expect(store.snapshot.data[0]?.label).toBe(4); expect(store.snapshot.data[0]?.pixels[2]).toBe(1); expect(store.snapshot.latestAddedIndex).toBe(0); expect(store.snapshot.model.epoch).toBe(0);
+  });
+
+  it("삐져나간 OMR 자국에서도 진한 위치 특징이 유용한 분류 성능을 낸다", () => {
+    const store = new PixelLabStore("omr"); store.setTrainingFeature("position"); store.setHiddenUnits(6); store.train(1000);
+    expect(store.metrics().accuracy).toBeGreaterThan(.8);
   });
 
   it.each(["digits", "omr"] as const)("%s의 두 그림 기준으로 실제 분류 성능을 낸다", (task) => {

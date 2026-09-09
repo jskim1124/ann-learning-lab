@@ -39,10 +39,16 @@ function omrBox(pixels: number[], centerX: number, centerY: number, value: numbe
 function emptyOmr(): number[] {
   const pixels = blank(); OMR_CENTERS.forEach((center) => omrBox(pixels, center, 7.5, .22, false)); return pixels;
 }
-function omr(label: number, dx = 0, dy = 0): number[] {
+function omr(label: number, variation = 0): number[] {
   const pixels = emptyOmr(); const selected = OMR_CENTERS[label];
   if (selected === undefined) return pixels;
-  omrBox(pixels, selected + dx * .22, 7.5 + dy * .35, 1, true);
+  const left = selected - 1; const right = selected; const top = 4 + variation % 3 - 1; const bottom = 10 + Math.floor(variation / 3) % 3 - 1;
+  line(pixels, left, top, right, bottom);
+  if (variation % 2 === 0) line(pixels, right, top, left, bottom);
+  if (variation % 5 === 0) {
+    const overflowX = Math.max(0, Math.min(PIXEL_SIZE - 1, left + (label % 2 === 0 ? -1 : 2)));
+    line(pixels, overflowX, 6, overflowX, 8);
+  }
   return pixels;
 }
 function vary(pixels: number[], random: () => number): number[] {
@@ -56,7 +62,7 @@ function vary(pixels: number[], random: () => number): number[] {
 
 export function sampleForClass(task: PixelTaskName, label: number, variation = 0): number[] {
   const dx = variation % 3 - 1; const dy = Math.floor(variation / 3) % 3 - 1;
-  return task === "digits" ? digit(label, dx, dy, variation % 4 === 0 ? 1 : 0) : omr(label, 0, variation > 0 && variation % 5 === 0 ? 1 : variation > 0 && variation % 7 === 0 ? -1 : 0);
+  return task === "digits" ? digit(label, dx, dy, variation % 4 === 0 ? 1 : 0) : omr(label, variation);
 }
 export function createPixelDataset(task: PixelTaskName): PixelExample[] {
   const random = randomSource(task === "digits" ? 2048 : 4096); const count = task === "digits" ? 24 : 18; const result: PixelExample[] = [];

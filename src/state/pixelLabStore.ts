@@ -25,6 +25,7 @@ export interface PixelLabState {
   exploredFeatures: PixelFeatureView[];
   scoreCalcStep: 0 | 1 | 2 | 3;
   mapExampleIndex: number | null;
+  latestAddedIndex: number | null;
 }
 
 export class PixelLabStore {
@@ -33,17 +34,25 @@ export class PixelLabStore {
   constructor(task: PixelTaskName = "digits") { this.state = this.fresh(task); }
   private fresh(task: PixelTaskName): PixelLabState {
     const info = PIXEL_TASKS[task]; const data = createPixelDataset(task); const projection = createPixelProjection(data); const model = constrainPixelModelToProjection(initializePixelModel(PIXEL_INPUTS, info.hiddenUnits, info.classes.length), projection);
-    return { task, data, model, drawing: sampleForClass(task, 0), selectedLabel: 0, learningRate: .12, history: [{ epoch: 0, loss: evaluatePixelModel(model, data).loss }], understandStep: 1, furthestUnderstandStep: 1, highlightRevealed: false, quizPassed: false, projection, showNeuronBoundaries: true, showDecisionBoundary: true, featureView: "position", trainingFeatureView: "learned", exploredFeatures: [], scoreCalcStep: 0, mapExampleIndex: null };
+    return { task, data, model, drawing: sampleForClass(task, 0), selectedLabel: 0, learningRate: .12, history: [{ epoch: 0, loss: evaluatePixelModel(model, data).loss }], understandStep: 1, furthestUnderstandStep: 1, highlightRevealed: false, quizPassed: false, projection, showNeuronBoundaries: true, showDecisionBoundary: true, featureView: "position", trainingFeatureView: "learned", exploredFeatures: [], scoreCalcStep: 0, mapExampleIndex: null, latestAddedIndex: null };
   }
   get snapshot(): PixelLabState { return this.state; }
   subscribe(listener: (state: PixelLabState) => void): () => void { this.listeners.add(listener); listener(this.state); return () => this.listeners.delete(listener); }
   private emit(): void { this.listeners.forEach((listener) => listener(this.state)); }
   setTask(task: PixelTaskName): void { if (this.state.task !== task) { this.state = this.fresh(task); this.emit(); } }
   paint(index: number, value = 1): void { if (index < 0 || index >= PIXEL_INPUTS) return; const drawing = [...this.state.drawing]; drawing[index] = value; this.state = { ...this.state, drawing, mapExampleIndex: null }; this.emit(); }
+  paintMany(indices: number[], value = 1): void { const drawing = [...this.state.drawing]; let changed = false; indices.forEach((index) => { if (index >= 0 && index < PIXEL_INPUTS && drawing[index] !== value) { drawing[index] = value; changed = true; } }); if (!changed) return; this.state = { ...this.state, drawing, mapExampleIndex: null }; this.emit(); }
   clear(): void { this.state = { ...this.state, drawing: emptyDrawing(this.state.task), mapExampleIndex: null }; this.emit(); }
   loadSample(label: number, variation = 0): void { this.state = { ...this.state, drawing: sampleForClass(this.state.task, label, variation), selectedLabel: label, mapExampleIndex: null }; this.emit(); }
+  loadDrawing(pixels: number[], label: number): void { if (pixels.length !== PIXEL_INPUTS) return; this.state = { ...this.state, drawing: [...pixels], selectedLabel: label, mapExampleIndex: null }; this.emit(); }
   selectLabel(label: number): void { this.state = { ...this.state, selectedLabel: label }; this.emit(); }
-  addDrawing(): void { const example = { pixels: [...this.state.drawing], label: this.state.selectedLabel }; this.state = { ...this.state, data: [...this.state.data, example] }; this.emit(); }
+  addDrawing(): void {
+    const example = { pixels: [...this.state.drawing], label: this.state.selectedLabel }; const data = [example, ...this.state.data];
+    const projection = createPixelFeatureProjection(data, this.state.task, this.state.trainingFeatureView);
+    const model = constrainPixelModelToProjection(initializePixelModel(PIXEL_INPUTS, this.state.model.hiddenUnits, PIXEL_TASKS[this.state.task].classes.length, 31, this.state.model.activation), projection);
+    this.state = { ...this.state, data, projection, model, history: [{ epoch: 0, loss: evaluatePixelModel(model, data).loss }], mapExampleIndex: null, latestAddedIndex: 0 };
+    this.emit();
+  }
   train(epochs: number): void { let model = this.state.model; for (let epoch = 0; epoch < epochs; epoch += 1) model = constrainPixelModelToProjection(trainPixelModel(model, this.state.data, 1, this.state.learningRate), this.state.projection); const metrics = evaluatePixelModel(model, this.state.data); this.state = { ...this.state, model, history: [...this.state.history, { epoch: model.epoch, loss: metrics.loss }] }; this.emit(); }
   resetModel(): void { const model = constrainPixelModelToProjection(initializePixelModel(PIXEL_INPUTS, this.state.model.hiddenUnits, PIXEL_TASKS[this.state.task].classes.length, 31, this.state.model.activation), this.state.projection); this.state = { ...this.state, model, history: [{ epoch: 0, loss: evaluatePixelModel(model, this.state.data).loss }] }; this.emit(); }
   setHiddenUnits(hiddenUnits: number): void { const count = Math.max(1, Math.min(6, Math.round(hiddenUnits))); const model = constrainPixelModelToProjection(initializePixelModel(PIXEL_INPUTS, count, PIXEL_TASKS[this.state.task].classes.length, 31, this.state.model.activation), this.state.projection); this.state = { ...this.state, model, history: [{ epoch: 0, loss: evaluatePixelModel(model, this.state.data).loss }] }; this.emit(); }
