@@ -1,5 +1,5 @@
 import { PIXEL_SIZE } from "../data/pixelDatasets";
-import { projectionAxisDetails, type PixelProjection } from "./pixelLatentMap";
+import { projectionAxisDetails, type PixelProjection } from "../core/pixelProjection";
 
 export function drawPixelCanvas(canvas: HTMLCanvasElement, pixels: number[], highlight: number[] = []): void {
   const context = canvas.getContext("2d"); if (!context) return;

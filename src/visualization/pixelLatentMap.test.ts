@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { initializePixelModel, trainPixelModel } from "../core/pixelNetwork";
+import { forwardPixels, initializePixelModel, trainPixelModel } from "../core/pixelNetwork";
+import { constrainPixelModelToProjection, createPixelProjection, projectPixels, projectionAxisDetails, reconstructProjectedPixels } from "../core/pixelProjection";
 import { createPixelDataset, PIXEL_INPUTS } from "../data/pixelDatasets";
-import { createPixelProjection, projectPixels, projectionAxisDetails } from "./pixelLatentMap";
 
 describe("고정된 픽셀 그림 지도", () => {
   it("모델을 학습해도 같은 그림의 가로·세로 위치는 바뀌지 않는다", () => {
@@ -18,5 +18,14 @@ describe("고정된 픽셀 그림 지도", () => {
     expect(horizontal.contributions.reduce((sum, value) => sum + value, 0)).toBeCloseTo(horizontal.rawScore, 10);
     expect(vertical.contributions.reduce((sum, value) => sum + value, 0)).toBeCloseTo(vertical.rawScore, 10);
     expect(point.x).toBeCloseTo(horizontal.mapScore, 10); expect(point.y).toBeCloseTo(vertical.mapScore, 10);
+  });
+
+  it("자료 점의 실제 예측과 같은 좌표의 배경 예측이 정확히 일치한다", () => {
+    const data = createPixelDataset("digits"); const projection = createPixelProjection(data); let model = constrainPixelModelToProjection(initializePixelModel(PIXEL_INPUTS, 4, 3), projection);
+    for (let epoch = 0; epoch < 30; epoch += 1) model = constrainPixelModelToProjection(trainPixelModel(model, data, 1, .12), projection);
+    data.slice(0, 12).forEach((example) => {
+      const point = projectPixels(projection, example.pixels); const actual = forwardPixels(model, example.pixels).probabilities; const map = forwardPixels(model, reconstructProjectedPixels(projection, point.x, point.y)).probabilities;
+      actual.forEach((value, index) => expect(map[index]).toBeCloseTo(value, 8));
+    });
   });
 });
