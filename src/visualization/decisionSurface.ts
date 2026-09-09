@@ -57,19 +57,19 @@ function drawGrid(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement): voi
   ctx.beginPath(); ctx.moveTo(canvas.width / 2, 0); ctx.lineTo(canvas.width / 2, canvas.height); ctx.moveTo(0, canvas.height / 2); ctx.lineTo(canvas.width, canvas.height / 2); ctx.stroke();
 }
 
-function drawHiddenBoundaries(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, model: NetworkModel, selectedNeuron: number, subdued: boolean): void {
+function drawHiddenBoundaries(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, model: NetworkModel, selectedNeuron: number, emphasizeSelected: boolean): void {
   model.parameters.inputHidden.forEach(([wA, wB], index) => {
     const segment = hiddenBoundarySegment(wA, wB, model.parameters.hiddenBias[index] ?? 0); if (!segment) return;
     const [start, end] = segment.map(([x, y]) => canvasPoint(canvas, x, y)) as [[number, number], [number, number]];
-    const selected = index === selectedNeuron;
-    ctx.save(); ctx.globalAlpha = subdued ? (selected ? 0.65 : 0.27) : (selected ? 1 : 0.58);
-    ctx.strokeStyle = HIDDEN_COLORS[index % HIDDEN_COLORS.length] ?? "#6a4bbc"; ctx.lineWidth = selected ? 4.5 : 2; ctx.setLineDash(selected ? [] : [7, 5]);
+    const selected = emphasizeSelected && index === selectedNeuron;
+    ctx.save(); ctx.globalAlpha = emphasizeSelected ? (selected ? 1 : .42) : .78;
+    ctx.strokeStyle = HIDDEN_COLORS[index % HIDDEN_COLORS.length] ?? "#6a4bbc"; ctx.lineWidth = selected ? 4.5 : 2.7; ctx.setLineDash(emphasizeSelected && !selected ? [7, 5] : []);
     ctx.beginPath(); ctx.moveTo(...start); ctx.lineTo(...end); ctx.stroke();
     const mx = (start[0] + end[0]) / 2; const my = (start[1] + end[1]) / 2;
     const length = Math.hypot(wA, wB) || 1; const nx = (wA / length) * 28; const ny = -(wB / length) * 28;
     ctx.setLineDash([]); ctx.beginPath(); ctx.moveTo(mx, my); ctx.lineTo(mx + nx, my + ny); ctx.stroke();
     const angle = Math.atan2(ny, nx); ctx.beginPath(); ctx.moveTo(mx + nx, my + ny); ctx.lineTo(mx + nx - 8 * Math.cos(angle - .45), my + ny - 8 * Math.sin(angle - .45)); ctx.moveTo(mx + nx, my + ny); ctx.lineTo(mx + nx - 8 * Math.cos(angle + .45), my + ny - 8 * Math.sin(angle + .45)); ctx.stroke();
-    ctx.font = `700 ${selected ? 17 : 14}px system-ui`; ctx.fillStyle = ctx.strokeStyle; ctx.fillText(`규칙 ${index + 1}  큰 쪽`, mx + nx + 5, my + ny - 5);
+    ctx.font = `700 ${selected ? 17 : 13}px system-ui`; ctx.fillStyle = ctx.strokeStyle; ctx.fillText(`규칙 ${index + 1}  큰 쪽`, mx + nx + 5, my + ny - 5);
     ctx.restore();
   });
 }
@@ -86,7 +86,7 @@ export function drawDecisionSurface(canvas: HTMLCanvasElement, model: NetworkMod
     if (step >= 3 && row < grid && col < grid) { ctx.fillStyle = probabilityColor(probability); ctx.fillRect(col * cellW, row * cellH, Math.ceil(cellW) + 1, Math.ceil(cellH) + 1); }
   }
   drawGrid(ctx, canvas);
-  if (step >= 2 && options.showNeuronBoundaries !== false) drawHiddenBoundaries(ctx, canvas, model, selectedNeuron, step === 4);
+  if (step >= 2 && options.showNeuronBoundaries !== false) drawHiddenBoundaries(ctx, canvas, model, selectedNeuron, step !== 4);
   if (step === 4 && options.showDecisionBoundary !== false) {
     ctx.strokeStyle = "#111827"; ctx.lineWidth = 4; ctx.setLineDash([]); ctx.beginPath();
     for (let row = 0; row < grid; row += 1) for (let col = 0; col < grid; col += 1) {

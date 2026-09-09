@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { forwardPixels, initializePixelModel, trainPixelModel } from "../core/pixelNetwork";
 import { constrainPixelModelToProjection, createPixelProjection, projectPixels, projectionAxisDetails, reconstructProjectedPixels } from "../core/pixelProjection";
 import { createPixelDataset, PIXEL_INPUTS } from "../data/pixelDatasets";
+import { pixelFeatureCoordinates } from "./pixelLatentMap";
 
 describe("고정된 픽셀 그림 지도", () => {
   it("모델을 학습해도 같은 그림의 가로·세로 위치는 바뀌지 않는다", () => {
@@ -27,5 +28,12 @@ describe("고정된 픽셀 그림 지도", () => {
       const point = projectPixels(projection, example.pixels); const actual = forwardPixels(model, example.pixels).probabilities; const map = forwardPixels(model, reconstructProjectedPixels(projection, point.x, point.y)).probabilities;
       actual.forEach((value, index) => expect(map[index]).toBeCloseTo(value, 8));
     });
+  });
+
+  it("OMR의 진한 부분 위치를 쓰면 ①부터 ⑤까지 좌우 순서로 놓인다", () => {
+    const data = createPixelDataset("omr"); const projection = createPixelProjection(data); const points = pixelFeatureCoordinates(data, projection, "omr", "position");
+    const means = [0, 1, 2, 3, 4].map((label) => { const selected = points.filter((_, index) => data[index]?.label === label); return selected.reduce((sum, point) => sum + point.x, 0) / selected.length; });
+    expect(means).toEqual([...means].sort((left, right) => left - right));
+    expect(means[4]! - means[0]!).toBeGreaterThan(1);
   });
 });

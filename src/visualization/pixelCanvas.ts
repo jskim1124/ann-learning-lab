@@ -15,6 +15,27 @@ export function drawPixelCanvas(canvas: HTMLCanvasElement, pixels: number[], hig
   highlight.forEach((index) => { const x = index % PIXEL_SIZE; const y = Math.floor(index / PIXEL_SIZE); context.strokeStyle = "#e0a900"; context.lineWidth = Math.max(3, cell * .12); context.strokeRect(x * cell + 2, y * cell + 2, cell - 4, cell - 4); });
 }
 
+function markedOmrChoice(pixels: number[]): number | null {
+  const totals = OMR_CENTERS.map((center) => pixels.reduce((sum, value, index) => {
+    if (value < .4) return sum;
+    const x = index % PIXEL_SIZE + .5; const y = Math.floor(index / PIXEL_SIZE) + .5;
+    return Math.abs(x - center) <= 1.6 && Math.abs(y - 7.5) <= 2.3 ? sum + value : sum;
+  }, 0));
+  const maximum = Math.max(...totals); return maximum > 0 ? totals.indexOf(maximum) : null;
+}
+
+export function drawOmrInputCanvas(canvas: HTMLCanvasElement, pixels: number[]): void {
+  const context = canvas.getContext("2d"); if (!context) return;
+  const cell = canvas.width / PIXEL_SIZE; const selected = markedOmrChoice(pixels);
+  context.clearRect(0, 0, canvas.width, canvas.height); context.fillStyle = "#faf9f5"; context.fillRect(0, 0, canvas.width, canvas.height);
+  context.strokeStyle = "rgba(90,98,112,.12)"; context.lineWidth = Math.max(.65, canvas.width / 900);
+  for (let index = 0; index <= PIXEL_SIZE; index += 1) { context.beginPath(); context.moveTo(index * cell, 0); context.lineTo(index * cell, canvas.height); context.stroke(); context.beginPath(); context.moveTo(0, index * cell); context.lineTo(canvas.width, index * cell); context.stroke(); }
+  OMR_CENTERS.forEach((center, index) => {
+    context.beginPath(); context.ellipse(center * cell, 7.5 * cell, cell * 1.02, cell * 1.52, 0, 0, Math.PI * 2);
+    context.strokeStyle = index === selected ? "#26313f" : "#78828e"; context.lineWidth = index === selected ? Math.max(5, cell * .35) : Math.max(1.8, cell * .09); context.stroke();
+  });
+}
+
 export function omrChoiceAt(canvas: HTMLCanvasElement, clientX: number): number {
   const rect = canvas.getBoundingClientRect(); const normalized = (clientX - rect.left) / Math.max(1, rect.width) * PIXEL_SIZE;
   return OMR_CENTERS.reduce((best, center, index) => Math.abs(center - normalized) < Math.abs(OMR_CENTERS[best]! - normalized) ? index : best, 0);
