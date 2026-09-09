@@ -265,7 +265,7 @@ function renderPixelLab(lab: LabState, state: PixelLabState): void {
   element<HTMLElement>("#trainTitle").textContent = "이제 모델이 스스로 고치게 해 봅시다";
   element<HTMLElement>("#useTitle").textContent = "처음 보는 그림으로 확인해 봅시다";
   ["#pixelDataCanvas", "#pixelUseCanvas"].forEach((selector) => drawPixelCanvas(element<HTMLCanvasElement>(selector), state.drawing, [], state.task));
-  element<HTMLElement>("#pixelDrawTitle").textContent = state.task === "digits" ? "14×14칸에 0·1·2를 그려 보세요" : "선지 원을 눌러 진하게 마킹해 보세요";
+  element<HTMLElement>("#pixelDrawTitle").textContent = state.task === "digits" ? "14×14칸에 0·1·2를 그려 보세요" : "14×14칸에서 고른 원의 테두리를 진하게 해 보세요";
   element<HTMLElement>("#pixelDataCount").textContent = `학습 그림 ${state.data.length}장`;
   const picker = element<HTMLDivElement>("#pixelClassPicker"); picker.replaceChildren();
   info.classes.forEach((name, label) => { const button = document.createElement("button"); button.type = "button"; button.className = label === state.selectedLabel ? "active" : ""; button.textContent = `${name} 정답`; button.addEventListener("click", () => pixelUiStore?.selectLabel(label)); picker.append(button); });

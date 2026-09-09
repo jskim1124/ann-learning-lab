@@ -3,6 +3,7 @@ import type { PixelExample } from "../core/pixelNetwork";
 export type PixelTaskName = "digits" | "omr";
 export const PIXEL_SIZE = 14;
 export const PIXEL_INPUTS = PIXEL_SIZE * PIXEL_SIZE;
+export const OMR_CENTERS = [1.4, 4.2, 7, 9.8, 12.6] as const;
 
 export const PIXEL_TASKS = {
   digits: { title: "내가 그린 숫자를 읽을까?", question: "친구마다 다르게 쓴 0·1·2를 그림 그대로 보고 구별할 수 있을까요?", story: "종이에 쓴 숫자는 크기와 기울기, 선 굵기가 모두 달라요. 숫자를 몇 가지 말로 바꾸지 않고 14×14칸의 밝기 196개를 그대로 보여 주면, 신경망은 여러 그림에서 되풀이되는 무늬를 찾습니다.", classes: ["0", "1", "2"], hiddenUnits: 2 },
@@ -28,16 +29,24 @@ function digit(label: number, dx = 0, dy = 0, thick = 0): number[] {
   if (label === 2) { line(p, 3 + dx, 3 + dy, 5 + dx, 2 + dy, thick); line(p, 5 + dx, 2 + dy, 9 + dx, 2 + dy, thick); line(p, 10 + dx, 3 + dy, 10 + dx, 5 + dy, thick); line(p, 10 + dx, 5 + dy, 3 + dx, 11 + dy, thick); line(p, 3 + dx, 11 + dy, 10 + dx, 11 + dy, thick); }
   return p;
 }
+function omrRing(pixels: number[], centerX: number, centerY: number, value: number): void {
+  for (let y = 5; y <= 9; y += 1) for (let x = 0; x < PIXEL_SIZE; x += 1) {
+    const horizontal = (x + .5 - centerX) / 1.05; const vertical = (y + .5 - centerY) / 1.7; const distance = Math.sqrt(horizontal ** 2 + vertical ** 2);
+    if (distance >= .64 && distance <= 1.34) put(pixels, x, y, value);
+  }
+}
+function emptyOmr(): number[] {
+  const pixels = blank(); OMR_CENTERS.forEach((center) => omrRing(pixels, center, 7.5, .22)); return pixels;
+}
 function omr(label: number, dx = 0, dy = 0): number[] {
-  const p = blank(); const centers = [1, 4, 7, 10, 12];
-  const selected = centers[label];
-  if (selected === undefined) return p;
-  put(p, selected + dx, 7 + dy, 1); put(p, selected - 1 + dx, 7 + dy, .9); put(p, selected + 1 + dx, 7 + dy, .9); put(p, selected + dx, 6 + dy, .9); put(p, selected + dx, 8 + dy, .9);
-  put(p, selected - 1 + dx, 6 + dy, .55); put(p, selected + 1 + dx, 6 + dy, .55); put(p, selected - 1 + dx, 8 + dy, .55); put(p, selected + 1 + dx, 8 + dy, .55);
-  return p;
+  const pixels = emptyOmr(); const selected = OMR_CENTERS[label];
+  if (selected === undefined) return pixels;
+  omrRing(pixels, selected + dx * .35, 7.5 + dy * .55, 1);
+  return pixels;
 }
 function vary(pixels: number[], random: () => number): number[] {
   return pixels.map((value) => {
+    if (value > 0 && value < .4) return Math.max(.16, value + (random() - .5) * .08);
     if (value > 0 && random() < .06) return .25;
     if (value === 0 && random() < .008) return .2;
     return value > 0 ? Math.max(.45, value - random() * .18) : 0;
@@ -53,4 +62,4 @@ export function createPixelDataset(task: PixelTaskName): PixelExample[] {
   PIXEL_TASKS[task].classes.forEach((_, label) => { for (let index = 0; index < count; index += 1) result.push({ pixels: vary(sampleForClass(task, label, index), random), label }); });
   return result;
 }
-export function emptyDrawing(_task: PixelTaskName): number[] { return blank(); }
+export function emptyDrawing(task: PixelTaskName): number[] { return task === "omr" ? emptyOmr() : blank(); }
