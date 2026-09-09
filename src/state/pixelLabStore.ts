@@ -1,7 +1,6 @@
 import { evaluatePixelModel, forwardPixels, initializePixelModel, trainPixelModel, type PixelExample, type PixelModel } from "../core/pixelNetwork";
 import { constrainPixelModelToProjection, createPixelProjection, type PixelProjection } from "../core/pixelProjection";
 import { createPixelDataset, emptyDrawing, PIXEL_INPUTS, PIXEL_TASKS, sampleForClass, type PixelTaskName } from "../data/pixelDatasets";
-import type { PixelMapView } from "../visualization/pixelLatentMap";
 
 export interface PixelHistoryPoint { epoch: number; loss: number; }
 export interface PixelLabState {
@@ -16,7 +15,8 @@ export interface PixelLabState {
   highlightRevealed: boolean;
   quizPassed: boolean;
   projection: PixelProjection;
-  view: PixelMapView;
+  showNeuronGradient: boolean;
+  showDecisionBoundary: boolean;
   selectedNeuron: number;
   mapExampleIndex: number | null;
 }
@@ -27,7 +27,7 @@ export class PixelLabStore {
   constructor(task: PixelTaskName = "digits") { this.state = this.fresh(task); }
   private fresh(task: PixelTaskName): PixelLabState {
     const info = PIXEL_TASKS[task]; const data = createPixelDataset(task); const projection = createPixelProjection(data); const model = constrainPixelModelToProjection(initializePixelModel(PIXEL_INPUTS, info.hiddenUnits, info.classes.length), projection);
-    return { task, data, model, drawing: sampleForClass(task, 0), selectedLabel: 0, learningRate: .12, history: [{ epoch: 0, loss: evaluatePixelModel(model, data).loss }], understandStep: 1, highlightRevealed: false, quizPassed: false, projection, view: "decision", selectedNeuron: 0, mapExampleIndex: null };
+    return { task, data, model, drawing: sampleForClass(task, 0), selectedLabel: 0, learningRate: .12, history: [{ epoch: 0, loss: evaluatePixelModel(model, data).loss }], understandStep: 1, highlightRevealed: false, quizPassed: false, projection, showNeuronGradient: true, showDecisionBoundary: true, selectedNeuron: 0, mapExampleIndex: null };
   }
   get snapshot(): PixelLabState { return this.state; }
   subscribe(listener: (state: PixelLabState) => void): () => void { this.listeners.add(listener); listener(this.state); return () => this.listeners.delete(listener); }
@@ -42,7 +42,7 @@ export class PixelLabStore {
   resetModel(): void { const model = constrainPixelModelToProjection(initializePixelModel(PIXEL_INPUTS, this.state.model.hiddenUnits, PIXEL_TASKS[this.state.task].classes.length), this.state.projection); this.state = { ...this.state, model, history: [{ epoch: 0, loss: evaluatePixelModel(model, this.state.data).loss }] }; this.emit(); }
   setHiddenUnits(hiddenUnits: number): void { const count = Math.max(2, Math.min(32, Math.round(hiddenUnits))); const model = constrainPixelModelToProjection(initializePixelModel(PIXEL_INPUTS, count, PIXEL_TASKS[this.state.task].classes.length), this.state.projection); this.state = { ...this.state, model, selectedNeuron: Math.min(this.state.selectedNeuron, count - 1), history: [{ epoch: 0, loss: evaluatePixelModel(model, this.state.data).loss }] }; this.emit(); }
   setLearningRate(learningRate: number): void { this.state = { ...this.state, learningRate: Math.max(.02, Math.min(.3, learningRate)) }; this.emit(); }
-  setView(view: PixelLabState["view"]): void { this.state = { ...this.state, view }; this.emit(); }
+  setLayers(layers: { showNeuronGradient?: boolean; showDecisionBoundary?: boolean }): void { this.state = { ...this.state, ...layers }; this.emit(); }
   setSelectedNeuron(selectedNeuron: number): void { this.state = { ...this.state, selectedNeuron: Math.max(0, Math.min(this.state.model.hiddenUnits - 1, Math.round(selectedNeuron))) }; this.emit(); }
   selectMapExample(index: number | null): void { this.state = { ...this.state, mapExampleIndex: index !== null && index >= 0 && index < this.state.data.length ? index : null }; this.emit(); }
   revealHighlight(): void { this.state = { ...this.state, highlightRevealed: true }; this.emit(); }

@@ -5,22 +5,14 @@ export interface ProjectionAxisDetails { contributions: number[]; rawScore: numb
 
 function normalize(vector: number[]): number[] { const length = Math.sqrt(vector.reduce((sum, value) => sum + value * value, 0)) || 1; return vector.map((value) => value / length); }
 function dot(left: number[], right: number[]): number { return left.reduce((sum, value, index) => sum + value * (right[index] ?? 0), 0); }
-function component(rows: number[][], seed: (index: number) => number, exclude?: number[]): number[] {
-  let vector = normalize(Array.from({ length: rows[0]?.length ?? 0 }, (_, index) => seed(index)));
-  for (let turn = 0; turn < 50; turn += 1) {
-    const next = Array<number>(vector.length).fill(0);
-    rows.forEach((row) => { const score = dot(row, vector); row.forEach((value, index) => { next[index] = (next[index] ?? 0) + value * score; }); });
-    if (exclude) { const removed = dot(next, exclude); next.forEach((value, index) => { next[index] = value - removed * (exclude[index] ?? 0); }); }
-    vector = normalize(next);
-  }
-  return vector;
-}
 
 export function createPixelProjection(data: PixelExample[]): PixelProjection {
   const inputSize = data[0]?.pixels.length ?? 196; const labels = [...new Set(data.map((example) => example.label))];
   const mean = Array.from({ length: inputSize }, (_, index) => data.reduce((sum, example) => sum + (example.pixels[index] ?? 0), 0) / Math.max(1, data.length));
   const classDirections = labels.map((label) => { const examples = data.filter((example) => example.label === label); return Array.from({ length: inputSize }, (_, index) => examples.reduce((sum, example) => sum + (example.pixels[index] ?? 0), 0) / Math.max(1, examples.length) - (mean[index] ?? 0)); });
-  const horizontal = component(classDirections, (index) => Math.sin(index * 1.73 + .4)); const vertical = component(classDirections, (index) => Math.cos(index * 1.17 + .9), horizontal);
+  const middle = (labels.length - 1) / 2; const squaredMean = labels.reduce((sum, _, index) => sum + (index - middle) ** 2, 0) / Math.max(1, labels.length);
+  const horizontal = normalize(Array.from({ length: inputSize }, (_, pixel) => classDirections.reduce((sum, direction, index) => sum + (direction[pixel] ?? 0) * (index - middle), 0)));
+  const verticalSeed = Array.from({ length: inputSize }, (_, pixel) => classDirections.reduce((sum, direction, index) => sum + (direction[pixel] ?? 0) * ((index - middle) ** 2 - squaredMean), 0)); const overlap = dot(verticalSeed, horizontal); const vertical = normalize(verticalSeed.map((value, index) => value - overlap * (horizontal[index] ?? 0)));
   const centered = data.map((example) => example.pixels.map((value, index) => value - (mean[index] ?? 0))); const horizontalScale = Math.max(.001, ...centered.map((row) => Math.abs(dot(row, horizontal)))); const verticalScale = Math.max(.001, ...centered.map((row) => Math.abs(dot(row, vertical))));
   return { mean, horizontal, vertical, horizontalScale, verticalScale };
 }

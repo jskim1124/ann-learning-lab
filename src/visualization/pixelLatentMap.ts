@@ -21,7 +21,7 @@ function lineEndpoints(plane: { constant: number; horizontal: number; vertical: 
   return points.slice(0, 2);
 }
 
-export interface PixelMapOptions { view?: PixelMapView; focusLabel?: string; selectedNeuron?: number; previousModel?: PixelModel; highlightAxis?: "horizontal" | "vertical"; }
+export interface PixelMapOptions { view?: PixelMapView; focusLabel?: string; selectedNeuron?: number; previousModel?: PixelModel; highlightAxis?: "horizontal" | "vertical"; showNeuronGradient?: boolean; showDecisionBoundary?: boolean; }
 
 export function drawPixelLatentMap(canvas: HTMLCanvasElement, model: PixelModel, data: PixelExample[], focusPixels: number[], projection: PixelProjection, options: PixelMapOptions = {}): void {
   const context = canvas.getContext("2d"); if (!context) return;
@@ -47,6 +47,7 @@ export function drawPixelLatentMap(canvas: HTMLCanvasElement, model: PixelModel,
         context.fillStyle = mixWithWhite(STRONG[winner % STRONG.length]!, .08 + certainty * .48);
       }
       context.fillRect(margin.left + gx * plotW / cells, margin.top + gy * plotH / cells, plotW / cells + 1, plotH / cells + 1);
+      if (view === "decision" && options.showNeuronGradient) { const signal = Math.tanh(plane.constant + plane.horizontal * x + plane.vertical * y); context.fillStyle = signal >= 0 ? `rgba(241,118,5,${.04 + Math.abs(signal) * .12})` : `rgba(116,70,245,${.04 + Math.abs(signal) * .12})`; context.fillRect(margin.left + gx * plotW / cells, margin.top + gy * plotH / cells, plotW / cells + 1, plotH / cells + 1); }
     }
   }
   context.strokeStyle = "rgba(73,83,98,.16)"; context.lineWidth = 1;
@@ -67,8 +68,10 @@ export function drawPixelLatentMap(canvas: HTMLCanvasElement, model: PixelModel,
       for (let gy = 0; gy < cells - 1; gy += 1) for (let gx = 0; gx < cells - 1; gx += 1) { const here = previousClasses[gy]![gx]; const x = margin.left + (gx + 1) * plotW / cells; const y = margin.top + (gy + 1) * plotH / cells; if (previousClasses[gy]![gx + 1] !== here) { context.beginPath(); context.moveTo(x, y - plotH / cells); context.lineTo(x, y); context.stroke(); } if (previousClasses[gy + 1]![gx] !== here) { context.beginPath(); context.moveTo(x - plotW / cells, y); context.lineTo(x, y); context.stroke(); } }
       context.setLineDash([]);
     }
-    context.strokeStyle = "#202633"; context.lineWidth = 2.2;
-    for (let gy = 0; gy < cells - 1; gy += 1) for (let gx = 0; gx < cells - 1; gx += 1) { const here = classes[gy]![gx]; const x = margin.left + (gx + 1) * plotW / cells; const y = margin.top + (gy + 1) * plotH / cells; if (classes[gy]![gx + 1] !== here) { context.beginPath(); context.moveTo(x, y - plotH / cells); context.lineTo(x, y); context.stroke(); } if (classes[gy + 1]![gx] !== here) { context.beginPath(); context.moveTo(x - plotW / cells, y); context.lineTo(x, y); context.stroke(); } }
+    if (options.showNeuronGradient) drawLine(model, HIDDEN[selectedNeuron % HIDDEN.length]!, false, 2.6);
+    if (options.showDecisionBoundary !== false) { context.strokeStyle = "#202633"; context.lineWidth = 2.2;
+      for (let gy = 0; gy < cells - 1; gy += 1) for (let gx = 0; gx < cells - 1; gx += 1) { const here = classes[gy]![gx]; const x = margin.left + (gx + 1) * plotW / cells; const y = margin.top + (gy + 1) * plotH / cells; if (classes[gy]![gx + 1] !== here) { context.beginPath(); context.moveTo(x, y - plotH / cells); context.lineTo(x, y); context.stroke(); } if (classes[gy + 1]![gx] !== here) { context.beginPath(); context.moveTo(x - plotW / cells, y); context.lineTo(x, y); context.stroke(); } }
+    }
   } else if (view === "neurons") {
     if (options.previousModel) drawLine(options.previousModel, "#68717e", true, 2); drawLine(model, HIDDEN[selectedNeuron % HIDDEN.length]!, false, 3);
   }

@@ -1,7 +1,7 @@
 import "./styles.css";
 import { evaluate, forward } from "./core/neuralNetwork";
 import { forwardPixels, initializePixelModel, trainPixelModel, type PixelModel } from "./core/pixelNetwork";
-import { constrainPixelModelToProjection, projectPixels, projectionExtremes } from "./core/pixelProjection";
+import { constrainPixelModelToProjection, projectPixels, projectionAxisDetails, projectionExtremes } from "./core/pixelProjection";
 import { PRESETS } from "./data/presets";
 import { PIXEL_TASKS, type PixelTaskName } from "./data/pixelDatasets";
 import { deserializeModel, downloadBlob, downloadText, serializeModel } from "./export/modelJson";
@@ -16,7 +16,7 @@ import { drawLossChart } from "./visualization/lossChart";
 import { drawMediaSample, mediaSampleText, playSoundSample, toggleMediaPixel } from "./visualization/mediaSample";
 import { networkGraphMarkup } from "./visualization/networkGraph";
 import { drawNeuronSurface } from "./visualization/neuronSurface";
-import { drawPixelCanvas, pixelIndexAt } from "./visualization/pixelCanvas";
+import { drawPixelCanvas, drawProjectionContribution, omrChoiceAt, pixelIndexAt } from "./visualization/pixelCanvas";
 import { drawPixelLatentMap, pixelMapExampleAt } from "./visualization/pixelLatentMap";
 import { pixelNetworkGraphMarkup } from "./visualization/pixelNetworkGraph";
 
@@ -210,18 +210,25 @@ function renderProbabilityBars(selector: string, state: PixelLabState, probabili
 function renderPixelUnderstanding(state: PixelLabState): void {
   const info = PIXEL_TASKS[state.task]; const step = state.understandStep;
   document.querySelectorAll<HTMLButtonElement>("[data-pixel-step]").forEach((button) => { const value = Number(button.dataset.pixelStep); button.classList.toggle("active", value === step); button.disabled = value > step; });
-  const whyCanvas = element<HTMLCanvasElement>("#pixelWhyCanvas"); whyCanvas.classList.toggle("pixel-map-demo", step === 4 || ((step === 2 || step === 3) && state.highlightRevealed));
+  const whyCanvas = element<HTMLCanvasElement>("#pixelWhyCanvas"); whyCanvas.classList.toggle("pixel-map-demo", step === 4 || (step === 3 && state.highlightRevealed));
   const changed = state.drawing.map((value, index) => value > 0 ? index : -1).filter((index) => index >= 0).slice(0, 1);
-  if (step < 4 && !((step === 2 || step === 3) && state.highlightRevealed)) drawPixelCanvas(whyCanvas, state.drawing, state.highlightRevealed && step === 1 ? changed : []);
+  if (step < 4 && !(step === 3 && state.highlightRevealed)) drawPixelCanvas(whyCanvas, state.drawing, state.highlightRevealed && step === 1 ? changed : [], state.task);
   const explanation = element<HTMLDivElement>("#pixelExplanation");
   const point = projectPixels(state.projection, state.drawing);
-  element<HTMLElement>("#pixelWhyTitle").textContent = step === 4 ? "경계가 움직인 방향" : (step === 2 || step === 3) && state.highlightRevealed ? `지도에서 ${step === 2 ? "가로" : "세로"} 위치` : "14×14 그림";
+  const horizontal = projectionAxisDetails(state.projection, state.drawing, "horizontal"); const positive = horizontal.contributions.filter((value) => value > 0).reduce((sum, value) => sum + value, 0); const negative = horizontal.contributions.filter((value) => value < 0).reduce((sum, value) => sum + value, 0);
+  const roundedPositive = Number(positive.toFixed(2)); const roundedNegative = Number(negative.toFixed(2)); const roundedSum = Number((roundedPositive + roundedNegative).toFixed(2)); const wrongSum = Number((roundedPositive - roundedNegative).toFixed(2));
+  element<HTMLElement>("#pixelWhyTitle").textContent = step === 4 ? "경계가 움직인 방향" : step === 3 && state.highlightRevealed ? "두 점수로 만든 그림 지도" : step === 2 && state.highlightRevealed ? "가로 점수에 미친 칸" : "14×14 그림";
   if (step === 1) explanation.innerHTML = `<span class="scene-no">1 / 4</span><h2>그림 196칸이 그대로 들어갑니다</h2><p>검을수록 1, 흴수록 0에 가깝습니다. 모델은 ‘둥글다’ 같은 말을 미리 받지 않습니다.</p><div class="plain-rule"><b>14 × 14 = 196개 밝기</b>가 입력입니다.</div>`;
-  if (step === 2 || step === 3) {
-    const axis = step === 2 ? "horizontal" : "vertical"; const ends = projectionExtremes(state.projection, state.data, axis); const score = axis === "horizontal" ? point.x : point.y; const title = axis === "horizontal" ? "가로" : "세로";
-    explanation.innerHTML = `<span class="scene-no">${step} / 4</span><h2>${title} 점수는 그림의 닮은 방향입니다</h2><p>정답이 다른 학습 그림들을 비교해 모델이 두 기준 방향을 찾았습니다. 196칸을 한꺼번에 비교해 어느 쪽에 더 가까운지 −1부터 +1로 나타냅니다.</p><div class="score-explainer"><div><canvas id="pixelWhyNegative" width="84" height="84"></canvas><span>−쪽 · ${info.classes[ends.negative.label]}</span></div><div class="score-ruler"><i style="left:${((score + 1) / 2 * 100).toFixed(1)}%"></i><b>${title} ${signed(score)}</b></div><div><canvas id="pixelWhyPositive" width="84" height="84"></canvas><span>+쪽 · ${info.classes[ends.positive.label]}</span></div></div><div class="plain-rule"><b>${signed(score)}</b>이므로 이 그림은 <b>${score >= 0 ? "+쪽" : "−쪽"}</b> 특징에 더 가깝습니다.</div>`;
-    drawPixelCanvas(element<HTMLCanvasElement>("#pixelWhyNegative"), ends.negative.pixels); drawPixelCanvas(element<HTMLCanvasElement>("#pixelWhyPositive"), ends.positive.pixels);
-    if (state.highlightRevealed) drawPixelLatentMap(whyCanvas, state.model, state.data, state.drawing, state.projection, { view: "placement", focusLabel: "이 그림", highlightAxis: axis });
+  if (step === 2) {
+    explanation.innerHTML = `<span class="scene-no">2 / 4</span><h2>한 그림의 가로 점수를 더해 봅시다</h2><p>각 칸은 그림들의 차이를 보고 +쪽 또는 −쪽으로 조금씩 밉니다. 196칸의 영향을 모두 더한 뒤, 지도 크기에 맞게 나눕니다.</p><div class="score-sum"><span>+쪽 칸 <b>+${roundedPositive.toFixed(2)}</b></span><span>−쪽 칸 <b>${roundedNegative.toFixed(2)}</b></span><strong>= ${roundedSum >= 0 ? "+" : ""}${roundedSum.toFixed(2)}</strong><small>${signed(horizontal.rawScore)} ÷ ${state.projection.horizontalScale.toFixed(2)} = 가로 <b>${signed(point.x)}</b></small></div><div class="plain-rule">세로 점수도 같은 방법으로 더합니다. <b>두 점수 모두 196칸 전체에서 나온 값</b>입니다.</div>`;
+    if (state.highlightRevealed) drawProjectionContribution(whyCanvas, state.drawing, state.projection, "horizontal");
+  }
+  if (step === 3) {
+    const horizontalEnds = projectionExtremes(state.projection, state.data, "horizontal"); const verticalEnds = projectionExtremes(state.projection, state.data, "vertical"); const dots = info.classes.map((name, index) => `<span style="--dot:${["#f17605", "#df466f", "#7446f5", "#1769d2", "#247a63"][index] ?? "#555"}">${name}</span>`).join("");
+    const thought = state.task === "omr" ? "모든 선지의 테두리는 같습니다. 그렇다면 진한 칠이 놓인 위치를 담은 점수가 더 도움이 될까요?" : "검은 칸의 개수만 세면 모양이 다른 숫자가 같아질 수 있습니다. 선이 놓인 위치의 차이를 담는 편이 나을까요?";
+    explanation.innerHTML = `<span class="scene-no">3 / 4</span><h2>어떤 점수가 분류에 도움이 될까요?</h2><p>${thought}</p><div class="axis-pairs"><div><b>가로 양끝</b><canvas id="featureHMinus" width="70" height="70"></canvas><i>↔</i><canvas id="featureHPlus" width="70" height="70"></canvas></div><div><b>세로 양끝</b><canvas id="featureVMinus" width="70" height="70"></canvas><i>↔</i><canvas id="featureVPlus" width="70" height="70"></canvas></div></div><div class="class-dot-key">${dots}</div><div class="plain-rule">좋은 점수라면 <b>같은 정답은 모이고, 다른 정답은 떨어집니다.</b></div>`;
+    drawPixelCanvas(element<HTMLCanvasElement>("#featureHMinus"), horizontalEnds.negative.pixels, [], state.task); drawPixelCanvas(element<HTMLCanvasElement>("#featureHPlus"), horizontalEnds.positive.pixels, [], state.task); drawPixelCanvas(element<HTMLCanvasElement>("#featureVMinus"), verticalEnds.negative.pixels, [], state.task); drawPixelCanvas(element<HTMLCanvasElement>("#featureVPlus"), verticalEnds.positive.pixels, [], state.task);
+    if (state.highlightRevealed) drawPixelLatentMap(whyCanvas, state.model, state.data, state.drawing, state.projection, { view: "placement", focusLabel: "이 그림" });
   }
   if (step === 4) {
     const before = constrainPixelModelToProjection(initializePixelModel(196, state.model.hiddenUnits, info.classes.length), state.projection); let after: PixelModel = before;
@@ -229,15 +236,14 @@ function renderPixelUnderstanding(state: PixelLabState): void {
     drawPixelLatentMap(whyCanvas, state.highlightRevealed ? after : before, state.data, state.drawing, state.projection, { view: "decision", focusLabel: "이 그림", previousModel: state.highlightRevealed ? before : undefined });
     explanation.innerHTML = `<span class="scene-no">4 / 4</span><h2>틀린 점 쪽에서 경계가 밀립니다</h2><p>점 색은 정답이고 배경색은 모델의 예상입니다. 둘이 다른 점이 있으면 연결값을 고쳐 그 점의 정답 색 영역이 넓어지게 합니다.</p><div class="line-key">${state.highlightRevealed ? '<span><i class="old"></i>연습 전</span><span><i class="new"></i>연습 후</span>' : '<span><i class="new"></i>아직 연습 전</span>'}</div><div class="plain-rule">색이 진할수록 그 답을 더 확신합니다.<br><b>검은 선은 가장 큰 답 점수가 바뀌는 곳</b>입니다.</div>`;
   }
-  element<HTMLElement>("#pixelHighlightInstruction").textContent = step === 1 ? "입력 한 칸을 확인합니다." : step === 2 ? "가로 점수의 양끝 그림을 비교합니다." : step === 3 ? "세로 점수의 양끝 그림을 비교합니다." : "연습 전과 후의 경계를 비교합니다.";
+  element<HTMLElement>("#pixelHighlightInstruction").textContent = step === 1 ? "입력 한 칸을 확인합니다." : step === 2 ? "가로 점수에 더해진 칸을 확인합니다." : step === 3 ? "같은 정답끼리 모이는지 지도에서 확인합니다." : "연습 전과 후의 경계를 비교합니다.";
   const reveal = element<HTMLButtonElement>("#pixelRevealHighlight"); reveal.disabled = state.highlightRevealed;
-  reveal.textContent = state.highlightRevealed ? "확인했습니다" : step === 1 ? "입력 한 칸 보기" : step === 2 ? "가로 위치 확인" : step === 3 ? "세로 위치 확인" : "경계 움직이기";
-  element<HTMLElement>("#pixelHighlightResult").textContent = state.highlightRevealed ? (step === 1 ? "표시된 한 칸도 196개 입력 중 하나입니다." : step === 2 ? `가로 ${signed(point.x)}: ${point.x >= 0 ? "+쪽" : "−쪽"} 그림에 더 가깝습니다.` : step === 3 ? `세로 ${signed(point.y)}: ${point.y >= 0 ? "+쪽" : "−쪽"} 그림에 더 가깝습니다.` : "회색 점선에서 검은 선으로 이동했습니다. 틀린 점의 정답 색 영역이 넓어진 방향입니다.") : "버튼을 누르면 그래프의 변화를 보고 문제가 열립니다.";
+  reveal.textContent = state.highlightRevealed ? "확인했습니다" : step === 1 ? "입력 한 칸 보기" : step === 2 ? "점수 칸 펼치기" : step === 3 ? "두 점수 지도 열기" : "경계 움직이기";
+  element<HTMLElement>("#pixelHighlightResult").textContent = state.highlightRevealed ? (step === 1 ? "표시된 한 칸도 196개 입력 중 하나입니다." : step === 2 ? `주황 합 ${roundedPositive.toFixed(2)}와 보라 합 ${roundedNegative.toFixed(2)}를 더해 가로 점수 ${signed(point.x)}를 만들었습니다.` : step === 3 ? "색이 같은 점들이 가까이 모였습니다. 이처럼 정답을 떨어뜨리는 점수가 분류에 유용합니다." : "회색 점선에서 검은 선으로 이동했습니다. 틀린 점의 정답 색 영역이 넓어진 방향입니다.") : "버튼을 누르면 그래프의 변화를 보고 문제가 열립니다.";
   const quiz = element<HTMLElement>("#pixelQuiz"); quiz.hidden = !state.highlightRevealed;
-  element<HTMLElement>("#pixelQuizQuestion").textContent = step === 1 ? "14×14 그림에서 들어가는 밝기는 몇 개일까요?" : step === 2 ? `가로 ${signed(point.x)}인 이 그림은 어느 쪽에 더 가까울까요?` : step === 3 ? `세로 ${signed(point.y)}인 이 그림은 어느 쪽에 더 가까울까요?` : "경계가 움직이는 방향을 정하는 것은 무엇일까요?";
+  element<HTMLElement>("#pixelQuizQuestion").textContent = step === 1 ? "14×14 그림에서 들어가는 밝기는 몇 개일까요?" : step === 2 ? `+${roundedPositive.toFixed(2)}와 ${roundedNegative.toFixed(2)}를 더하면 얼마일까요?` : step === 3 ? state.task === "omr" ? "다섯 선지를 가르는 데 더 도움이 되는 차이는 무엇일까요?" : "0·1·2를 가르는 데 더 도움이 되는 점수는 무엇일까요?" : "경계가 움직이는 방향을 정하는 것은 무엇일까요?";
   const choices = element<HTMLDivElement>("#pixelQuizChoices"); choices.replaceChildren();
-  const axisScore = step === 2 ? point.x : point.y;
-  const options: ReadonlyArray<readonly [string, boolean]> = step === 1 ? [["196개", true], ["2개", false]] : step === 2 || step === 3 ? [[axisScore >= 0 ? "+쪽 그림" : "−쪽 그림", true], [axisScore >= 0 ? "−쪽 그림" : "+쪽 그림", false]] : [["틀린 점의 위치와 정답", true], ["항상 오른쪽", false]];
+  const options: ReadonlyArray<readonly [string, boolean]> = step === 1 ? [["196개", true], ["2개", false]] : step === 2 ? [[`${roundedSum >= 0 ? "+" : ""}${roundedSum.toFixed(2)}`, true], [`+${wrongSum.toFixed(2)}`, false]] : step === 3 ? state.task === "omr" ? [["진한 칠이 놓인 위치", true], ["모두 같은 선지 테두리", false]] : [["숫자마다 다른 선의 위치", true], ["검은 칸의 개수만", false]] : [["틀린 점의 위치와 정답", true], ["항상 오른쪽", false]];
   options.forEach(([label, correct]) => { const button = document.createElement("button"); button.type = "button"; button.className = "quiz-choice"; button.textContent = label; button.disabled = state.quizPassed; button.addEventListener("click", () => { if (correct) pixelUiStore?.passQuiz(); else showToast("강조된 그림과 설명을 한 번 더 살펴보세요."); }); choices.append(button); });
   const feedback = element<HTMLElement>("#pixelQuizFeedback"); feedback.hidden = !state.quizPassed; feedback.className = "quiz-feedback correct"; feedback.textContent = state.quizPassed ? "맞았습니다! 방금 본 변화와 이어집니다." : "";
   const next = element<HTMLButtonElement>("#pixelQuizNext"); next.hidden = !state.quizPassed; next.textContent = step === 4 ? "직접 연습시키기 →" : "다음 장면 →";
@@ -250,10 +256,11 @@ function stopPixelAuto(): void { if (pixelAutoTimer) window.clearInterval(pixelA
 function renderPixelProjectionStory(state: PixelLabState): { pixels: number[]; label: string } {
   const info = PIXEL_TASKS[state.task]; const selected = state.mapExampleIndex === null ? undefined : state.data[state.mapExampleIndex]; const pixels = selected?.pixels ?? state.drawing; const label = selected ? `정답 ${info.classes[selected.label]}` : "내 그림"; const point = projectPixels(state.projection, pixels);
   const horizontal = projectionExtremes(state.projection, state.data, "horizontal"); const vertical = projectionExtremes(state.projection, state.data, "vertical");
-  drawPixelCanvas(element<HTMLCanvasElement>("#pixelProjectionSource"), pixels); drawPixelCanvas(element<HTMLCanvasElement>("#pixelHorizontalNegative"), horizontal.negative.pixels); drawPixelCanvas(element<HTMLCanvasElement>("#pixelHorizontalPositive"), horizontal.positive.pixels); drawPixelCanvas(element<HTMLCanvasElement>("#pixelVerticalNegative"), vertical.negative.pixels); drawPixelCanvas(element<HTMLCanvasElement>("#pixelVerticalPositive"), vertical.positive.pixels);
+  drawPixelCanvas(element<HTMLCanvasElement>("#pixelProjectionSource"), pixels, [], state.task); drawPixelCanvas(element<HTMLCanvasElement>("#pixelHorizontalNegative"), horizontal.negative.pixels, [], state.task); drawPixelCanvas(element<HTMLCanvasElement>("#pixelHorizontalPositive"), horizontal.positive.pixels, [], state.task); drawPixelCanvas(element<HTMLCanvasElement>("#pixelVerticalNegative"), vertical.negative.pixels, [], state.task); drawPixelCanvas(element<HTMLCanvasElement>("#pixelVerticalPositive"), vertical.positive.pixels, [], state.task);
   element<HTMLElement>("#pixelProjectionSourceName").textContent = label; element<HTMLOutputElement>("#pixelProjectionXScore").value = signed(point.x); element<HTMLOutputElement>("#pixelProjectionYScore").value = signed(point.y); element<HTMLElement>("#pixelHorizontalMarker").style.left = `${((point.x + 1) / 2 * 100).toFixed(1)}%`; element<HTMLElement>("#pixelVerticalMarker").style.left = `${((point.y + 1) / 2 * 100).toFixed(1)}%`;
-  element<HTMLElement>("#pixelMapInstruction").textContent = state.view === "neurons" ? `뉴런 ${state.selectedNeuron + 1}: 보라(−)에서 주황(+)으로 신호가 달라집니다.` : "배경색은 모델의 예상, 검은 선은 예상이 바뀌는 곳입니다.";
-  element<HTMLElement>("#pixelGraphNote").textContent = state.view === "neurons" ? "선은 이 뉴런의 신호가 0인 곳입니다. 연습하면 기울기와 위치가 바뀝니다." : "점 색과 배경색이 다르면 아직 틀린 자료입니다. 연습하면 정답 색 영역이 그 점 쪽으로 넓어집니다.";
+  const layers = [state.showNeuronGradient ? `뉴런 ${state.selectedNeuron + 1}의 보라↔주황 분류선` : "", state.showDecisionBoundary ? "검은 최종 경계" : ""].filter(Boolean);
+  element<HTMLElement>("#pixelMapInstruction").textContent = layers.length ? `${layers.join("과 ")}을 겹쳐 보는 중입니다.` : "점과 모델의 예상 배경만 보고 있습니다.";
+  element<HTMLElement>("#pixelGraphNote").textContent = "점 색과 배경색이 다르면 아직 틀린 자료입니다. 뉴런 선들이 움직인 결과로 검은 최종 경계가 만들어집니다.";
   return { pixels, label };
 }
 
@@ -270,28 +277,27 @@ function renderPixelLab(lab: LabState, state: PixelLabState): void {
   if (lab.lessonStep !== 4) stopPixelAuto();
   element<HTMLElement>("#dataTitle").textContent = "그림이 입력값이 되는 모습을 먼저 봅시다";
   element<HTMLElement>("#whyTitle").textContent = "그림을 그대로 넣으면 어떻게 답을 고를까요?";
-  element<HTMLElement>("#whySubtitle").textContent = "그림 196칸이 좌표와 뉴런 신호를 거쳐 답이 되는 순서를 확인합니다.";
-  element<HTMLElement>("#whyFooterNote").textContent = "그림 196칸 → 가로·세로 점수 → 뉴런 신호 → 여러 답 점수 순서로 살펴봅니다.";
+  element<HTMLElement>("#whySubtitle").textContent = "한 그림의 점수를 직접 더해 보고, 어떤 특징이 분류에 좋은지 지도에서 확인합니다.";
+  element<HTMLElement>("#whyFooterNote").textContent = "그림 196칸 → 점수 더하기 → 좋은 특징 찾기 → 경계 움직임 순서로 살펴봅니다.";
   element<HTMLElement>("#trainTitle").textContent = "이제 모델이 스스로 고치게 해 봅시다";
   element<HTMLElement>("#useTitle").textContent = "처음 보는 그림으로 확인해 봅시다";
-  ["#pixelDataCanvas", "#pixelTrainCanvas", "#pixelUseCanvas"].forEach((selector) => drawPixelCanvas(element<HTMLCanvasElement>(selector), state.drawing));
-  element<HTMLElement>("#pixelDrawTitle").textContent = state.task === "digits" ? "14×14칸에 0·1·2를 그려 보세요" : "OMR 한 문항을 직접 칠해 보세요";
+  ["#pixelDataCanvas", "#pixelTrainCanvas", "#pixelUseCanvas"].forEach((selector) => drawPixelCanvas(element<HTMLCanvasElement>(selector), state.drawing, [], state.task));
+  element<HTMLElement>("#pixelDrawTitle").textContent = state.task === "digits" ? "14×14칸에 0·1·2를 그려 보세요" : "선지 원을 눌러 진하게 마킹해 보세요";
   element<HTMLElement>("#pixelDataCount").textContent = `학습 그림 ${state.data.length}장`;
   const picker = element<HTMLDivElement>("#pixelClassPicker"); picker.replaceChildren();
   info.classes.forEach((name, label) => { const button = document.createElement("button"); button.type = "button"; button.className = label === state.selectedLabel ? "active" : ""; button.textContent = `${name} 정답`; button.addEventListener("click", () => pixelUiStore?.selectLabel(label)); picker.append(button); });
   if (lab.lessonStep === 2) {
     const samples = element<HTMLDivElement>("#pixelSamples"); samples.replaceChildren();
-    state.data.filter((_, index) => index % Math.max(1, Math.floor(state.data.length / 15)) === 0).slice(0, 15).forEach((example, index) => { const button = document.createElement("button"); button.type = "button"; const canvas = document.createElement("canvas"); canvas.width = 140; canvas.height = 140; drawPixelCanvas(canvas, example.pixels); const caption = document.createElement("span"); caption.textContent = `정답 ${info.classes[example.label] ?? "?"}`; button.append(canvas, caption); button.addEventListener("click", () => pixelUiStore?.loadSample(example.label, index)); samples.append(button); });
+    state.data.filter((_, index) => index % Math.max(1, Math.floor(state.data.length / 15)) === 0).slice(0, 15).forEach((example, index) => { const button = document.createElement("button"); button.type = "button"; const canvas = document.createElement("canvas"); canvas.width = 140; canvas.height = 140; drawPixelCanvas(canvas, example.pixels, [], state.task); const caption = document.createElement("span"); caption.textContent = `정답 ${info.classes[example.label] ?? "?"}`; button.append(canvas, caption); button.addEventListener("click", () => pixelUiStore?.loadSample(example.label, index)); samples.append(button); });
   }
   if (lab.lessonStep === 3) renderPixelUnderstanding(state);
   const probabilities = pixelUiStore?.probabilities() ?? [];
   if (lab.lessonStep === 4) {
     renderProbabilityBars("#pixelTrainBars", state, probabilities); const metrics = pixelUiStore?.metrics();
     element<HTMLElement>("#pixelEpoch").textContent = String(state.model.epoch); element<HTMLElement>("#pixelEpochNow").textContent = String(state.model.epoch); element<HTMLElement>("#pixelProgressBar").style.width = `${Math.min(100, state.model.epoch / 10)}%`;
-    const focus = renderPixelProjectionStory(state); element<HTMLInputElement>("#pixelHiddenUnits").value = String(state.model.hiddenUnits); element<HTMLOutputElement>("#pixelHiddenOut").value = `${state.model.hiddenUnits}개`; element<HTMLInputElement>("#pixelLearningRate").value = String(state.learningRate); element<HTMLOutputElement>("#pixelLearningRateOut").value = state.learningRate.toFixed(2); drawPixelLatentMap(element<HTMLCanvasElement>("#pixelLatentCanvas"), state.model, state.data, focus.pixels, state.projection, { view: state.view, focusLabel: focus.label, selectedNeuron: state.selectedNeuron });
-    const pixelDecisionTab = element<HTMLButtonElement>("#pixelDecisionTab"); const pixelNeuronTab = element<HTMLButtonElement>("#pixelNeuronTab");
-    const mapTabs: Array<[HTMLButtonElement, PixelLabState["view"]]> = [[pixelNeuronTab, "neurons"], [pixelDecisionTab, "decision"]]; mapTabs.forEach(([button, view]) => { const active = state.view === view; button.classList.toggle("active", active); button.setAttribute("aria-selected", String(active)); });
-    const neuronSelect = element<HTMLSelectElement>("#pixelNeuronSelect"); if (neuronSelect.options.length !== state.model.hiddenUnits) { neuronSelect.replaceChildren(); for (let index = 0; index < state.model.hiddenUnits; index += 1) neuronSelect.add(new Option(`${index + 1}번`, String(index))); } neuronSelect.value = String(state.selectedNeuron); element<HTMLElement>("#pixelNeuronSelectWrap").hidden = state.view !== "neurons";
+    const focus = renderPixelProjectionStory(state); element<HTMLInputElement>("#pixelHiddenUnits").value = String(state.model.hiddenUnits); element<HTMLOutputElement>("#pixelHiddenOut").value = `${state.model.hiddenUnits}개`; element<HTMLInputElement>("#pixelLearningRate").value = String(state.learningRate); element<HTMLOutputElement>("#pixelLearningRateOut").value = state.learningRate.toFixed(2); drawPixelLatentMap(element<HTMLCanvasElement>("#pixelLatentCanvas"), state.model, state.data, focus.pixels, state.projection, { view: "decision", focusLabel: focus.label, selectedNeuron: state.selectedNeuron, showNeuronGradient: state.showNeuronGradient, showDecisionBoundary: state.showDecisionBoundary });
+    element<HTMLInputElement>("#pixelNeuronLayer").checked = state.showNeuronGradient; element<HTMLInputElement>("#pixelDecisionLayer").checked = state.showDecisionBoundary;
+    const neuronSelect = element<HTMLSelectElement>("#pixelNeuronSelect"); if (neuronSelect.options.length !== state.model.hiddenUnits) { neuronSelect.replaceChildren(); for (let index = 0; index < state.model.hiddenUnits; index += 1) neuronSelect.add(new Option(`${index + 1}번`, String(index))); } neuronSelect.value = String(state.selectedNeuron); element<HTMLElement>("#pixelNeuronSelectWrap").hidden = !state.showNeuronGradient;
     element<SVGSVGElement>("#pixelNetworkSvg").innerHTML = pixelNetworkGraphMarkup(state.model, info.classes, forwardPixels(state.model, state.drawing).hidden);
     element<HTMLButtonElement>("#pixelAutoTrain").textContent = pixelAutoTimer ? "잠시 멈추기" : "계속 연습";
     element<HTMLElement>("#pixelLoss").textContent = metrics?.loss.toFixed(4) ?? "—"; element<HTMLElement>("#pixelAccuracy").textContent = metrics ? `${(metrics.accuracy * 100).toFixed(1)}%` : "—"; element<HTMLElement>("#pixelTrainCount").textContent = `${state.data.length}장`; drawLossChart(element<HTMLCanvasElement>("#pixelLossCanvas"), state.history);
@@ -404,7 +410,7 @@ export function mountApp(store = createInitialStore()): LabStore {
   let drawing = false;
   ["#pixelDataCanvas", "#pixelTrainCanvas", "#pixelUseCanvas"].forEach((selector) => {
     const canvas = element<HTMLCanvasElement>(selector);
-    const paint = (event: PointerEvent) => { if (!drawing) return; pixelStore.paint(pixelIndexAt(canvas, event.clientX, event.clientY), 1); };
+    const paint = (event: PointerEvent) => { if (!drawing) return; if (pixelStore.snapshot.task === "omr") pixelStore.loadSample(omrChoiceAt(canvas, event.clientX), 1); else pixelStore.paint(pixelIndexAt(canvas, event.clientX, event.clientY), 1); };
     canvas.addEventListener("pointerdown", (event) => { drawing = true; canvas.setPointerCapture(event.pointerId); paint(event); });
     canvas.addEventListener("pointermove", paint);
     canvas.addEventListener("pointerup", () => { drawing = false; }); canvas.addEventListener("pointercancel", () => { drawing = false; });
@@ -419,8 +425,8 @@ export function mountApp(store = createInitialStore()): LabStore {
   element<HTMLButtonElement>("#pixelResetModel").addEventListener("click", () => { pixelStore.resetModel(); showToast("픽셀 모델을 연습 전 상태로 되돌렸습니다."); });
   element<HTMLInputElement>("#pixelHiddenUnits").addEventListener("change", (event) => { pixelStore.setHiddenUnits(Number((event.currentTarget as HTMLInputElement).value)); showToast("은닉 뉴런 수를 바꾸어 분류선을 처음부터 다시 만들었습니다."); });
   element<HTMLInputElement>("#pixelLearningRate").addEventListener("change", (event) => pixelStore.setLearningRate(Number((event.currentTarget as HTMLInputElement).value)));
-  element<HTMLButtonElement>("#pixelNeuronTab").addEventListener("click", () => pixelStore.setView("neurons"));
-  element<HTMLButtonElement>("#pixelDecisionTab").addEventListener("click", () => pixelStore.setView("decision"));
+  element<HTMLInputElement>("#pixelNeuronLayer").addEventListener("change", (event) => pixelStore.setLayers({ showNeuronGradient: (event.currentTarget as HTMLInputElement).checked }));
+  element<HTMLInputElement>("#pixelDecisionLayer").addEventListener("change", (event) => pixelStore.setLayers({ showDecisionBoundary: (event.currentTarget as HTMLInputElement).checked }));
   element<HTMLSelectElement>("#pixelNeuronSelect").addEventListener("change", (event) => pixelStore.setSelectedNeuron(Number((event.currentTarget as HTMLSelectElement).value)));
   element<HTMLCanvasElement>("#pixelLatentCanvas").addEventListener("click", (event) => { const state = pixelStore.snapshot; const index = pixelMapExampleAt(event.currentTarget as HTMLCanvasElement, event.clientX, event.clientY, state.projection, state.data); pixelStore.selectMapExample(index); if (index === null) showToast("점을 누르면 그 그림의 좌표 계산을 볼 수 있습니다."); });
   element<HTMLButtonElement>("#pixelAutoTrain").addEventListener("click", () => { if (pixelAutoTimer) { stopPixelAuto(); rerender(); return; } pixelAutoTimer = window.setInterval(() => { if (!isPixelPreset(store.snapshot.preset) || store.snapshot.lessonStep !== 4 || pixelStore.snapshot.model.epoch >= 1000) { stopPixelAuto(); rerender(); return; } pixelStore.train(5); }, 100); pixelStore.train(1); });

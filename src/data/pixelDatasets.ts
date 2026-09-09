@@ -6,7 +6,7 @@ export const PIXEL_INPUTS = PIXEL_SIZE * PIXEL_SIZE;
 
 export const PIXEL_TASKS = {
   digits: { title: "내가 그린 숫자를 읽을까?", question: "친구마다 다르게 쓴 0·1·2를 그림 그대로 보고 구별할 수 있을까요?", story: "종이에 쓴 숫자는 크기와 기울기, 선 굵기가 모두 달라요. 숫자를 몇 가지 말로 바꾸지 않고 14×14칸의 밝기 196개를 그대로 보여 주면, 신경망은 여러 그림에서 되풀이되는 무늬를 찾습니다.", classes: ["0", "1", "2"], hiddenUnits: 2 },
-  omr: { title: "OMR 답을 읽을 수 있을까?", question: "동그라미 다섯 개가 있는 OMR 한 문항에서 칠한 답을 읽을 수 있을까요?", story: "연필로 칠한 OMR 표시는 위치가 조금씩 비뚤고 진하기도 달라요. ①~⑤를 규칙문으로 하나씩 검사하지 않고, 한 문항 그림 전체를 196개 밝기로 바꾸어 신경망에 보여 줍니다.", classes: ["①", "②", "③", "④", "⑤"], hiddenUnits: 2 },
+  omr: { title: "OMR 답을 읽을 수 있을까?", question: "동그라미 다섯 개가 있는 OMR 한 문항에서 칠한 답을 읽을 수 있을까요?", story: "연필로 칠한 OMR 표시는 위치가 조금씩 비뚤고 진하기도 달라요. ①~⑤를 규칙문으로 하나씩 검사하지 않고, 한 문항 그림 전체를 196개 밝기로 바꾸어 신경망에 보여 줍니다.", classes: ["①", "②", "③", "④", "⑤"], hiddenUnits: 4 },
 } as const;
 
 function randomSource(seed: number): () => number { let value = seed >>> 0; return () => { value = Math.imul(1664525, value) + 1013904223 >>> 0; return value / 4294967296; }; }
@@ -29,12 +29,11 @@ function digit(label: number, dx = 0, dy = 0, thick = 0): number[] {
   return p;
 }
 function omr(label: number, dx = 0, dy = 0): number[] {
-  const p = blank(); const centers = [2, 4, 7, 9, 12];
-  const offsets: Array<[number, number]> = [[-1,0],[1,0],[0,-1],[0,1]];
-  centers.forEach((cx) => { offsets.forEach(([ox, oy]) => put(p, cx + ox, 7 + oy)); });
+  const p = blank(); const centers = [1, 4, 7, 10, 12];
   const selected = centers[label];
   if (selected === undefined) return p;
-  for (let y = 6; y <= 8; y += 1) for (let x = selected - 1; x <= selected + 1; x += 1) put(p, x + dx, y + dy, .85);
+  put(p, selected + dx, 7 + dy, 1); put(p, selected - 1 + dx, 7 + dy, .9); put(p, selected + 1 + dx, 7 + dy, .9); put(p, selected + dx, 6 + dy, .9); put(p, selected + dx, 8 + dy, .9);
+  put(p, selected - 1 + dx, 6 + dy, .55); put(p, selected + 1 + dx, 6 + dy, .55); put(p, selected - 1 + dx, 8 + dy, .55); put(p, selected + 1 + dx, 8 + dy, .55);
   return p;
 }
 function vary(pixels: number[], random: () => number): number[] {
@@ -47,11 +46,11 @@ function vary(pixels: number[], random: () => number): number[] {
 
 export function sampleForClass(task: PixelTaskName, label: number, variation = 0): number[] {
   const dx = variation % 3 - 1; const dy = Math.floor(variation / 3) % 3 - 1;
-  return task === "digits" ? digit(label, dx, dy, variation % 4 === 0 ? 1 : 0) : omr(label, variation % 3 === 0 ? 1 : 0, 0);
+  return task === "digits" ? digit(label, dx, dy, variation % 4 === 0 ? 1 : 0) : omr(label, 0, variation > 0 && variation % 5 === 0 ? 1 : variation > 0 && variation % 7 === 0 ? -1 : 0);
 }
 export function createPixelDataset(task: PixelTaskName): PixelExample[] {
   const random = randomSource(task === "digits" ? 2048 : 4096); const count = task === "digits" ? 24 : 18; const result: PixelExample[] = [];
   PIXEL_TASKS[task].classes.forEach((_, label) => { for (let index = 0; index < count; index += 1) result.push({ pixels: vary(sampleForClass(task, label, index), random), label }); });
   return result;
 }
-export function emptyDrawing(task: PixelTaskName): number[] { return task === "omr" ? omr(-1) : blank(); }
+export function emptyDrawing(_task: PixelTaskName): number[] { return blank(); }
