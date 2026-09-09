@@ -3,7 +3,7 @@ import type { PixelExample } from "../core/pixelNetwork";
 export type PixelTaskName = "digits" | "omr";
 export const PIXEL_SIZE = 14;
 export const PIXEL_INPUTS = PIXEL_SIZE * PIXEL_SIZE;
-export const OMR_CENTERS = [1.25, 4.1, 7, 9.9, 12.75] as const;
+export const OMR_CENTERS = [1, 4, 7, 10, 13] as const;
 
 export const PIXEL_TASKS = {
   digits: { title: "내가 그린 숫자를 읽을까?", question: "친구마다 다르게 쓴 0·1·2를 그림 그대로 보고 구별할 수 있을까요?", story: "종이에 쓴 숫자는 크기와 기울기, 선 굵기가 모두 달라요. 숫자를 몇 가지 말로 바꾸지 않고 14×14칸의 밝기 196개를 그대로 보여 주면, 신경망은 여러 그림에서 되풀이되는 무늬를 찾습니다.", classes: ["0", "1", "2"], hiddenUnits: 2 },

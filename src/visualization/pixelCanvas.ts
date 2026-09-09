@@ -37,6 +37,13 @@ export function drawOmrInputCanvas(canvas: HTMLCanvasElement, pixels: number[]):
   });
 }
 
+export function drawPixelConversionFrame(canvas: HTMLCanvasElement, pixels: number[], task: PixelTaskName, progress: number): void {
+  const context = canvas.getContext("2d"); if (!context) return; const amount = Math.max(0, Math.min(1, progress));
+  const source = document.createElement("canvas"); source.width = canvas.width; source.height = canvas.height; if (task === "omr") drawOmrInputCanvas(source, pixels); else drawPixelCanvas(source, pixels, [], task);
+  const pixelated = document.createElement("canvas"); pixelated.width = canvas.width; pixelated.height = canvas.height; drawPixelCanvas(pixelated, pixels, [], task);
+  context.clearRect(0, 0, canvas.width, canvas.height); context.globalAlpha = 1; context.drawImage(source, 0, 0); context.globalAlpha = amount; context.drawImage(pixelated, 0, 0); context.globalAlpha = 1;
+}
+
 export function omrChoiceAt(canvas: HTMLCanvasElement, clientX: number): number {
   const rect = canvas.getBoundingClientRect(); const normalized = (clientX - rect.left) / Math.max(1, rect.width) * PIXEL_SIZE;
   return OMR_CENTERS.reduce((best, center, index) => Math.abs(center - normalized) < Math.abs(OMR_CENTERS[best]! - normalized) ? index : best, 0);

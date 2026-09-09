@@ -32,6 +32,25 @@ describe("그림 지도 설명 상태", () => {
     store.nextUnderstand(); expect(store.snapshot.scoreCalcStep).toBe(0);
   });
 
+  it("완료한 이해 장면은 이전과 다음 장면으로 다시 오갈 수 있다", () => {
+    const store = new PixelLabStore("digits"); store.nextUnderstand(); store.nextUnderstand();
+    store.setUnderstandStep(1); expect(store.snapshot.understandStep).toBe(1);
+    store.setUnderstandStep(3); expect(store.snapshot.understandStep).toBe(3);
+    store.setUnderstandStep(4); expect(store.snapshot.understandStep).toBe(3);
+  });
+
+  it("연습 특징을 바꾸면 해당 지도로 모델을 처음부터 다시 만든다", () => {
+    const store = new PixelLabStore("omr"); const learned = store.snapshot.projection.horizontal;
+    store.train(2); store.setTrainingFeature("position");
+    expect(store.snapshot.trainingFeatureView).toBe("position"); expect(store.snapshot.model.epoch).toBe(0);
+    expect(store.snapshot.projection.horizontal).not.toEqual(learned);
+  });
+
+  it("OMR은 진한 위치 특징으로도 실제 신경망 학습 성능을 낸다", () => {
+    const store = new PixelLabStore("omr"); store.setTrainingFeature("position"); store.train(400);
+    expect(store.metrics().accuracy).toBeGreaterThan(.85);
+  });
+
   it.each(["digits", "omr"] as const)("%s의 두 그림 기준으로 실제 분류 성능을 낸다", (task) => {
     const store = new PixelLabStore(task); store.train(300);
     expect(store.metrics().accuracy).toBeGreaterThan(.8);

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { forwardPixels, initializePixelModel, trainPixelModel } from "../core/pixelNetwork";
-import { constrainPixelModelToProjection, createPixelProjection, projectPixels, projectionAxisDetails, reconstructProjectedPixels } from "../core/pixelProjection";
+import { constrainPixelModelToProjection, createPixelFeatureProjection, createPixelProjection, projectPixels, projectionAxisDetails, reconstructProjectedPixels } from "../core/pixelProjection";
 import { createPixelDataset, PIXEL_INPUTS } from "../data/pixelDatasets";
-import { pixelFeatureCoordinates } from "./pixelLatentMap";
+import { pixelFeatureAccuracy, pixelFeatureCoordinates } from "./pixelLatentMap";
 
 describe("고정된 픽셀 그림 지도", () => {
   it("모델을 학습해도 같은 그림의 가로·세로 위치는 바뀌지 않는다", () => {
@@ -35,5 +35,11 @@ describe("고정된 픽셀 그림 지도", () => {
     const means = [0, 1, 2, 3, 4].map((label) => { const selected = points.filter((_, index) => data[index]?.label === label); return selected.reduce((sum, point) => sum + point.x, 0) / selected.length; });
     expect(means).toEqual([...means].sort((left, right) => left - right));
     expect(means[4]! - means[0]!).toBeGreaterThan(1);
+  });
+
+  it("현재 OMR 자료에서는 위치 특징도 학습 특징만큼 잘 나눈다고 정직하게 보여 준다", () => {
+    const data = createPixelDataset("omr"); const learned = createPixelFeatureProjection(data, "omr", "learned"); const position = createPixelFeatureProjection(data, "omr", "position");
+    expect(pixelFeatureAccuracy(data, position, "omr", "position")).toBeGreaterThan(.95);
+    expect(pixelFeatureAccuracy(data, position, "omr", "position")).toBeGreaterThanOrEqual(pixelFeatureAccuracy(data, learned, "omr", "learned") - .03);
   });
 });

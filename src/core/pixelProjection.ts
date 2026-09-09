@@ -1,10 +1,18 @@
 import type { PixelExample, PixelModel } from "./pixelNetwork";
+import type { PixelTaskName } from "../data/pixelDatasets";
 
+export type PixelProjectionMode = "position" | "ink" | "learned";
 export interface PixelProjection { mean: number[]; horizontal: number[]; vertical: number[]; horizontalScale: number; verticalScale: number; }
 export interface ProjectionAxisDetails { contributions: number[]; rawScore: number; mapScore: number; }
 
 function normalize(vector: number[]): number[] { const length = Math.sqrt(vector.reduce((sum, value) => sum + value * value, 0)) || 1; return vector.map((value) => value / length); }
 function dot(left: number[], right: number[]): number { return left.reduce((sum, value, index) => sum + value * (right[index] ?? 0), 0); }
+function projectionFromAxes(data: PixelExample[], horizontalSeed: number[], verticalSeed: number[]): PixelProjection {
+  const inputSize = data[0]?.pixels.length ?? 196; const mean = Array.from({ length: inputSize }, (_, index) => data.reduce((sum, example) => sum + (example.pixels[index] ?? 0), 0) / Math.max(1, data.length));
+  const horizontal = normalize(horizontalSeed); const overlap = dot(verticalSeed, horizontal); const vertical = normalize(verticalSeed.map((value, index) => value - overlap * (horizontal[index] ?? 0)));
+  const centered = data.map((example) => example.pixels.map((value, index) => value - (mean[index] ?? 0))); const horizontalScale = Math.max(.001, ...centered.map((row) => Math.abs(dot(row, horizontal)))); const verticalScale = Math.max(.001, ...centered.map((row) => Math.abs(dot(row, vertical))));
+  return { mean, horizontal, vertical, horizontalScale, verticalScale };
+}
 
 export function createPixelProjection(data: PixelExample[]): PixelProjection {
   const inputSize = data[0]?.pixels.length ?? 196; const labels = [...new Set(data.map((example) => example.label))];
@@ -15,6 +23,17 @@ export function createPixelProjection(data: PixelExample[]): PixelProjection {
   const verticalSeed = Array.from({ length: inputSize }, (_, pixel) => classDirections.reduce((sum, direction, index) => sum + (direction[pixel] ?? 0) * ((index - middle) ** 2 - squaredMean), 0)); const overlap = dot(verticalSeed, horizontal); const vertical = normalize(verticalSeed.map((value, index) => value - overlap * (horizontal[index] ?? 0)));
   const centered = data.map((example) => example.pixels.map((value, index) => value - (mean[index] ?? 0))); const horizontalScale = Math.max(.001, ...centered.map((row) => Math.abs(dot(row, horizontal)))); const verticalScale = Math.max(.001, ...centered.map((row) => Math.abs(dot(row, vertical))));
   return { mean, horizontal, vertical, horizontalScale, verticalScale };
+}
+
+export function createPixelFeatureProjection(data: PixelExample[], task: PixelTaskName, mode: PixelProjectionMode): PixelProjection {
+  if (mode === "learned") return createPixelProjection(data);
+  const size = Math.round(Math.sqrt(data[0]?.pixels.length ?? 196)); const middle = (size - 1) / 2;
+  if (mode === "position") {
+    const horizontal = Array.from({ length: size * size }, (_, index) => index % size - middle); const vertical = Array.from({ length: size * size }, (_, index) => Math.floor(index / size) - middle);
+    return projectionFromAxes(data, horizontal, vertical);
+  }
+  const amount = Array<number>(size * size).fill(1); const spread = Array.from({ length: size * size }, (_, index) => { const x = index % size - middle; const y = Math.floor(index / size) - middle; return Math.hypot(x, y); }); const averageSpread = spread.reduce((sum, value) => sum + value, 0) / spread.length;
+  return projectionFromAxes(data, amount, spread.map((value) => value - averageSpread + (task === "omr" ? Math.abs(value - averageSpread) * .02 : 0)));
 }
 
 export function projectionAxisDetails(projection: PixelProjection, pixels: number[], axis: "horizontal" | "vertical"): ProjectionAxisDetails {

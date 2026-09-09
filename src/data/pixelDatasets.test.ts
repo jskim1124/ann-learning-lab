@@ -14,5 +14,7 @@ describe("OMR 그림 입력", () => {
     expect(first.filter((value) => value >= .4).length).toBeGreaterThan(10);
     expect(first.filter((value) => value >= .4).length).toBeLessThan(first.filter((value) => value > 0).length);
     expect(first).not.toEqual(fifth);
+    const darkColumns = [...new Set(first.map((value, index) => value >= .4 ? index % 14 : -1).filter((index) => index >= 0))];
+    expect(darkColumns).toEqual([0, 1]);
   });
 });
