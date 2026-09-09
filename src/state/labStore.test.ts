@@ -24,11 +24,12 @@ describe("lab interactions", () => {
     expect(store.trainEpochs(1)).toMatch(/범주 0과 범주 1/);
   });
 
-  it("changes tabs and synchronizes clamped probe input", () => {
+  it("분류선과 최종 경계선을 독립적으로 겹쳐 보고 탐침 입력을 제한한다", () => {
     const store = new LabStore();
-    store.setView("neurons");
+    expect(store.snapshot).toMatchObject({ showNeuronBoundaries: true, showDecisionBoundary: true });
+    store.setLayers({ showNeuronBoundaries: false });
     store.setTestInput(3, -4);
-    expect(store.snapshot.view).toBe("neurons");
+    expect(store.snapshot).toMatchObject({ showNeuronBoundaries: false, showDecisionBoundary: true });
     expect(store.snapshot.testInput).toEqual({ x: 1, y: -1 });
   });
 

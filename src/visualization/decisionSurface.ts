@@ -8,6 +8,8 @@ export interface SurfaceOptions {
   explanationStep?: 1 | 2 | 3 | 4;
   selectedNeuron?: number;
   highlightRevealed?: boolean;
+  showNeuronBoundaries?: boolean;
+  showDecisionBoundary?: boolean;
 }
 
 export type Segment = [[number, number], [number, number]];
@@ -84,8 +86,8 @@ export function drawDecisionSurface(canvas: HTMLCanvasElement, model: NetworkMod
     if (step >= 3 && row < grid && col < grid) { ctx.fillStyle = probabilityColor(probability); ctx.fillRect(col * cellW, row * cellH, Math.ceil(cellW) + 1, Math.ceil(cellH) + 1); }
   }
   drawGrid(ctx, canvas);
-  if (step >= 2) drawHiddenBoundaries(ctx, canvas, model, selectedNeuron, step === 4);
-  if (step === 4) {
+  if (step >= 2 && options.showNeuronBoundaries !== false) drawHiddenBoundaries(ctx, canvas, model, selectedNeuron, step === 4);
+  if (step === 4 && options.showDecisionBoundary !== false) {
     ctx.strokeStyle = "#111827"; ctx.lineWidth = 4; ctx.setLineDash([]); ctx.beginPath();
     for (let row = 0; row < grid; row += 1) for (let col = 0; col < grid; col += 1) {
       const corners = [

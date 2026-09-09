@@ -44,7 +44,7 @@ export function drawPixelLatentMap(canvas: HTMLCanvasElement, model: PixelModel,
         const probabilities = forwardPixels(model, reconstructProjectedPixels(projection, x, y)).probabilities; const winner = probabilities.indexOf(Math.max(...probabilities)); row.push(winner);
         if (options.previousModel) { const oldProbabilities = forwardPixels(options.previousModel, reconstructProjectedPixels(projection, x, y)).probabilities; previousRow.push(oldProbabilities.indexOf(Math.max(...oldProbabilities))); }
         const confidence = probabilities[winner] ?? 0; const base = 1 / Math.max(2, probabilities.length); const certainty = Math.max(0, Math.min(1, (confidence - base) / (1 - base)));
-        context.fillStyle = options.showDecisionBoundary === false ? "#fafafa" : mixWithWhite(STRONG[winner % STRONG.length]!, .08 + certainty * .48);
+        context.fillStyle = mixWithWhite(STRONG[winner % STRONG.length]!, .08 + certainty * .48);
       }
       context.fillRect(margin.left + gx * plotW / cells, margin.top + gy * plotH / cells, plotW / cells + 1, plotH / cells + 1);
       if (view === "decision" && options.showNeuronGradient) { const raw = plane.constant + plane.horizontal * x + plane.vertical * y; const signal = pixelActivation(raw, model.activation ?? "tanh"); context.fillStyle = raw >= 0 ? `rgba(241,118,5,${.04 + Math.abs(signal) * .12})` : `rgba(116,70,245,${.04 + Math.abs(signal) * .12})`; context.fillRect(margin.left + gx * plotW / cells, margin.top + gy * plotH / cells, plotW / cells + 1, plotH / cells + 1); }

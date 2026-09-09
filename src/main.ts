@@ -15,7 +15,6 @@ import { drawDecisionSurface, HIDDEN_COLORS } from "./visualization/decisionSurf
 import { drawLossChart } from "./visualization/lossChart";
 import { drawMediaSample, mediaSampleText, playSoundSample, toggleMediaPixel } from "./visualization/mediaSample";
 import { networkGraphMarkup } from "./visualization/networkGraph";
-import { drawNeuronSurface } from "./visualization/neuronSurface";
 import { drawPixelCanvas, drawProjectionContribution, omrChoiceAt, pixelIndexAt } from "./visualization/pixelCanvas";
 import { drawPixelLatentMap, pixelMapExampleAt } from "./visualization/pixelLatentMap";
 import { pixelNetworkGraphMarkup } from "./visualization/pixelNetworkGraph";
@@ -87,22 +86,6 @@ function renderScenario(state: LabState): void {
   element<HTMLElement>("#pointEditor").hidden = preset.mediaKind !== "points";
   element<HTMLButtonElement>("#playMediaSound").hidden = preset.mediaKind !== "sound";
   element<HTMLElement>("#dataGraphTitle").textContent = preset.mediaKind === "points" ? "관찰 자료" : "두 힌트로 펼친 설명 지도";
-}
-
-function renderNeuronCards(state: LabState): void {
-  const container = element<HTMLDivElement>("#neuronView"); container.replaceChildren();
-  state.model.parameters.inputHidden.forEach((weights, index) => {
-    const card = document.createElement("article"); card.className = "neuron-card";
-    const title = document.createElement("h3"); title.textContent = `규칙 찾기 칸 ${index + 1}`;
-    const canvas = document.createElement("canvas"); canvas.width = 280; canvas.height = 190;
-    canvas.setAttribute("aria-label", `규칙 찾기 칸 ${index + 1}이 나눈 두 영역`);
-    const detail = document.createElement("p");
-    detail.textContent = `가로 영향 ${signed(weights[0])} · 세로 영향 ${signed(weights[1])} · 기준값 ${signed(state.model.parameters.hiddenBias[index] ?? 0)}`;
-    card.append(title, canvas, detail); container.append(card); drawNeuronSurface(canvas, state.model, index);
-  });
-  const note = document.createElement("p"); note.className = "boundary-note";
-  note.textContent = "각 칸의 선은 중간 기준입니다. 마지막 검은 선은 이 기준들을 모두 합친 뒤에 정해집니다.";
-  container.append(note);
 }
 
 function renderExperiments(state: LabState, store: LabStore): void {
@@ -258,8 +241,8 @@ function renderPixelProjectionStory(state: PixelLabState): { pixels: number[]; l
   const horizontal = projectionExtremes(state.projection, state.data, "horizontal"); const vertical = projectionExtremes(state.projection, state.data, "vertical");
   drawPixelCanvas(element<HTMLCanvasElement>("#pixelProjectionSource"), pixels, [], state.task); drawPixelCanvas(element<HTMLCanvasElement>("#pixelHorizontalNegative"), horizontal.negative.pixels, [], state.task); drawPixelCanvas(element<HTMLCanvasElement>("#pixelHorizontalPositive"), horizontal.positive.pixels, [], state.task); drawPixelCanvas(element<HTMLCanvasElement>("#pixelVerticalNegative"), vertical.negative.pixels, [], state.task); drawPixelCanvas(element<HTMLCanvasElement>("#pixelVerticalPositive"), vertical.positive.pixels, [], state.task);
   element<HTMLElement>("#pixelProjectionSourceName").textContent = label; element<HTMLOutputElement>("#pixelProjectionXScore").value = signed(point.x); element<HTMLOutputElement>("#pixelProjectionYScore").value = signed(point.y); element<HTMLElement>("#pixelHorizontalMarker").style.left = `${((point.x + 1) / 2 * 100).toFixed(1)}%`; element<HTMLElement>("#pixelVerticalMarker").style.left = `${((point.y + 1) / 2 * 100).toFixed(1)}%`;
-  const layers = [state.showNeuronGradient ? `규칙 칸 ${state.selectedNeuron + 1}의 선` : "", state.showDecisionBoundary ? "최종 판단 영역" : ""].filter(Boolean);
-  element<HTMLElement>("#pixelMapInstruction").textContent = layers.length === 2 ? "선과 최종 판단을 함께 봅니다." : layers.length === 1 ? `${layers[0]}만 봅니다.` : "학습 그림만 봅니다.";
+  const layers = [state.showNeuronGradient ? `규칙 칸 ${state.selectedNeuron + 1}의 색 분류선` : "", state.showDecisionBoundary ? "검은 최종 경계선" : ""].filter(Boolean);
+  element<HTMLElement>("#pixelMapInstruction").textContent = layers.length === 2 ? "색 선과 검은 선을 함께 봅니다." : layers.length === 1 ? `${layers[0]}만 봅니다.` : "학습 그림과 판단 영역만 봅니다.";
   element<HTMLElement>("#pixelGraphNote").textContent = selected ? `${label} 그림을 눌렀습니다. 위의 두 점수가 이 점의 가로·세로 위치입니다.` : "점을 누르면 그 그림이 왜 그 자리에 놓였는지 위에서 바로 확인할 수 있습니다.";
   return { pixels, label };
 }
@@ -315,12 +298,12 @@ function render(state: LabState, store: LabStore, pixelStore: PixelLabStore): vo
   element<HTMLOutputElement>("#learningRateOut").value = state.model.config.learningRate.toFixed(2);
   element<HTMLButtonElement>("#undoPoint").disabled = state.data.length === 0;
   document.querySelectorAll<HTMLButtonElement>("#classPicker button").forEach((button) => button.classList.toggle("active", Number(button.dataset.class) === state.pointClass));
-  const decision = element<HTMLDivElement>("#decisionView"); const neurons = element<HTMLDivElement>("#neuronView");
-  decision.hidden = state.view !== "decision"; neurons.hidden = state.view !== "neurons";
-  element<HTMLButtonElement>("#decisionTab").classList.toggle("active", state.view === "decision");
-  element<HTMLButtonElement>("#neuronTab").classList.toggle("active", state.view === "neurons");
-  element<HTMLButtonElement>("#decisionTab").setAttribute("aria-selected", String(state.view === "decision"));
-  element<HTMLButtonElement>("#neuronTab").setAttribute("aria-selected", String(state.view === "neurons"));
+  element<HTMLInputElement>("#boundaryNeuronLayer").checked = state.showNeuronBoundaries;
+  element<HTMLInputElement>("#boundaryDecisionLayer").checked = state.showDecisionBoundary;
+  const boundaryNeuronSelect = element<HTMLSelectElement>("#boundaryNeuronSelect");
+  if (boundaryNeuronSelect.options.length !== state.model.config.hiddenUnits) { boundaryNeuronSelect.replaceChildren(); for (let index = 0; index < state.model.config.hiddenUnits; index += 1) boundaryNeuronSelect.add(new Option(`${index + 1}번`, String(index))); }
+  boundaryNeuronSelect.value = String(state.selectedNeuron); element<HTMLElement>("#boundaryNeuronSelectWrap").hidden = !state.showNeuronBoundaries;
+  element<HTMLElement>("#boundaryMapInstruction").textContent = state.showNeuronBoundaries && state.showDecisionBoundary ? "색 선과 검은 선을 함께 봅니다." : state.showNeuronBoundaries ? "색 분류선만 봅니다." : state.showDecisionBoundary ? "검은 최종 경계선만 봅니다." : "자료 점과 판단 영역만 봅니다.";
   if (state.lessonStep === 2 && !isPixelPreset(state.preset)) {
     drawDecisionSurface(element<HTMLCanvasElement>("#dataCanvas"), state.model, state.data, state.testInput, { explanationStep: 1 });
     if (preset.mediaKind !== "points") {
@@ -331,8 +314,8 @@ function render(state: LabState, store: LabStore, pixelStore: PixelLabStore): vo
     }
   }
   if (state.lessonStep === 4 && !isPixelPreset(state.preset)) {
-    drawDecisionSurface(element<HTMLCanvasElement>("#modelCanvas"), state.model, state.data, state.testInput, { explanationStep: 4, selectedNeuron: state.selectedNeuron });
-    renderNeuronCards(state); drawLossChart(element<HTMLCanvasElement>("#lossCanvas"), state.history);
+    drawDecisionSurface(element<HTMLCanvasElement>("#modelCanvas"), state.model, state.data, state.testInput, { explanationStep: 4, selectedNeuron: state.selectedNeuron, showNeuronBoundaries: state.showNeuronBoundaries, showDecisionBoundary: state.showDecisionBoundary });
+    drawLossChart(element<HTMLCanvasElement>("#lossCanvas"), state.history);
     element<SVGSVGElement>("#networkSvg").innerHTML = networkGraphMarkup(state.model, prediction.hidden);
   }
   if (state.lessonStep === 3 && !isPixelPreset(state.preset)) {
@@ -384,8 +367,9 @@ export function mountApp(store = createInitialStore()): LabStore {
   element<HTMLSelectElement>("#activation").addEventListener("change", (event) => store.setConfig({ activation: (event.currentTarget as HTMLSelectElement).value as ActivationName }));
   element<HTMLInputElement>("#learningRate").addEventListener("change", (event) => store.setConfig({ learningRate: Number((event.currentTarget as HTMLInputElement).value) }));
   element<HTMLButtonElement>("#resetModel").addEventListener("click", () => { store.resetModel(); showToast("연습 전 상태로 되돌렸습니다."); });
-  element<HTMLButtonElement>("#decisionTab").addEventListener("click", () => store.setView("decision"));
-  element<HTMLButtonElement>("#neuronTab").addEventListener("click", () => store.setView("neurons"));
+  element<HTMLInputElement>("#boundaryNeuronLayer").addEventListener("change", (event) => store.setLayers({ showNeuronBoundaries: (event.currentTarget as HTMLInputElement).checked }));
+  element<HTMLInputElement>("#boundaryDecisionLayer").addEventListener("change", (event) => store.setLayers({ showDecisionBoundary: (event.currentTarget as HTMLInputElement).checked }));
+  element<HTMLSelectElement>("#boundaryNeuronSelect").addEventListener("change", (event) => store.setSelectedNeuron(Number((event.currentTarget as HTMLSelectElement).value)));
   ([["#trainOne", 1], ["#trainTen", 10], ["#trainHundred", 100]] as const).forEach(([selector, count]) => element<HTMLButtonElement>(selector).addEventListener("click", () => { const error = store.trainEpochs(count); if (error) showToast(error); }));
   element<HTMLButtonElement>("#autoTrain").addEventListener("click", () => { const error = store.toggleAuto(); if (error) showToast(error); });
   element<HTMLCanvasElement>("#dataCanvas").addEventListener("click", (event) => addPointFromCanvas(event, store));

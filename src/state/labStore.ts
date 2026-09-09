@@ -22,7 +22,8 @@ export interface LabState {
   history: HistoryPoint[];
   experiments: ExperimentRecord[];
   testInput: { x: number; y: number };
-  view: "decision" | "neurons";
+  showNeuronBoundaries: boolean;
+  showDecisionBoundary: boolean;
   autoTraining: boolean;
   epochGoal: number;
   explanationStep: 1 | 2 | 3 | 4;
@@ -73,7 +74,7 @@ function initialState(): LabState {
     preset: settings.preset, data, pointClass: 0, model,
     history: [{ epoch: 0, loss: first.loss ?? 0 }],
     experiments: safeExperiments(), testInput: { x: 0, y: 0 },
-    view: "decision", autoTraining: false, epochGoal: PRESETS[settings.preset].recommendedHiddenUnits >= 4 ? 2000 : 1000,
+    showNeuronBoundaries: true, showDecisionBoundary: true, autoTraining: false, epochGoal: PRESETS[settings.preset].recommendedHiddenUnits >= 4 ? 2000 : 1000,
     explanationStep: 1, selectedNeuron: 0, quizIndex: 0, quizAnswer: null, highlightRevealed: false,
     mediaSampleIndex: 0, mediaHighlight: false,
     lessonStep: 1,
@@ -124,7 +125,7 @@ export class LabStore {
     this.resetModel();
   }
   undoDataPoint(): void { this.state = { ...this.state, preset: "custom", data: undoPoint(this.state.data) }; this.resetModel(); }
-  setView(view: LabState["view"]): void { this.state = { ...this.state, view }; this.emit(); }
+  setLayers(layers: { showNeuronBoundaries?: boolean; showDecisionBoundary?: boolean }): void { this.state = { ...this.state, ...layers }; this.emit(); }
   setLessonStep(lessonStep: LabState["lessonStep"]): void {
     this.state = { ...this.state, lessonStep, furthestLessonStep: Math.max(this.state.furthestLessonStep, lessonStep) as LabState["furthestLessonStep"] };
     this.emit();
@@ -132,7 +133,7 @@ export class LabStore {
   nextLesson(): void { this.setLessonStep(Math.min(5, this.state.lessonStep + 1) as LabState["lessonStep"]); }
   previousLesson(): void { this.setLessonStep(Math.max(1, this.state.lessonStep - 1) as LabState["lessonStep"]); }
   setExplanationStep(explanationStep: LabState["explanationStep"]): void {
-    this.state = { ...this.state, explanationStep, view: "decision", quizAnswer: null, highlightRevealed: false };
+    this.state = { ...this.state, explanationStep, quizAnswer: null, highlightRevealed: false };
     this.emit();
   }
   setSelectedNeuron(selectedNeuron: number): void {
