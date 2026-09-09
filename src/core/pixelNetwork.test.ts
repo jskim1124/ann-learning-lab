@@ -20,4 +20,12 @@ describe("실제 픽셀 다중 분류 신경망", () => {
     expect(probabilities).toHaveLength(info.classes.length);
     expect(probabilities.reduce((sum, value) => sum + value, 0)).toBeCloseTo(1, 8);
   });
+
+  it.each(["tanh", "relu", "sigmoid"] as const)("복도 스위치와 같은 %s 중간값 방식을 쓸 수 있다", (activation) => {
+    const data = createPixelDataset("digits");
+    const initial = initializePixelModel(PIXEL_INPUTS, 4, 3, 31, activation);
+    const trained = trainPixelModel(initial, data, 180, .12);
+    expect(trained.activation).toBe(activation);
+    expect(evaluatePixelModel(trained, data).loss).toBeLessThan(evaluatePixelModel(initial, data).loss);
+  });
 });

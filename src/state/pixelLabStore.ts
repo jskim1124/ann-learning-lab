@@ -1,6 +1,7 @@
 import { evaluatePixelModel, forwardPixels, initializePixelModel, trainPixelModel, type PixelExample, type PixelModel } from "../core/pixelNetwork";
 import { constrainPixelModelToProjection, createPixelProjection, type PixelProjection } from "../core/pixelProjection";
 import { createPixelDataset, emptyDrawing, PIXEL_INPUTS, PIXEL_TASKS, sampleForClass, type PixelTaskName } from "../data/pixelDatasets";
+import type { ActivationName } from "../types";
 
 export interface PixelHistoryPoint { epoch: number; loss: number; }
 export interface PixelLabState {
@@ -39,9 +40,10 @@ export class PixelLabStore {
   selectLabel(label: number): void { this.state = { ...this.state, selectedLabel: label }; this.emit(); }
   addDrawing(): void { const example = { pixels: [...this.state.drawing], label: this.state.selectedLabel }; this.state = { ...this.state, data: [...this.state.data, example] }; this.emit(); }
   train(epochs: number): void { let model = this.state.model; for (let epoch = 0; epoch < epochs; epoch += 1) model = constrainPixelModelToProjection(trainPixelModel(model, this.state.data, 1, this.state.learningRate), this.state.projection); const metrics = evaluatePixelModel(model, this.state.data); this.state = { ...this.state, model, history: [...this.state.history, { epoch: model.epoch, loss: metrics.loss }] }; this.emit(); }
-  resetModel(): void { const model = constrainPixelModelToProjection(initializePixelModel(PIXEL_INPUTS, this.state.model.hiddenUnits, PIXEL_TASKS[this.state.task].classes.length), this.state.projection); this.state = { ...this.state, model, history: [{ epoch: 0, loss: evaluatePixelModel(model, this.state.data).loss }] }; this.emit(); }
-  setHiddenUnits(hiddenUnits: number): void { const count = Math.max(2, Math.min(32, Math.round(hiddenUnits))); const model = constrainPixelModelToProjection(initializePixelModel(PIXEL_INPUTS, count, PIXEL_TASKS[this.state.task].classes.length), this.state.projection); this.state = { ...this.state, model, selectedNeuron: Math.min(this.state.selectedNeuron, count - 1), history: [{ epoch: 0, loss: evaluatePixelModel(model, this.state.data).loss }] }; this.emit(); }
-  setLearningRate(learningRate: number): void { this.state = { ...this.state, learningRate: Math.max(.02, Math.min(.3, learningRate)) }; this.emit(); }
+  resetModel(): void { const model = constrainPixelModelToProjection(initializePixelModel(PIXEL_INPUTS, this.state.model.hiddenUnits, PIXEL_TASKS[this.state.task].classes.length, 31, this.state.model.activation), this.state.projection); this.state = { ...this.state, model, history: [{ epoch: 0, loss: evaluatePixelModel(model, this.state.data).loss }] }; this.emit(); }
+  setHiddenUnits(hiddenUnits: number): void { const count = Math.max(1, Math.min(6, Math.round(hiddenUnits))); const model = constrainPixelModelToProjection(initializePixelModel(PIXEL_INPUTS, count, PIXEL_TASKS[this.state.task].classes.length, 31, this.state.model.activation), this.state.projection); this.state = { ...this.state, model, selectedNeuron: Math.min(this.state.selectedNeuron, count - 1), history: [{ epoch: 0, loss: evaluatePixelModel(model, this.state.data).loss }] }; this.emit(); }
+  setActivation(activation: ActivationName): void { const model = constrainPixelModelToProjection(initializePixelModel(PIXEL_INPUTS, this.state.model.hiddenUnits, PIXEL_TASKS[this.state.task].classes.length, 31, activation), this.state.projection); this.state = { ...this.state, model, history: [{ epoch: 0, loss: evaluatePixelModel(model, this.state.data).loss }] }; this.emit(); }
+  setLearningRate(learningRate: number): void { this.state = { ...this.state, learningRate: Math.max(.01, Math.min(.3, learningRate)) }; this.emit(); }
   setLayers(layers: { showNeuronGradient?: boolean; showDecisionBoundary?: boolean }): void { this.state = { ...this.state, ...layers }; this.emit(); }
   setSelectedNeuron(selectedNeuron: number): void { this.state = { ...this.state, selectedNeuron: Math.max(0, Math.min(this.state.model.hiddenUnits - 1, Math.round(selectedNeuron))) }; this.emit(); }
   selectMapExample(index: number | null): void { this.state = { ...this.state, mapExampleIndex: index !== null && index >= 0 && index < this.state.data.length ? index : null }; this.emit(); }

@@ -1,4 +1,4 @@
-import { forwardPixels, type PixelExample, type PixelModel } from "../core/pixelNetwork";
+import { forwardPixels, pixelActivation, type PixelExample, type PixelModel } from "../core/pixelNetwork";
 import { projectPixels, reconstructProjectedPixels, type PixelProjection } from "../core/pixelProjection";
 
 const STRONG = ["#f17605", "#df466f", "#7446f5", "#1769d2", "#247a63", "#b98700"];
@@ -38,16 +38,16 @@ export function drawPixelLatentMap(canvas: HTMLCanvasElement, model: PixelModel,
       if (view === "placement") {
         context.fillStyle = "#fafafa";
       } else if (view === "neurons") {
-        const signal = Math.tanh(plane.constant + plane.horizontal * x + plane.vertical * y); const color = signal >= 0 ? "#f17605" : "#7446f5";
+        const raw = plane.constant + plane.horizontal * x + plane.vertical * y; const signal = pixelActivation(raw, model.activation ?? "tanh"); const color = raw >= 0 ? "#f17605" : "#7446f5";
         context.fillStyle = mixWithWhite(color, .08 + Math.abs(signal) * .42);
       } else {
         const probabilities = forwardPixels(model, reconstructProjectedPixels(projection, x, y)).probabilities; const winner = probabilities.indexOf(Math.max(...probabilities)); row.push(winner);
         if (options.previousModel) { const oldProbabilities = forwardPixels(options.previousModel, reconstructProjectedPixels(projection, x, y)).probabilities; previousRow.push(oldProbabilities.indexOf(Math.max(...oldProbabilities))); }
         const confidence = probabilities[winner] ?? 0; const base = 1 / Math.max(2, probabilities.length); const certainty = Math.max(0, Math.min(1, (confidence - base) / (1 - base)));
-        context.fillStyle = mixWithWhite(STRONG[winner % STRONG.length]!, .08 + certainty * .48);
+        context.fillStyle = options.showDecisionBoundary === false ? "#fafafa" : mixWithWhite(STRONG[winner % STRONG.length]!, .08 + certainty * .48);
       }
       context.fillRect(margin.left + gx * plotW / cells, margin.top + gy * plotH / cells, plotW / cells + 1, plotH / cells + 1);
-      if (view === "decision" && options.showNeuronGradient) { const signal = Math.tanh(plane.constant + plane.horizontal * x + plane.vertical * y); context.fillStyle = signal >= 0 ? `rgba(241,118,5,${.04 + Math.abs(signal) * .12})` : `rgba(116,70,245,${.04 + Math.abs(signal) * .12})`; context.fillRect(margin.left + gx * plotW / cells, margin.top + gy * plotH / cells, plotW / cells + 1, plotH / cells + 1); }
+      if (view === "decision" && options.showNeuronGradient) { const raw = plane.constant + plane.horizontal * x + plane.vertical * y; const signal = pixelActivation(raw, model.activation ?? "tanh"); context.fillStyle = raw >= 0 ? `rgba(241,118,5,${.04 + Math.abs(signal) * .12})` : `rgba(116,70,245,${.04 + Math.abs(signal) * .12})`; context.fillRect(margin.left + gx * plotW / cells, margin.top + gy * plotH / cells, plotW / cells + 1, plotH / cells + 1); }
     }
   }
   context.strokeStyle = "rgba(73,83,98,.16)"; context.lineWidth = 1;
