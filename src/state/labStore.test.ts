@@ -16,6 +16,18 @@ describe("lab interactions", () => {
     expect(store.snapshot.data).toHaveLength(previousLength);
   });
 
+  it("keeps the switch problem selected when a point is added or undone", () => {
+    const store = new LabStore();
+    store.setPreset("xor");
+    const previousLength = store.snapshot.data.length;
+    store.addDataPoint(0.2, -0.3);
+    expect(store.snapshot.preset).toBe("xor");
+    expect(store.snapshot.data).toHaveLength(previousLength + 1);
+    store.undoDataPoint();
+    expect(store.snapshot.preset).toBe("xor");
+    expect(store.snapshot.data).toHaveLength(previousLength);
+  });
+
   it("rejects empty and single-class training data", () => {
     const store = new LabStore();
     store.setPreset("custom");

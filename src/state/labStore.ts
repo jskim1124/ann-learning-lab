@@ -131,10 +131,10 @@ export class LabStore {
   }
   setPointClass(pointClass: Label): void { this.state = { ...this.state, pointClass }; this.emit(); }
   addDataPoint(x: number, y: number): void {
-    this.state = { ...this.state, preset: "custom", data: addPoint(this.state.data, x, y, this.state.pointClass) };
+    this.state = { ...this.state, data: addPoint(this.state.data, x, y, this.state.pointClass) };
     this.resetModel();
   }
-  undoDataPoint(): void { this.state = { ...this.state, preset: "custom", data: undoPoint(this.state.data) }; this.resetModel(); }
+  undoDataPoint(): void { this.state = { ...this.state, data: undoPoint(this.state.data) }; this.resetModel(); }
   setLayers(layers: { showNeuronBoundaries?: boolean; showDecisionBoundary?: boolean }): void { this.state = { ...this.state, ...layers }; this.emit(); }
   setLessonStep(lessonStep: LabState["lessonStep"]): void {
     this.state = { ...this.state, lessonStep, furthestLessonStep: Math.max(this.state.furthestLessonStep, lessonStep) as LabState["furthestLessonStep"] };

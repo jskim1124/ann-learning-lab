@@ -201,7 +201,7 @@ function renderCausalExplanation(state: LabState, store: LabStore): void {
     const labels = state.preset === "xor" ? SWITCH_LESSON.map((lesson) => lesson.tab) : ["새 점", "뉴런 신호", "합치기", "최종 판단"];
     if (button.lastChild) button.lastChild.textContent = labels[step - 1] ?? "";
   });
-  if (state.preset === "xor") { const lesson = SWITCH_LESSON[state.explanationStep - 1]!; target.innerHTML = `<span class="scene-no">${state.explanationStep} / 4</span><h2>${lesson.title}</h2><p>${lesson.body}</p><div class="switch-rule"><b>${state.explanationStep === 1 ? "먼저 네 경우를 읽기" : state.explanationStep === 2 ? "한 줄의 한계 확인" : state.explanationStep === 3 ? "규칙 찾기 칸 2개" : "두 규칙 합치기"}</b><span>${state.explanationStep === 1 ? "점의 위치는 두 스위치, 색은 전등 상태입니다." : state.explanationStep === 2 ? "켜짐 점이 대각선으로 떨어져 있어 한 줄로 묶을 수 없습니다." : state.explanationStep === 3 ? "각 선이 바깥쪽 꺼짐 하나를 떼어 냅니다." : "두 선 사이는 켜짐, 바깥은 꺼짐입니다."}</span></div>`; return; }
+  if (state.preset === "xor") { const lesson = SWITCH_LESSON[state.explanationStep - 1]!; target.innerHTML = `<span class="scene-no">${state.explanationStep} / 4</span><h2>${lesson.title}</h2><p>${lesson.body}</p><div class="switch-rule"><b>${state.explanationStep === 1 ? "먼저 네 경우 읽기" : state.explanationStep === 2 ? "은닉 노드 1개" : state.explanationStep === 3 ? "은닉 노드 하나 추가" : "대표 선을 한 번씩 고치기"}</b><span>${state.explanationStep === 1 ? "점의 위치는 두 스위치, 색은 전등 상태입니다." : state.explanationStep === 2 ? "노드 하나가 선 하나를 맡지만 아직 두 답이 섞입니다." : state.explanationStep === 3 ? "두 노드가 서로 다른 바깥쪽 꺼짐을 하나씩 맡습니다." : "연습할 때마다 지금 오답이 줄어드는 쪽으로 조금씩 움직입니다."}</span></div>`; return; }
   const x = state.testInput.x.toFixed(2); const y = state.testInput.y.toFixed(2);
   if (state.explanationStep === 1) {
     target.innerHTML = `<span class="scene-no">장면 1</span><h2>같은 높이에서 옆으로만 움직입니다</h2><p>노란 점과 보라색 십자는 세로 위치가 같습니다. 가로 방향의 힌트 하나만 바꾸면 무엇이 달라지는지 살펴봅니다.</p><div class="plain-rule">노란 점 = 바꾸기 전<br>보라색 십자 = 가로 힌트 하나만 바꾼 뒤</div>`;
@@ -373,9 +373,9 @@ function renderPixelLab(lab: LabState, state: PixelLabState): void {
     stopPixelAuto();
     const xor = lab.preset === "xor";
     element<HTMLElement>("#dataTitle").textContent = custom ? "클래스와 측정 자료를 직접 만들어 봅시다" : "모델이 배울 사례를 먼저 읽어 봅시다";
-    element<HTMLElement>("#whyTitle").textContent = custom ? "어떤 특징을 가로와 세로에 놓을까요?" : xor ? "왜 스위치 문제에는 선이 두 개 필요할까요?" : "왜 구분선이 저기에 생겼을까요?";
-    element<HTMLElement>("#whySubtitle").textContent = custom ? "같은 자료를 여러 특징 조합으로 펼쳐 보고, 두 클래스가 잘 나뉘는지 비교합니다." : xor ? "네 가지 경우부터 시작해, 선 하나로 안 되는 이유와 두 선이 답을 만드는 과정을 봅니다." : "한 가지만 바꿔 강조해 본 뒤, 짧은 확인 문제를 풉니다.";
-    element<HTMLElement>("#whyFooterNote").textContent = xor ? "네 경우 → 선 하나의 한계 → 선 두 개 → 최종 판단" : "노란 점에서 보라색 십자로, 가로 한 가지만 바꿉니다.";
+    element<HTMLElement>("#whyTitle").textContent = custom ? "어떤 특징을 가로와 세로에 놓을까요?" : xor ? "왜 은닉 노드 두 개가 필요할까요?" : "왜 구분선이 저기에 생겼을까요?";
+    element<HTMLElement>("#whySubtitle").textContent = custom ? "같은 자료를 여러 특징 조합으로 펼쳐 보고, 두 클래스가 잘 나뉘는지 비교합니다." : xor ? "노드 하나로 실패하는 이유부터, 노드를 더하고 선을 고쳐 가는 과정까지 봅니다." : "한 가지만 바꿔 강조해 본 뒤, 짧은 확인 문제를 풉니다.";
+    element<HTMLElement>("#whyFooterNote").textContent = xor ? "네 경우 → 노드 1개 → 노드 2개 → 대표 선 연습" : "노란 점에서 보라색 십자로, 가로 한 가지만 바꿉니다.";
     element<HTMLElement>("#trainTitle").textContent = custom ? "내 자료로 모델을 연습시켜 봅시다" : "이제 모델이 스스로 고치게 해 봅시다"; element<HTMLElement>("#useTitle").textContent = "새 값을 넣어 보고, 만든 모델을 가져가세요";
     element<HTMLElement>("#trainTitle").nextElementSibling!.textContent = custom ? "고른 두 특징과 직접 입력한 클래스 자료로 분류선을 찾아봅니다." : "완성된 예시를 이해했으니, 처음 상태에서 직접 연습시켜 보세요.";
     element<HTMLButtonElement>("#dataNext").textContent = custom ? "특징 골라서 분포 보기 →" : "먼저 원리 이해하기 →";
@@ -466,7 +466,8 @@ function render(state: LabState, store: LabStore, pixelStore: PixelLabStore): vo
   const titles = ["옆으로 한 가지만 바꾸기", "작은 질문의 색 선", "여러 표를 한데 모으기", "두 답이 같아지는 검은 선"];
   const subtitles = ["노란 점과 보라 십자의 세로 높이를 비교하세요.", "한 번에 가로 힌트 하나만 바꿉니다.", "바꾸기 전과 뒤의 가능성을 비교하세요.", "검은 선 위에서는 두 답이 같은 표를 받습니다."];
   element<HTMLElement>("#plotTitle").textContent = state.preset === "xor" ? SWITCH_LESSON[state.explanationStep - 1]!.tab : titles[state.explanationStep - 1]!;
-  element<HTMLElement>("#plotSubtitle").textContent = state.preset === "xor" ? "전등 상태가 나뉘는 모양만 봅니다." : subtitles[state.explanationStep - 1]!;
+  const switchSubtitles = ["점의 위치는 스위치 방향, 색은 전등 상태입니다.", "은닉 노드 하나가 맡은 선 한 개입니다.", "노드가 늘면 서로 다른 선을 하나씩 맡을 수 있습니다.", "회색 점선에서 보라 선까지 이동 순서를 봅니다."];
+  element<HTMLElement>("#plotSubtitle").textContent = state.preset === "xor" ? switchSubtitles[state.explanationStep - 1]! : subtitles[state.explanationStep - 1]!;
   if (state.lessonStep === 5) renderExperiments(state, store);
   renderPixelLab(state, pixelStore.snapshot); renderCustomLab(state);
 }
