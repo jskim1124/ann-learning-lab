@@ -7,6 +7,7 @@ export interface PixelHistoryPoint { epoch: number; loss: number; }
 export type PixelFeatureView = PixelProjectionMode;
 export interface PixelLabState {
   task: PixelTaskName;
+  classes: string[];
   data: PixelExample[];
   model: PixelModel;
   drawing: number[];
@@ -33,8 +34,8 @@ export class PixelLabStore {
   private listeners = new Set<(state: PixelLabState) => void>();
   constructor(task: PixelTaskName = "digits") { this.state = this.fresh(task); }
   private fresh(task: PixelTaskName): PixelLabState {
-    const info = PIXEL_TASKS[task]; const data = createPixelDataset(task); const projection = createPixelProjection(data); const model = constrainPixelModelToProjection(initializePixelModel(PIXEL_INPUTS, info.hiddenUnits, info.classes.length), projection);
-    return { task, data, model, drawing: starterDrawing(task), selectedLabel: 0, learningRate: .12, history: [{ epoch: 0, loss: evaluatePixelModel(model, data).loss }], understandStep: 1, furthestUnderstandStep: 1, highlightRevealed: false, quizPassed: false, projection, showNeuronBoundaries: true, showDecisionBoundary: true, featureView: "position", trainingFeatureView: "learned", exploredFeatures: [], scoreCalcStep: 0, mapExampleIndex: null, latestAddedIndex: null };
+    const info = PIXEL_TASKS[task]; const classes = [...info.classes]; const data = createPixelDataset(task); const projection = createPixelProjection(data); const model = constrainPixelModelToProjection(initializePixelModel(PIXEL_INPUTS, info.hiddenUnits, classes.length), projection);
+    return { task, classes, data, model, drawing: starterDrawing(task), selectedLabel: 0, learningRate: .12, history: [{ epoch: 0, loss: evaluatePixelModel(model, data).loss }], understandStep: 1, furthestUnderstandStep: 1, highlightRevealed: false, quizPassed: false, projection, showNeuronBoundaries: true, showDecisionBoundary: true, featureView: "position", trainingFeatureView: "learned", exploredFeatures: [], scoreCalcStep: 0, mapExampleIndex: null, latestAddedIndex: null };
   }
   get snapshot(): PixelLabState { return this.state; }
   subscribe(listener: (state: PixelLabState) => void): () => void { this.listeners.add(listener); listener(this.state); return () => this.listeners.delete(listener); }
@@ -45,22 +46,32 @@ export class PixelLabStore {
   clear(): void { this.state = { ...this.state, drawing: emptyDrawing(this.state.task), mapExampleIndex: null, latestAddedIndex: null }; this.emit(); }
   loadSample(label: number, variation = 0): void { this.state = { ...this.state, drawing: sampleForClass(this.state.task, label, variation), selectedLabel: label, mapExampleIndex: null, latestAddedIndex: null }; this.emit(); }
   loadDrawing(pixels: number[], label: number): void { if (pixels.length !== PIXEL_INPUTS) return; this.state = { ...this.state, drawing: [...pixels], selectedLabel: label, mapExampleIndex: null, latestAddedIndex: null }; this.emit(); }
-  selectLabel(label: number): void { this.state = { ...this.state, selectedLabel: label }; this.emit(); }
+  selectLabel(label: number): void { if (label < 0 || label >= this.state.classes.length) return; this.state = { ...this.state, selectedLabel: label }; this.emit(); }
+  addClass(name: string): string | null {
+    const normalized = name.trim();
+    if (!normalized) return "새 클래스 이름을 입력해 주세요.";
+    if (this.state.classes.some((existing) => existing.toLocaleLowerCase() === normalized.toLocaleLowerCase())) return "이미 있는 클래스 이름입니다.";
+    if (this.state.classes.length >= 10) return "클래스는 최대 10개까지 만들 수 있습니다.";
+    const classes = [...this.state.classes, normalized];
+    const model = constrainPixelModelToProjection(initializePixelModel(PIXEL_INPUTS, this.state.model.hiddenUnits, classes.length, 31, this.state.model.activation), this.state.projection);
+    this.state = { ...this.state, classes, selectedLabel: classes.length - 1, model, history: [{ epoch: 0, loss: evaluatePixelModel(model, this.state.data).loss }], mapExampleIndex: null, latestAddedIndex: null };
+    this.emit(); return null;
+  }
   addDrawing(): void {
     const example = { pixels: [...this.state.drawing], label: this.state.selectedLabel }; const data = [example, ...this.state.data];
     const projection = createPixelFeatureProjection(data, this.state.task, this.state.trainingFeatureView);
-    const model = constrainPixelModelToProjection(initializePixelModel(PIXEL_INPUTS, this.state.model.hiddenUnits, PIXEL_TASKS[this.state.task].classes.length, 31, this.state.model.activation), projection);
+    const model = constrainPixelModelToProjection(initializePixelModel(PIXEL_INPUTS, this.state.model.hiddenUnits, this.state.classes.length, 31, this.state.model.activation), projection);
     this.state = { ...this.state, data, projection, model, history: [{ epoch: 0, loss: evaluatePixelModel(model, data).loss }], mapExampleIndex: null, latestAddedIndex: 0 };
     this.emit();
   }
   train(epochs: number): void { let model = this.state.model; for (let epoch = 0; epoch < epochs; epoch += 1) model = constrainPixelModelToProjection(trainPixelModel(model, this.state.data, 1, this.state.learningRate), this.state.projection); const metrics = evaluatePixelModel(model, this.state.data); this.state = { ...this.state, model, history: [...this.state.history, { epoch: model.epoch, loss: metrics.loss }] }; this.emit(); }
-  resetModel(): void { const model = constrainPixelModelToProjection(initializePixelModel(PIXEL_INPUTS, this.state.model.hiddenUnits, PIXEL_TASKS[this.state.task].classes.length, 31, this.state.model.activation), this.state.projection); this.state = { ...this.state, model, history: [{ epoch: 0, loss: evaluatePixelModel(model, this.state.data).loss }] }; this.emit(); }
-  setHiddenUnits(hiddenUnits: number): void { const count = Math.max(1, Math.min(6, Math.round(hiddenUnits))); const model = constrainPixelModelToProjection(initializePixelModel(PIXEL_INPUTS, count, PIXEL_TASKS[this.state.task].classes.length, 31, this.state.model.activation), this.state.projection); this.state = { ...this.state, model, history: [{ epoch: 0, loss: evaluatePixelModel(model, this.state.data).loss }] }; this.emit(); }
-  setActivation(activation: ActivationName): void { const model = constrainPixelModelToProjection(initializePixelModel(PIXEL_INPUTS, this.state.model.hiddenUnits, PIXEL_TASKS[this.state.task].classes.length, 31, activation), this.state.projection); this.state = { ...this.state, model, history: [{ epoch: 0, loss: evaluatePixelModel(model, this.state.data).loss }] }; this.emit(); }
+  resetModel(): void { const model = constrainPixelModelToProjection(initializePixelModel(PIXEL_INPUTS, this.state.model.hiddenUnits, this.state.classes.length, 31, this.state.model.activation), this.state.projection); this.state = { ...this.state, model, history: [{ epoch: 0, loss: evaluatePixelModel(model, this.state.data).loss }] }; this.emit(); }
+  setHiddenUnits(hiddenUnits: number): void { const count = Math.max(1, Math.min(6, Math.round(hiddenUnits))); const model = constrainPixelModelToProjection(initializePixelModel(PIXEL_INPUTS, count, this.state.classes.length, 31, this.state.model.activation), this.state.projection); this.state = { ...this.state, model, history: [{ epoch: 0, loss: evaluatePixelModel(model, this.state.data).loss }] }; this.emit(); }
+  setActivation(activation: ActivationName): void { const model = constrainPixelModelToProjection(initializePixelModel(PIXEL_INPUTS, this.state.model.hiddenUnits, this.state.classes.length, 31, activation), this.state.projection); this.state = { ...this.state, model, history: [{ epoch: 0, loss: evaluatePixelModel(model, this.state.data).loss }] }; this.emit(); }
   setLearningRate(learningRate: number): void { this.state = { ...this.state, learningRate: Math.max(.01, Math.min(.3, learningRate)) }; this.emit(); }
   setLayers(layers: { showNeuronBoundaries?: boolean; showDecisionBoundary?: boolean }): void { this.state = { ...this.state, ...layers }; this.emit(); }
   setFeatureView(featureView: PixelFeatureView): void { this.state = { ...this.state, featureView, exploredFeatures: this.state.exploredFeatures.includes(featureView) ? this.state.exploredFeatures : [...this.state.exploredFeatures, featureView] }; this.emit(); }
-  setTrainingFeature(trainingFeatureView: PixelFeatureView): void { const projection = createPixelFeatureProjection(this.state.data, this.state.task, trainingFeatureView); const model = constrainPixelModelToProjection(initializePixelModel(PIXEL_INPUTS, this.state.model.hiddenUnits, PIXEL_TASKS[this.state.task].classes.length, 31, this.state.model.activation), projection); this.state = { ...this.state, trainingFeatureView, featureView: trainingFeatureView, projection, model, history: [{ epoch: 0, loss: evaluatePixelModel(model, this.state.data).loss }], mapExampleIndex: null }; this.emit(); }
+  setTrainingFeature(trainingFeatureView: PixelFeatureView): void { const projection = createPixelFeatureProjection(this.state.data, this.state.task, trainingFeatureView); const model = constrainPixelModelToProjection(initializePixelModel(PIXEL_INPUTS, this.state.model.hiddenUnits, this.state.classes.length, 31, this.state.model.activation), projection); this.state = { ...this.state, trainingFeatureView, featureView: trainingFeatureView, projection, model, history: [{ epoch: 0, loss: evaluatePixelModel(model, this.state.data).loss }], mapExampleIndex: null }; this.emit(); }
   selectMapExample(index: number | null): void { this.state = { ...this.state, mapExampleIndex: index !== null && index >= 0 && index < this.state.data.length ? index : null }; this.emit(); }
   revealHighlight(): void { this.state = { ...this.state, highlightRevealed: true, scoreCalcStep: this.state.understandStep === 2 ? 1 : this.state.scoreCalcStep, exploredFeatures: this.state.understandStep === 3 && !this.state.exploredFeatures.includes(this.state.featureView) ? [...this.state.exploredFeatures, this.state.featureView] : this.state.exploredFeatures }; this.emit(); }
   advanceScoreCalc(): void { this.state = { ...this.state, scoreCalcStep: Math.min(3, this.state.scoreCalcStep + 1) as 0 | 1 | 2 | 3 }; this.emit(); }

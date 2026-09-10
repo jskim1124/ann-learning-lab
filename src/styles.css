@@ -301,6 +301,7 @@ small { font-size: .875rem !important; }
 .scenario-card.selected::after { display: none; }
 .scenario-card .card-visual { grid-column: 1; grid-row: 1 / 4; align-self: center; display: block; width: 96px; height: 68px; background-image: url('/illustrations/learning-inputs.jpg'); background-repeat: no-repeat; background-size: 300% auto; border: 2px solid #fff; border-radius: 12px; }
 .scenario-card[data-preset="digits"] .card-visual, .scenario-card[data-preset="omr"] .card-visual { background-position: right center; }
+.scenario-card[data-preset="omr"] .card-visual { background-image: url('/illustrations/omr-classroom.jpg'); background-size: cover; background-position: center 48%; }
 .scenario-card[data-preset="xor"] .card-visual { background-position: left center; }
 .scenario-card[data-preset="custom"] .card-visual { background-position: center center; }
 .scenario-card .card-no { position: absolute; top: 7px; left: 7px; display: grid; width: 25px; height: 25px; place-items: center; color: #fff; background: var(--accent); border: 2px solid #fff; border-radius: 50%; font-size: .7rem; }
@@ -314,7 +315,8 @@ small { font-size: .875rem !important; }
 .scenario-story > span { margin-bottom: 5px; color: var(--blue); font-size: .875rem; }
 .scenario-story h2 { font-size: clamp(1.35rem, 2vw, 1.75rem); }
 .scenario-story > p { font-size: 1rem; }
-.scenario-illustration { display: block !important; height: clamp(145px, 21vh, 220px); margin: calc(clamp(17px, 1.8vw, 25px) * -1) calc(clamp(17px, 1.8vw, 25px) * -1) 14px; background-size: 300% auto; border: 0; border-bottom: 1px solid #e1e4e8; border-radius: 0; }
+.scenario-illustration { display: block !important; height: clamp(190px, 28vh, 280px); margin: calc(clamp(17px, 1.8vw, 25px) * -1) calc(clamp(17px, 1.8vw, 25px) * -1) 14px; background-size: 300% auto; border: 0; border-bottom: 1px solid #e1e4e8; border-radius: 0; }
+.scenario-illustration[data-preset="omr"] { background-image: url('/illustrations/omr-classroom.jpg'); background-size: cover; background-position: center 48%; }
 .scenario-illustration[data-preset="xor"] { background-position: left center; }
 .scenario-illustration[data-preset="custom"] { background-position: center center; }
 .scenario-illustration.changing { animation: illustration-in .48s cubic-bezier(.2,.75,.25,1); }
@@ -395,6 +397,10 @@ table, .custom-table-wrap table { font-size: .875rem; }
 .pixel-draw-panel > .pixel-board { width: min(100%, 360px, calc(100dvh - 390px)); min-height: 150px; }
 .pixel-board { border-radius: 10px; }
 .pixel-class-picker button, .probability-row > div, .pixel-convert-strip { border-radius: 9px; }
+.pixel-class-picker button { flex: 1 1 48px; min-width: 0; }
+.pixel-class-add { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; margin-top: 7px; }
+.pixel-class-add input { min-width: 0; min-height: 38px; padding: 6px 9px; border-radius: 8px; }
+.pixel-class-add .button { min-height: 38px; padding: 6px 10px; white-space: nowrap; }
 .pixel-convert-strip { padding: 6px 8px; }
 .convert-copy span, .convert-copy b, .pixel-convert-strip strong, .pixel-convert-strip button, .pixel-sample-grid button, .pixel-graph-note, .neuron-select, .axis-key-row, .axis-current b, .score-explainer span, .line-key, .score-sum span, .axis-pairs b, .class-dot-key { font-size: .875rem; }
 .pixel-sample-grid { gap: 5px; }
@@ -449,8 +455,15 @@ dialog { border-radius: 16px; }
   .graph-sheet, .workbook-panel, .why-notebook, .connection-panel { padding: 8px 10px; }
   .graph-heading { min-height: 36px; }
   .field { margin-bottom: 7px; }
-  .pixel-draw-panel > .pixel-board { width: min(100%, 300px, calc(100dvh - 350px)); }
+  .pixel-draw-panel > .pixel-board { width: min(100%, 240px, calc(100dvh - 430px)); min-height: 190px; margin: 5px auto; }
   .pixel-convert-strip { margin-bottom: 5px; }
+  .pixel-convert-strip:not(.is-converting) { grid-template-columns: minmax(125px, 1fr) 64px; gap: 6px; padding: 5px 7px; }
+  .pixel-convert-strip:not(.is-converting) canvas { width: 56px; height: 56px; }
+  .pixel-convert-strip:not(.is-converting) .convert-copy b { margin-bottom: 3px; }
+  .pixel-convert-strip:not(.is-converting) button { min-height: 30px; padding: 3px 6px; }
+  .pixel-class-picker { margin-top: 6px; }
+  .pixel-class-picker button { padding: 6px 4px; }
+  .scenario-illustration { height: clamp(155px, 24vh, 205px); }
   .cause-steps button { min-height: 38px; }
   .causal-explanation p { margin-bottom: 4px; line-height: 1.38; }
   .guided-highlight, .step-quiz { padding: 6px 8px; }
@@ -462,6 +475,7 @@ dialog { border-radius: 16px; }
   .lesson-page { height: auto; min-height: calc(100dvh - 58px); overflow: visible; }
   .scenario-layout, .two-column, .training-layout, .why-layout, .use-layout, .pixel-data-layout, .pixel-training-layout, .pixel-why-layout, .pixel-use-layout, .custom-data-layout, .custom-feature-layout { grid-template-columns: 1fr; }
   .scenario-cards { grid-template-rows: repeat(4, minmax(92px, auto)); }
+  .scenario-illustration { height: clamp(190px, 34vw, 285px); }
   .scenario-card { grid-template-columns: 96px minmax(0, 1fr); }
   .scenario-card small { grid-column: 2; grid-row: 3; padding-right: 0; }
   .training-layout > * { overflow: visible; }

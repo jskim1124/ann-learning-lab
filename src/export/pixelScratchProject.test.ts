@@ -23,9 +23,11 @@ describe("픽셀 모델 Scratch 내보내기", () => {
   });
 
   it("Scratch 3 필수 무대 배경과 참조된 모든 에셋을 ZIP에 포함한다", () => {
-    const model = initializePixelModel(196, 4, 5);
-    const files = createPixelScratchProjectFiles(model, ["①", "②", "③", "④", "⑤"]);
+    const model = initializePixelModel(196, 4, 6);
+    const files = createPixelScratchProjectFiles(model, ["①", "②", "③", "④", "⑤", "미표기"]);
     const project = JSON.parse(new TextDecoder().decode(files["project.json"]!));
+    expect(project.targets[1].lists.list_labels[1]).toEqual(["①", "②", "③", "④", "⑤", "미표기"]);
+    expect(project.targets[1].lists.list_w2[1]).toHaveLength(4 * 6);
     project.targets.forEach((target: { costumes: Array<{ assetId: string; md5ext: string }> }) => {
       expect(target.costumes.length).toBeGreaterThan(0);
       target.costumes.forEach((costume) => { expect(costume.assetId).toMatch(/^[a-f0-9]{32}$/i); expect(ArrayBuffer.isView(files[costume.md5ext])).toBe(true); });

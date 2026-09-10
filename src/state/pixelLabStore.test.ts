@@ -58,6 +58,22 @@ describe("그림 지도 설명 상태", () => {
     store.paint(0, 1); expect(store.snapshot.latestAddedIndex).toBeNull();
   });
 
+  it.each([["digits", "3"], ["omr", "미표기"]] as const)("%s에 새 클래스를 더하면 출력 뉴런과 새 자료가 함께 늘어난다", (task, name) => {
+    const store = new PixelLabStore(task); const originalClassCount = store.snapshot.classes.length; const originalDataCount = store.snapshot.data.length;
+    expect(store.addClass(name)).toBeNull();
+    expect(store.snapshot.classes).toHaveLength(originalClassCount + 1); expect(store.snapshot.classes.at(-1)).toBe(name);
+    expect(store.snapshot.selectedLabel).toBe(originalClassCount); expect(store.snapshot.model.classCount).toBe(originalClassCount + 1); expect(store.snapshot.model.epoch).toBe(0);
+    store.clear(); store.paintMany([15, 16, 29, 30], 1); store.addDrawing(); store.train(1);
+    expect(store.snapshot.data).toHaveLength(originalDataCount + 1); expect(store.snapshot.data[0]?.label).toBe(originalClassCount); expect(store.probabilities()).toHaveLength(originalClassCount + 1);
+  });
+
+  it("빈 이름과 같은 이름은 새 클래스로 추가하지 않는다", () => {
+    const store = new PixelLabStore("digits"); const before = store.snapshot.classes;
+    expect(store.addClass("   ")).toBe("새 클래스 이름을 입력해 주세요.");
+    expect(store.addClass("0")).toBe("이미 있는 클래스 이름입니다.");
+    expect(store.snapshot.classes).toEqual(before);
+  });
+
   it("삐져나간 OMR 자국에서도 진한 위치 특징이 유용한 분류 성능을 낸다", () => {
     const store = new PixelLabStore("omr"); store.setTrainingFeature("position"); store.setHiddenUnits(6); store.train(1000);
     expect(store.metrics().accuracy).toBeGreaterThan(.8);
