@@ -56,7 +56,7 @@ function safeSettings(): { preset: PresetName; hiddenUnits: number; activation: 
     const parsed = JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "null") as Partial<typeof fallback> | null;
     if (!parsed) return fallback;
     return {
-      preset: ["digits", "omr", "xor"].includes(parsed.preset ?? "") ? parsed.preset as PresetName : fallback.preset,
+      preset: ["digits", "omr", "xor", "custom"].includes(parsed.preset ?? "") ? parsed.preset as PresetName : fallback.preset,
       hiddenUnits: Number.isInteger(parsed.hiddenUnits) && (parsed.hiddenUnits ?? 0) >= 1 && (parsed.hiddenUnits ?? 0) <= 6 ? parsed.hiddenUnits as number : fallback.hiddenUnits,
       activation: ["tanh", "relu", "sigmoid"].includes(parsed.activation ?? "") ? parsed.activation as ActivationName : fallback.activation,
       learningRate: typeof parsed.learningRate === "number" && parsed.learningRate >= 0.01 && parsed.learningRate <= 0.3 ? parsed.learningRate : fallback.learningRate,
@@ -117,6 +117,16 @@ export class LabStore {
     const model = initializeNetwork(config);
     const metrics = evaluate(model, clonePreset(preset));
     this.state = { ...this.state, preset, data: clonePreset(preset), model, history: [{ epoch: 0, loss: metrics.loss ?? 0 }], selectedNeuron: 0, explanationStep: 1, quizAnswer: null, highlightRevealed: false, mediaSampleIndex: 0, mediaHighlight: false, epochGoal: PRESETS[preset].recommendedHiddenUnits >= 4 ? 2000 : 1000 };
+    this.stopAuto(false); this.emit();
+  }
+  setCustomData(data: DataPoint[]): void {
+    const model = initializeNetwork({ ...this.state.model.config, hiddenUnits: PRESETS.custom.recommendedHiddenUnits });
+    const metrics = evaluate(model, data);
+    this.state = {
+      ...this.state, preset: "custom", data: data.map((point) => ({ ...point })), model,
+      history: [{ epoch: 0, loss: metrics.loss ?? 0 }], selectedNeuron: 0, testInput: { x: 0, y: 0 },
+      autoTraining: false, epochGoal: 1000,
+    };
     this.stopAuto(false); this.emit();
   }
   setPointClass(pointClass: Label): void { this.state = { ...this.state, pointClass }; this.emit(); }

@@ -3,6 +3,7 @@ import { evaluate, forward } from "./core/neuralNetwork";
 import { forwardPixels, initializePixelModel, trainPixelModel, type PixelExample, type PixelModel } from "./core/pixelNetwork";
 import { constrainPixelModelToProjection, createPixelFeatureProjection, projectPixels, projectionAxisDetails, projectionExtremes } from "./core/pixelProjection";
 import { PRESETS } from "./data/presets";
+import { centroidAccuracy, createCustomDraft, createCustomExample, projectCustomDataset, validateCustomDataset, type CustomDatasetDraft } from "./data/customDataset";
 import { PIXEL_TASKS, type PixelTaskName } from "./data/pixelDatasets";
 import { deserializeModel, downloadBlob, downloadText, serializeModel } from "./export/modelJson";
 import { generateScratchExtension } from "./export/scratchExtension";
@@ -12,6 +13,7 @@ import { createInitialStore, type LabState, type LabStore } from "./state/labSto
 import { PixelLabStore, type PixelLabState } from "./state/pixelLabStore";
 import type { ActivationName, Label, PresetName } from "./types";
 import { drawDecisionSurface, HIDDEN_COLORS } from "./visualization/decisionSurface";
+import { drawCustomFeaturePlot } from "./visualization/customFeaturePlot";
 import { drawLossChart } from "./visualization/lossChart";
 import { drawMediaSample, mediaSampleText, playSoundSample, toggleMediaPixel } from "./visualization/mediaSample";
 import { networkGraphMarkup } from "./visualization/networkGraph";
@@ -35,6 +37,57 @@ export function showToast(message: string): void {
 
 function signed(value: number): string { return `${value >= 0 ? "+" : "−"}${Math.abs(value).toFixed(3)}`; }
 function isPixelPreset(preset: PresetName): preset is PixelTaskName { return preset === "digits" || preset === "omr"; }
+function isCustomPreset(preset: PresetName): boolean { return preset === "custom"; }
+
+let customDraft: CustomDatasetDraft = createCustomDraft();
+
+function syncCustomPreset(): void {
+  const projection = projectCustomDataset(customDraft);
+  PRESETS.custom.classes = projection.classes;
+  PRESETS.custom.axes = projection.axes;
+}
+
+function syncCustomStore(store: LabStore): void {
+  syncCustomPreset();
+  store.setCustomData(projectCustomDataset(customDraft).points);
+}
+
+function fillSelect(select: HTMLSelectElement, names: string[], selected: number): void {
+  select.replaceChildren();
+  names.forEach((name, index) => { const option = document.createElement("option"); option.value = String(index); option.textContent = name || `특징 ${index + 1}`; option.selected = index === selected; select.append(option); });
+}
+
+function renderCustomLab(state: LabState): void {
+  const custom = isCustomPreset(state.preset);
+  element<HTMLElement>("#stepThreeLabel").textContent = custom ? "특징" : "이해";
+  if (!custom) return;
+  const projection = projectCustomDataset(customDraft);
+  const classZero = element<HTMLInputElement>("#customClassZero"); const classOne = element<HTMLInputElement>("#customClassOne");
+  if (document.activeElement !== classZero) classZero.value = customDraft.classes[0];
+  if (document.activeElement !== classOne) classOne.value = customDraft.classes[1];
+  const featureNames = element<HTMLDivElement>("#customFeatureNames"); featureNames.replaceChildren();
+  customDraft.features.forEach((name, index) => {
+    const row = document.createElement("div"); const label = document.createElement("label"); const span = document.createElement("span"); const input = document.createElement("input");
+    span.textContent = `특징 ${index + 1}`; input.type = "text"; input.maxLength = 18; input.value = name; input.dataset.customFeature = String(index); label.append(span, input); row.append(label);
+    if (customDraft.features.length > 2) { const remove = document.createElement("button"); remove.type = "button"; remove.className = "text-button"; remove.dataset.removeCustomFeature = String(index); remove.textContent = "삭제"; row.append(remove); }
+    featureNames.append(row);
+  });
+  element<HTMLButtonElement>("#customAddFeature").disabled = customDraft.features.length >= 5;
+  const rowClass = element<HTMLSelectElement>("#customRowClass"); rowClass.replaceChildren();
+  customDraft.classes.forEach((name, label) => { const option = document.createElement("option"); option.value = String(label); option.textContent = name; rowClass.append(option); });
+  const rowValues = element<HTMLDivElement>("#customRowValues"); rowValues.replaceChildren();
+  customDraft.features.forEach((name, index) => { const label = document.createElement("label"); const span = document.createElement("span"); const input = document.createElement("input"); span.textContent = name; input.type = "number"; input.step = "any"; input.required = true; input.dataset.customValue = String(index); input.placeholder = "숫자"; label.append(span, input); rowValues.append(label); });
+  element<HTMLElement>("#customRowCount").textContent = `입력한 사례 ${customDraft.rows.length}개`;
+  const head = element<HTMLTableSectionElement>("#customTableHead"); const body = element<HTMLTableSectionElement>("#customTableBody"); head.replaceChildren(); body.replaceChildren();
+  const headerRow = document.createElement("tr"); ["사례", "클래스", ...customDraft.features, ""].forEach((name) => { const th = document.createElement("th"); th.textContent = name; headerRow.append(th); }); head.append(headerRow);
+  if (!customDraft.rows.length) { const row = body.insertRow(); const cell = row.insertCell(); cell.colSpan = customDraft.features.length + 3; cell.className = "empty-cell"; cell.textContent = "아직 입력한 사례가 없습니다."; }
+  customDraft.rows.forEach((item) => { const row = body.insertRow(); [item.name, customDraft.classes[item.label], ...item.values.map(String)].forEach((value) => { const cell = row.insertCell(); cell.textContent = value; }); const action = row.insertCell(); const button = document.createElement("button"); button.type = "button"; button.className = "delete-button"; button.dataset.removeCustomRow = String(item.id); button.textContent = "지우기"; action.append(button); });
+  const xSelect = element<HTMLSelectElement>("#customXAxis"); const ySelect = element<HTMLSelectElement>("#customYAxis"); fillSelect(xSelect, customDraft.features, customDraft.xFeature); fillSelect(ySelect, customDraft.features, customDraft.yFeature);
+  element<HTMLElement>("#customFeatureAxisX").textContent = projection.axes[0]; element<HTMLElement>("#customFeatureAxisY").textContent = projection.axes[1]; element<HTMLElement>("#customFeatureTitle").textContent = `${projection.axes[0]} × ${projection.axes[1]}`;
+  element<HTMLElement>("#customLegendZero").textContent = projection.classes[0]; element<HTMLElement>("#customLegendOne").textContent = projection.classes[1];
+  const score = Math.round(centroidAccuracy(projection.points) * 100); element<HTMLElement>("#customSeparationScore").textContent = projection.points.length ? `${score}%` : "—"; element<HTMLElement>("#customSeparationHint").textContent = !projection.points.length ? "자료를 먼저 입력해 주세요." : score >= 80 ? "두 색 점이 비교적 잘 나뉩니다." : "다른 특징 조합도 비교해 보세요.";
+  if (state.lessonStep === 3) drawCustomFeaturePlot(element<HTMLCanvasElement>("#customFeatureCanvas"), projection.points, customDraft.rows);
+}
 
 let renderedLessonStep = 0;
 function renderLessonProgress(state: LabState): void {
@@ -276,13 +329,24 @@ function renderPixelProjectionStory(state: PixelLabState): { pixels: number[]; l
 
 function renderPixelLab(lab: LabState, state: PixelLabState): void {
   const pixel = isPixelPreset(lab.preset);
-  const pairedViews: Array<[string, string]> = [["#boundaryDataView", "#pixelDataView"], ["#boundaryWhyView", "#pixelWhyView"], ["#boundaryTrainingView", "#pixelTrainingView"], ["#boundaryUseView", "#pixelUseView"]];
-  pairedViews.forEach(([boundary, pixelView]) => { element<HTMLElement>(boundary).hidden = pixel; element<HTMLElement>(pixelView).hidden = !pixel; });
+  const custom = isCustomPreset(lab.preset);
+  element<HTMLElement>("#boundaryDataView").hidden = pixel || custom; element<HTMLElement>("#pixelDataView").hidden = !pixel; element<HTMLElement>("#customDataView").hidden = !custom;
+  element<HTMLElement>("#boundaryWhyView").hidden = pixel || custom; element<HTMLElement>("#pixelWhyView").hidden = !pixel; element<HTMLElement>("#customFeatureView").hidden = !custom;
+  [["#boundaryTrainingView", "#pixelTrainingView"], ["#boundaryUseView", "#pixelUseView"]].forEach(([boundary, pixelView]) => { element<HTMLElement>(boundary!).hidden = pixel; element<HTMLElement>(pixelView!).hidden = !pixel; });
+  element<HTMLButtonElement>("#customFeatureNext").hidden = !custom;
+  element<HTMLElement>("#whyFooterNote").hidden = custom;
   if (!pixel) {
     stopPixelAuto();
-    element<HTMLElement>("#dataTitle").textContent = "모델이 배울 사례를 먼저 읽어 봅시다"; element<HTMLElement>("#whyTitle").textContent = "왜 구분선이 저기에 생겼을까요?"; element<HTMLElement>("#whySubtitle").textContent = "한 가지만 바꿔 강조해 본 뒤, 짧은 확인 문제를 풉니다."; element<HTMLElement>("#whyFooterNote").textContent = "노란 점에서 보라색 십자로, 가로 한 가지만 바꿉니다."; element<HTMLElement>("#trainTitle").textContent = "이제 모델이 스스로 고치게 해 봅시다"; element<HTMLElement>("#useTitle").textContent = "새 값을 넣어 보고, 만든 모델을 가져가세요";
+    element<HTMLElement>("#dataTitle").textContent = custom ? "클래스와 측정 자료를 직접 만들어 봅시다" : "모델이 배울 사례를 먼저 읽어 봅시다";
+    element<HTMLElement>("#whyTitle").textContent = custom ? "어떤 특징을 가로와 세로에 놓을까요?" : "왜 구분선이 저기에 생겼을까요?";
+    element<HTMLElement>("#whySubtitle").textContent = custom ? "같은 자료를 여러 특징 조합으로 펼쳐 보고, 두 클래스가 잘 나뉘는지 비교합니다." : "한 가지만 바꿔 강조해 본 뒤, 짧은 확인 문제를 풉니다.";
+    element<HTMLElement>("#whyFooterNote").textContent = "노란 점에서 보라색 십자로, 가로 한 가지만 바꿉니다.";
+    element<HTMLElement>("#trainTitle").textContent = custom ? "내 자료로 모델을 연습시켜 봅시다" : "이제 모델이 스스로 고치게 해 봅시다"; element<HTMLElement>("#useTitle").textContent = "새 값을 넣어 보고, 만든 모델을 가져가세요";
+    element<HTMLElement>("#trainTitle").nextElementSibling!.textContent = custom ? "고른 두 특징과 직접 입력한 클래스 자료로 분류선을 찾아봅니다." : "완성된 예시를 이해했으니, 처음 상태에서 직접 연습시켜 보세요.";
+    element<HTMLButtonElement>("#dataNext").textContent = custom ? "특징 골라서 분포 보기 →" : "먼저 원리 이해하기 →";
     return;
   }
+  element<HTMLElement>("#whyFooterNote").hidden = false;
   const info = PIXEL_TASKS[state.task];
   if (lab.lessonStep !== 4) stopPixelAuto();
   element<HTMLElement>("#dataTitle").textContent = "그림이 입력값이 되는 모습을 먼저 봅시다";
@@ -331,7 +395,7 @@ function render(state: LabState, store: LabStore, pixelStore: PixelLabStore): vo
   element<HTMLInputElement>("#boundaryNeuronLayer").checked = state.showNeuronBoundaries;
   element<HTMLInputElement>("#boundaryDecisionLayer").checked = state.showDecisionBoundary;
   element<HTMLElement>("#boundaryMapInstruction").textContent = state.showNeuronBoundaries && state.showDecisionBoundary ? "모든 색 분류선과 검은 선을 함께 봅니다." : state.showNeuronBoundaries ? "모든 색 분류선을 봅니다." : state.showDecisionBoundary ? "검은 최종 경계선만 봅니다." : "자료 점과 판단 영역만 봅니다.";
-  if (state.lessonStep === 2 && !isPixelPreset(state.preset)) {
+  if (state.lessonStep === 2 && !isPixelPreset(state.preset) && !isCustomPreset(state.preset)) {
     drawDecisionSurface(element<HTMLCanvasElement>("#dataCanvas"), state.model, state.data, state.testInput, { explanationStep: 1 });
     if (preset.mediaKind !== "points") {
       drawMediaSample(element<HTMLCanvasElement>("#mediaCanvas"), preset.mediaKind, state.mediaSampleIndex, state.mediaHighlight);
@@ -345,7 +409,7 @@ function render(state: LabState, store: LabStore, pixelStore: PixelLabStore): vo
     drawLossChart(element<HTMLCanvasElement>("#lossCanvas"), state.history);
     element<SVGSVGElement>("#networkSvg").innerHTML = networkGraphMarkup(state.model, prediction.hidden);
   }
-  if (state.lessonStep === 3 && !isPixelPreset(state.preset)) {
+  if (state.lessonStep === 3 && !isPixelPreset(state.preset) && !isCustomPreset(state.preset)) {
     drawDecisionSurface(element<HTMLCanvasElement>("#decisionCanvas"), state.model, state.data, state.testInput, { explanationStep: state.explanationStep, selectedNeuron: state.selectedNeuron, highlightRevealed: state.highlightRevealed });
     renderCausalExplanation(state, store); renderHighlightGuide(state); renderQuiz(state, store);
   }
@@ -368,7 +432,7 @@ function render(state: LabState, store: LabStore, pixelStore: PixelLabStore): vo
   element<HTMLElement>("#plotTitle").textContent = titles[state.explanationStep - 1]!;
   element<HTMLElement>("#plotSubtitle").textContent = subtitles[state.explanationStep - 1]!;
   if (state.lessonStep === 5) renderExperiments(state, store);
-  renderPixelLab(state, pixelStore.snapshot);
+  renderPixelLab(state, pixelStore.snapshot); renderCustomLab(state);
 }
 
 function addPointFromCanvas(event: MouseEvent, store: LabStore): void {
@@ -381,11 +445,11 @@ export function mountApp(store = createInitialStore()): LabStore {
   const pixelStore = new PixelLabStore(isPixelPreset(store.snapshot.preset) ? store.snapshot.preset : "digits"); pixelUiStore = pixelStore;
   const rerender = () => render(store.snapshot, store, pixelStore);
   store.subscribe(rerender); pixelStore.subscribe(rerender);
-  document.querySelectorAll<HTMLButtonElement>("[data-preset]").forEach((card) => card.addEventListener("click", () => { const preset = card.dataset.preset as PresetName; if (isPixelPreset(preset)) pixelStore.setTask(preset); store.setPreset(preset); }));
+  document.querySelectorAll<HTMLButtonElement>("[data-preset]").forEach((card) => card.addEventListener("click", () => { const preset = card.dataset.preset as PresetName; if (isPixelPreset(preset)) pixelStore.setTask(preset); if (isCustomPreset(preset)) syncCustomPreset(); store.setPreset(preset); if (isCustomPreset(preset)) syncCustomStore(store); }));
   document.querySelectorAll<HTMLButtonElement>("[data-go-step]").forEach((button) => button.addEventListener("click", () => { const step = Number(button.dataset.goStep) as LabState["lessonStep"]; if (step <= store.snapshot.furthestLessonStep) store.setLessonStep(step); }));
   document.querySelectorAll<HTMLButtonElement>("[data-back]").forEach((button) => button.addEventListener("click", () => store.previousLesson()));
   element<HTMLButtonElement>("#scenarioNext").addEventListener("click", () => store.setLessonStep(2));
-  element<HTMLButtonElement>("#dataNext").addEventListener("click", () => { if (isPixelPreset(store.snapshot.preset)) { pixelStore.resetUnderstanding(); store.setLessonStep(3); return; } if (store.snapshot.data.length < 2) return showToast("서로 다른 결과의 사례를 먼저 두 개 이상 만들어 주세요."); const error = store.prepareExplanationModel(); if (error) return showToast(error); store.setLessonStep(3); });
+  element<HTMLButtonElement>("#dataNext").addEventListener("click", () => { if (isPixelPreset(store.snapshot.preset)) { pixelStore.resetUnderstanding(); store.setLessonStep(3); return; } if (isCustomPreset(store.snapshot.preset)) { const error = validateCustomDataset(customDraft); if (error) return showToast(error); syncCustomStore(store); store.setLessonStep(3); return; } if (store.snapshot.data.length < 2) return showToast("서로 다른 결과의 사례를 먼저 두 개 이상 만들어 주세요."); const error = store.prepareExplanationModel(); if (error) return showToast(error); store.setLessonStep(3); });
   element<HTMLButtonElement>("#modelNext").addEventListener("click", () => { if (isPixelPreset(store.snapshot.preset)) { if (pixelStore.snapshot.model.epoch === 0) return showToast("모델을 적어도 한 번 연습시켜 주세요."); store.setLessonStep(5); return; } if (store.snapshot.model.epoch === 0) return showToast("모델을 적어도 한 번 연습시켜 주세요."); store.setLessonStep(5); });
   element<HTMLButtonElement>("#restoreData").addEventListener("click", () => { store.setPreset(store.snapshot.preset); showToast("처음 자료로 되돌렸습니다."); });
   element<HTMLButtonElement>("#undoPoint").addEventListener("click", () => store.undoDataPoint());
@@ -399,6 +463,17 @@ export function mountApp(store = createInitialStore()): LabStore {
   ([["#trainOne", 1], ["#trainTen", 10], ["#trainHundred", 100]] as const).forEach(([selector, count]) => element<HTMLButtonElement>(selector).addEventListener("click", () => { const error = store.trainEpochs(count); if (error) showToast(error); }));
   element<HTMLButtonElement>("#autoTrain").addEventListener("click", () => { const error = store.toggleAuto(); if (error) showToast(error); });
   element<HTMLCanvasElement>("#dataCanvas").addEventListener("click", (event) => addPointFromCanvas(event, store));
+  element<HTMLInputElement>("#customClassZero").addEventListener("change", (event) => { customDraft.classes[0] = (event.currentTarget as HTMLInputElement).value.trim() || "A 결과"; syncCustomStore(store); });
+  element<HTMLInputElement>("#customClassOne").addEventListener("change", (event) => { customDraft.classes[1] = (event.currentTarget as HTMLInputElement).value.trim() || "B 결과"; syncCustomStore(store); });
+  element<HTMLButtonElement>("#customAddFeature").addEventListener("click", () => { if (customDraft.features.length >= 5) return; customDraft.features.push(`특징 ${customDraft.features.length + 1}`); customDraft.rows.forEach((row) => row.values.push(0)); syncCustomStore(store); });
+  element<HTMLDivElement>("#customFeatureNames").addEventListener("change", (event) => { const input = (event.target as HTMLElement).closest<HTMLInputElement>("[data-custom-feature]"); if (!input) return; const index = Number(input.dataset.customFeature); customDraft.features[index] = input.value.trim() || `특징 ${index + 1}`; syncCustomStore(store); });
+  element<HTMLDivElement>("#customFeatureNames").addEventListener("click", (event) => { const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-remove-custom-feature]"); if (!button || customDraft.features.length <= 2) return; const index = Number(button.dataset.removeCustomFeature); customDraft.features.splice(index, 1); customDraft.rows.forEach((row) => row.values.splice(index, 1)); const remap = (selected: number) => selected > index ? selected - 1 : selected === index ? 0 : selected; customDraft.xFeature = remap(customDraft.xFeature); customDraft.yFeature = remap(customDraft.yFeature); if (customDraft.xFeature === customDraft.yFeature) customDraft.yFeature = customDraft.xFeature === 0 ? 1 : 0; syncCustomStore(store); });
+  element<HTMLButtonElement>("#customLoadExample").addEventListener("click", () => { customDraft = createCustomExample(); syncCustomStore(store); showToast("특징을 바꾸며 비교할 수 있는 예시를 채웠습니다."); });
+  element<HTMLFormElement>("#customRowForm").addEventListener("submit", (event) => { event.preventDefault(); const inputs = [...element<HTMLDivElement>("#customRowValues").querySelectorAll<HTMLInputElement>("[data-custom-value]")]; const values = inputs.map((input) => Number(input.value)); if (values.some((value) => !Number.isFinite(value)) || inputs.some((input) => input.value === "")) return showToast("모든 특징값을 숫자로 적어 주세요."); const nameInput = element<HTMLInputElement>("#customRowName"); customDraft.rows.push({ id: customDraft.nextId, name: nameInput.value.trim() || `사례 ${customDraft.nextId}`, label: Number(element<HTMLSelectElement>("#customRowClass").value) as Label, values }); customDraft.nextId += 1; syncCustomStore(store); showToast("새 사례를 학습 자료에 추가했습니다."); });
+  element<HTMLTableSectionElement>("#customTableBody").addEventListener("click", (event) => { const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-remove-custom-row]"); if (!button) return; customDraft.rows = customDraft.rows.filter((row) => row.id !== Number(button.dataset.removeCustomRow)); syncCustomStore(store); });
+  element<HTMLSelectElement>("#customXAxis").addEventListener("change", (event) => { customDraft.xFeature = Number((event.currentTarget as HTMLSelectElement).value); syncCustomStore(store); });
+  element<HTMLSelectElement>("#customYAxis").addEventListener("change", (event) => { customDraft.yFeature = Number((event.currentTarget as HTMLSelectElement).value); syncCustomStore(store); });
+  element<HTMLButtonElement>("#customFeatureNext").addEventListener("click", () => { const error = validateCustomDataset(customDraft); if (error) return showToast(error); syncCustomStore(store); store.setLessonStep(4); });
   element<HTMLButtonElement>("#nextMediaSample").addEventListener("click", () => store.nextMediaSample());
   element<HTMLButtonElement>("#toggleMediaHighlight").addEventListener("click", () => store.toggleMediaHighlight());
   element<HTMLButtonElement>("#playMediaSound").addEventListener("click", () => playSoundSample(store.snapshot.mediaSampleIndex));

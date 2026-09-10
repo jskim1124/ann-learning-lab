@@ -24,6 +24,13 @@ describe("lab interactions", () => {
     expect(store.trainEpochs(1)).toMatch(/범주 0과 범주 1/);
   });
 
+  it("직접 입력한 자료를 새 모델에 넣는다", () => {
+    const store = new LabStore();
+    store.setCustomData([{ x: -.5, y: -.4, label: 0 }, { x: .5, y: .4, label: 1 }]);
+    expect(store.snapshot).toMatchObject({ preset: "custom", data: [{ x: -.5, y: -.4, label: 0 }, { x: .5, y: .4, label: 1 }] });
+    expect(store.snapshot.model.epoch).toBe(0);
+  });
+
   it("분류선과 최종 경계선을 독립적으로 겹쳐 보고 탐침 입력을 제한한다", () => {
     const store = new LabStore();
     expect(store.snapshot).toMatchObject({ showNeuronBoundaries: true, showDecisionBoundary: true });
