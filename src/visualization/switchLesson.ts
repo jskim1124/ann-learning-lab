@@ -35,7 +35,7 @@ function drawNodeBadge(ctx: CanvasRenderingContext2D, x: number, y: number, labe
 }
 
 function drawArrow(ctx: CanvasRenderingContext2D, from: [number, number], to: [number, number]): void {
-  const angle = Math.atan2(to[1] - from[1], to[0] - from[0]); ctx.strokeStyle = "#c78100"; ctx.fillStyle = "#c78100"; ctx.lineWidth = 5;
+  const angle = Math.atan2(to[1] - from[1], to[0] - from[0]); ctx.strokeStyle = "#f17605"; ctx.fillStyle = "#f17605"; ctx.lineWidth = 5;
   ctx.beginPath(); ctx.moveTo(...from); ctx.lineTo(...to); ctx.stroke(); ctx.beginPath(); ctx.moveTo(...to); ctx.lineTo(to[0] - 15 * Math.cos(angle - .55), to[1] - 15 * Math.sin(angle - .55)); ctx.lineTo(to[0] - 15 * Math.cos(angle + .55), to[1] - 15 * Math.sin(angle + .55)); ctx.closePath(); ctx.fill();
 }
 
@@ -49,14 +49,14 @@ export function drawSwitchLesson(canvas: HTMLCanvasElement, step: 1 | 2 | 3 | 4,
   ctx.strokeStyle = "rgba(55,67,84,.15)"; ctx.lineWidth = 1;
   [0.25, .5, .75].forEach((ratio) => { ctx.beginPath(); ctx.moveTo(canvas.width * ratio, 0); ctx.lineTo(canvas.width * ratio, canvas.height); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0, canvas.height * ratio); ctx.lineTo(canvas.width, canvas.height * ratio); ctx.stroke(); });
   if (step === 2 && revealed) { drawLine(ctx, canvas, 0, "#6f7784", 4, true); drawNodeBadge(ctx, 20, 18, "은닉 노드 1 → 선 1개", "#6f7784"); }
-  if (step === 3 && revealed) { drawLine(ctx, canvas, -.35, "#6a4bbc", 4); drawLine(ctx, canvas, .35, "#00897b", 4); drawNodeBadge(ctx, 20, 18, "은닉 노드 1", "#6a4bbc"); drawNodeBadge(ctx, 20, 54, "은닉 노드 2", "#00897b"); }
+  if (step === 3 && revealed) { drawLine(ctx, canvas, -.35, "#7446f5", 4); drawLine(ctx, canvas, .35, "#df466f", 4); drawNodeBadge(ctx, 20, 18, "은닉 노드 1", "#7446f5"); drawNodeBadge(ctx, 20, 54, "은닉 노드 2", "#df466f"); }
   if (step === 4) {
-    drawLine(ctx, canvas, -.35, "#111827", 4); drawLine(ctx, canvas, -.10, "#7b8491", 3, true); drawNodeBadge(ctx, 20, 18, "대표 선 · 은닉 노드 2", "#7457c7");
+    drawLine(ctx, canvas, -.35, "#111827", 4); drawLine(ctx, canvas, -.10, "#7b8491", 3, true); drawNodeBadge(ctx, 20, 18, "대표 선 · 은닉 노드 2", "#7446f5");
     if (revealed) {
       [-.01, .08, .17, .26].forEach((sum, index) => drawLine(ctx, canvas, sum, `rgba(116,87,199,${.18 + index * .13})`, 3));
-      drawLine(ctx, canvas, .35, "#7457c7", 5);
+      drawLine(ctx, canvas, .35, "#7446f5", 5);
       const from = canvasPoint(canvas, -.05, -.05); const to = canvasPoint(canvas, .175, .175); drawArrow(ctx, from, to);
-      ctx.fillStyle = "#566271"; ctx.font = "800 13px system-ui"; ctx.textAlign = "left"; ctx.fillText("연습 전", from[0] - 72, from[1] + 30); ctx.fillStyle = "#7457c7"; ctx.fillText("오답을 줄인 뒤", to[0] + 15, to[1] - 15);
+      ctx.fillStyle = "#566271"; ctx.font = "800 13px system-ui"; ctx.textAlign = "left"; ctx.fillText("연습 전", from[0] - 72, from[1] + 30); ctx.fillStyle = "#7446f5"; ctx.fillText("오답을 줄인 뒤", to[0] + 15, to[1] - 15);
     }
   }
   const cases = [

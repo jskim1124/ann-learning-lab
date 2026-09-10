@@ -10,7 +10,7 @@ export function drawLossChart(canvas: HTMLCanvasElement, history: HistoryPoint[]
   const maxLoss = Math.max(...history.map((item) => item.loss), 0.01);
   const minEpoch = history[0]?.epoch ?? 0;
   const maxEpoch = history.at(-1)?.epoch ?? 1;
-  ctx.strokeStyle = "#1967d2"; ctx.lineWidth = 3; ctx.beginPath();
+  ctx.strokeStyle = "#1f6bd6"; ctx.lineWidth = 3; ctx.beginPath();
   history.forEach((item, index) => {
     const x = ((item.epoch - minEpoch) / Math.max(1, maxEpoch - minEpoch)) * canvas.width;
     const y = canvas.height - (item.loss / maxLoss) * (canvas.height - 8) - 4;

@@ -1,6 +1,6 @@
 import type { PixelModel } from "../core/pixelNetwork";
 
-const COLORS = ["#f17605", "#df466f", "#7446f5", "#1769d2", "#247a63", "#b98700"];
+const COLORS = ["#f17605", "#df466f", "#7446f5", "#1f6bd6", "#1558b7", "#a93658"];
 function escape(value: string): string { return value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]!)); }
 function positions(count: number, top: number, bottom: number): number[] { if (count <= 1) return [(top + bottom) / 2]; return Array.from({ length: count }, (_, index) => top + (bottom - top) * index / (count - 1)); }
 

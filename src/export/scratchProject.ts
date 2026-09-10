@@ -19,7 +19,7 @@ type Expression = (parent: string) => ScratchInput;
 const BACKDROP_ID = "11111111111111111111111111111111";
 const SPRITE_ID = "22222222222222222222222222222222";
 const backdropSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="480" height="360"><rect width="480" height="360" fill="#f7f9fc"/><text x="240" y="58" text-anchor="middle" font-family="sans-serif" font-size="25" fill="#253047">Neural Lab 모델</text><text x="240" y="92" text-anchor="middle" font-family="sans-serif" font-size="15" fill="#5f6670">스프라이트를 선택하고 나의 블록을 확인하세요</text></svg>`;
-const spriteSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="150" height="110"><rect x="4" y="4" width="142" height="102" rx="16" fill="#e8f0fe" stroke="#1967d2" stroke-width="6"/><circle cx="42" cy="55" r="12" fill="#3568d4"/><circle cx="108" cy="55" r="12" fill="#ed7b32"/><path d="M54 55h42" stroke="#253047" stroke-width="5"/><text x="75" y="92" text-anchor="middle" font-family="sans-serif" font-size="15" font-weight="700" fill="#253047">Neural Lab</text></svg>`;
+const spriteSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="150" height="110"><rect x="4" y="4" width="142" height="102" rx="16" fill="#e9f1fe" stroke="#1f6bd6" stroke-width="6"/><circle cx="42" cy="55" r="12" fill="#1f6bd6"/><circle cx="108" cy="55" r="12" fill="#f17605"/><path d="M54 55h42" stroke="#253047" stroke-width="5"/><text x="75" y="92" text-anchor="middle" font-family="sans-serif" font-size="15" font-weight="700" fill="#253047">Neural Lab</text></svg>`;
 
 function createBlocks(model: NetworkModel, variableIds: Record<string, string>): Record<string, ScratchBlock> {
   const blocks: Record<string, ScratchBlock> = {};

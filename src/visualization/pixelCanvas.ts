@@ -12,7 +12,7 @@ export function drawPixelCanvas(canvas: HTMLCanvasElement, pixels: number[], hig
   });
   context.strokeStyle = "#d8d7d2"; context.lineWidth = Math.max(.65, canvas.width / 700);
   for (let index = 0; index <= PIXEL_SIZE; index += 1) { context.beginPath(); context.moveTo(index * cell, 0); context.lineTo(index * cell, canvas.height); context.stroke(); context.beginPath(); context.moveTo(0, index * cell); context.lineTo(canvas.width, index * cell); context.stroke(); }
-  highlight.forEach((index) => { const x = index % PIXEL_SIZE; const y = Math.floor(index / PIXEL_SIZE); context.strokeStyle = "#e0a900"; context.lineWidth = Math.max(3, cell * .12); context.strokeRect(x * cell + 2, y * cell + 2, cell - 4, cell - 4); });
+  highlight.forEach((index) => { const x = index % PIXEL_SIZE; const y = Math.floor(index / PIXEL_SIZE); context.strokeStyle = "#f17605"; context.lineWidth = Math.max(3, cell * .12); context.strokeRect(x * cell + 2, y * cell + 2, cell - 4, cell - 4); });
 }
 
 export function drawOmrInputCanvas(canvas: HTMLCanvasElement, pixels: number[]): void {
@@ -39,7 +39,7 @@ export function drawPixelConversionFrame(canvas: HTMLCanvasElement, pixels: numb
   context.clearRect(0, 0, canvas.width, canvas.height); context.drawImage(source, 0, 0);
   if (amount > 0) {
     context.save(); context.beginPath(); context.rect(0, 0, canvas.width * amount, canvas.height); context.clip(); context.drawImage(pixelated, 0, 0); context.restore();
-    if (amount < 1) { const scanX = canvas.width * amount; context.strokeStyle = "#1769d2"; context.lineWidth = Math.max(2, canvas.width / 80); context.beginPath(); context.moveTo(scanX, 0); context.lineTo(scanX, canvas.height); context.stroke(); }
+    if (amount < 1) { const scanX = canvas.width * amount; context.strokeStyle = "#1f6bd6"; context.lineWidth = Math.max(2, canvas.width / 80); context.beginPath(); context.moveTo(scanX, 0); context.lineTo(scanX, canvas.height); context.stroke(); }
   }
 }
 

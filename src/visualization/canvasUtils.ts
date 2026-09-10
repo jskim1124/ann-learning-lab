@@ -1,5 +1,5 @@
 export const PALETTE = {
-  zero: "#3568d4", one: "#ee7b32", positive: "#2467d5", negative: "#b2456e",
+  zero: "#1f6bd6", one: "#f17605", positive: "#1f6bd6", negative: "#df466f",
   grid: "#d8dde6", ink: "#253047", test: "#111827",
 };
 

@@ -84,7 +84,7 @@ function renderCustomLab(state: LabState): void {
   element<HTMLElement>("#stepThreeLabel").textContent = custom ? "특징" : "이해";
   if (!custom) { stopCustomCamera(); return; }
   const projection = projectCustomDataset(customDraft);
-  const inputHelp = { numbers: "특징값을 숫자로 직접 입력합니다. 형식을 바꾸면 사례를 새로 모읍니다.", drawing: "그림에서 진한 양·위치·퍼진 정도를 잽니다. 형식을 바꾸면 사례를 새로 모읍니다.", webcam: "카메라 장면에서 진한 양·위치·퍼진 정도를 잽니다. 형식을 바꾸면 사례를 새로 모읍니다.", text: "글에서 길이·단어 수·글자 구성을 셉니다. 형식을 바꾸면 사례를 새로 모읍니다." };
+  const inputHelp = { numbers: "특징값을 숫자로 넣습니다.", drawing: "그림의 진한 양·위치·퍼짐을 잽니다.", webcam: "카메라 장면의 진한 양·위치·퍼짐을 잽니다.", text: "글의 길이·단어 수·글자 구성을 셉니다." };
   document.querySelectorAll<HTMLButtonElement>("[data-custom-input]").forEach((button) => { const active = button.dataset.customInput === customDraft.inputKind; button.classList.toggle("active", active); button.setAttribute("aria-pressed", String(active)); });
   element<HTMLElement>("#customInputHelp").textContent = inputHelp[customDraft.inputKind];
   element<HTMLButtonElement>("#customLoadExample").hidden = customDraft.inputKind !== "numbers"; element<HTMLButtonElement>("#customAddFeature").hidden = customDraft.inputKind !== "numbers";
@@ -119,6 +119,7 @@ function renderCustomLab(state: LabState): void {
 }
 
 let renderedLessonStep = 0;
+let renderedScenarioPreset: PresetName | null = null;
 function renderLessonProgress(state: LabState): void {
   document.querySelectorAll<HTMLElement>("[data-app-page]").forEach((page) => { page.hidden = Number(page.dataset.appPage) !== state.lessonStep; });
   document.querySelectorAll<HTMLButtonElement>("[data-go-step]").forEach((button) => {
@@ -145,7 +146,15 @@ function renderScenario(state: LabState): void {
   element<HTMLElement>("#scenarioAxisY").textContent = preset.axes[1];
   element<HTMLElement>("#axisSummary").hidden = isPixelPreset(state.preset);
   element<HTMLElement>("#pixelSummary").hidden = !isPixelPreset(state.preset);
-  element<HTMLElement>("#scenarioIllustration").dataset.mediaKind = preset.mediaKind;
+  const illustration = element<HTMLElement>("#scenarioIllustration");
+  illustration.dataset.mediaKind = preset.mediaKind;
+  illustration.dataset.preset = state.preset;
+  if (renderedScenarioPreset !== state.preset) {
+    illustration.classList.remove("changing");
+    void illustration.offsetWidth;
+    illustration.classList.add("changing");
+    renderedScenarioPreset = state.preset;
+  }
   element<HTMLElement>("#datasetDescription").textContent = preset.description;
   element<HTMLElement>("#datasetSourceNote").textContent = preset.sourceNote;
   element<HTMLElement>("#classZeroName").textContent = preset.classes[0];
@@ -315,7 +324,7 @@ function renderPixelUnderstanding(state: PixelLabState): void {
     if (state.scoreCalcStep === 3) drawProjectionContribution(whyCanvas, state.drawing, state.projection, "horizontal");
   }
   if (step === 3) {
-    const dots = info.classes.map((name, index) => `<span style="--dot:${["#f17605", "#df466f", "#7446f5", "#1769d2", "#247a63"][index] ?? "#555"}">${name}</span>`).join("");
+    const dots = info.classes.map((name, index) => `<span style="--dot:${["#f17605", "#df466f", "#7446f5", "#1f6bd6", "#1558b7"][index] ?? "#555"}">${name}</span>`).join("");
     const thought = state.task === "omr" ? "다섯 답은 진한 양이 비슷하고, 칠한 위치가 다릅니다. 어떤 차이를 점수로 쓰면 답들이 가장 잘 떨어질까요?" : "숫자는 검은 칸 수가 같아도 모양이 다를 수 있습니다. 어떤 차이를 함께 보면 좋을까요?";
     const modes = ["position", "ink", "learned"] as const; const scores = Object.fromEntries(modes.map((mode) => [mode, pixelFeatureAccuracy(state.data, createPixelFeatureProjection(state.data, state.task, mode), state.task, mode)])) as Record<PixelLabState["featureView"], number>; const visited = (feature: PixelLabState["featureView"]) => state.exploredFeatures.includes(feature) ? "✓ " : ""; const score = (feature: PixelLabState["featureView"]) => `${Math.round(scores[feature] * 100)}%`;
     const honestNote = state.task === "omr" && scores.position >= scores.learned - .03 ? "이 OMR 자료에서는 답 칸의 좌우 위치가 곧 정답이라 ‘진한 곳의 위치’도 거의 똑같이 잘 나눕니다. 196칸 특징은 표시가 더 흐리거나 찌그러진 자료로 넓힐 때 도움이 됩니다." : "좋은 특징은 같은 답을 모으고 다른 답을 떨어뜨립니다.";

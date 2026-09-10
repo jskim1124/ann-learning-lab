@@ -2,7 +2,7 @@ import { forward } from "../core/neuralNetwork";
 import type { DataPoint, NetworkModel } from "../types";
 import { canvasPoint, PALETTE, probabilityColor } from "./canvasUtils";
 
-export const HIDDEN_COLORS = ["#6a4bbc", "#00897b", "#d56a00", "#c23b6e", "#1976d2", "#697214"];
+export const HIDDEN_COLORS = ["#7446f5", "#df466f", "#f17605", "#1f6bd6", "#a93658", "#1558b7"];
 
 export interface SurfaceOptions {
   explanationStep?: 1 | 2 | 3 | 4;
@@ -63,7 +63,7 @@ function drawHiddenBoundaries(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasE
     const [start, end] = segment.map(([x, y]) => canvasPoint(canvas, x, y)) as [[number, number], [number, number]];
     const selected = emphasizeSelected && index === selectedNeuron;
     ctx.save(); ctx.globalAlpha = emphasizeSelected ? (selected ? 1 : .42) : .78;
-    ctx.strokeStyle = HIDDEN_COLORS[index % HIDDEN_COLORS.length] ?? "#6a4bbc"; ctx.lineWidth = selected ? 4.5 : 2.7; ctx.setLineDash(emphasizeSelected && !selected ? [7, 5] : []);
+    ctx.strokeStyle = HIDDEN_COLORS[index % HIDDEN_COLORS.length] ?? "#7446f5"; ctx.lineWidth = selected ? 4.5 : 2.7; ctx.setLineDash(emphasizeSelected && !selected ? [7, 5] : []);
     ctx.beginPath(); ctx.moveTo(...start); ctx.lineTo(...end); ctx.stroke();
     const mx = (start[0] + end[0]) / 2; const my = (start[1] + end[1]) / 2;
     const length = Math.hypot(wA, wB) || 1; const nx = (wA / length) * 28; const ny = -(wB / length) * 28;
@@ -102,11 +102,11 @@ export function drawDecisionSurface(canvas: HTMLCanvasElement, model: NetworkMod
   const [tx, ty] = canvasPoint(canvas, testInput.x, testInput.y);
   if (options.highlightRevealed) {
     const previousX = Math.max(-.9, testInput.x - .65); const [px, py] = canvasPoint(canvas, previousX, testInput.y);
-    ctx.save(); ctx.strokeStyle = "#d29b00"; ctx.fillStyle = "rgba(241,200,75,.28)"; ctx.lineWidth = 4; ctx.setLineDash([8, 5]);
+    ctx.save(); ctx.strokeStyle = "#f17605"; ctx.fillStyle = "rgba(241,118,5,.22)"; ctx.lineWidth = 4; ctx.setLineDash([8, 5]);
     ctx.beginPath(); ctx.arc(px, py, 17, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(px + 18, py); ctx.lineTo(tx - 18, ty); ctx.stroke(); ctx.setLineDash([]);
-    ctx.beginPath(); ctx.moveTo(tx - 18, ty); ctx.lineTo(tx - 30, ty - 8); ctx.lineTo(tx - 30, ty + 8); ctx.closePath(); ctx.fillStyle = "#d29b00"; ctx.fill();
-    ctx.font = "800 14px system-ui"; ctx.fillStyle = "#785900"; ctx.fillText("가로 한 가지만 바꿈", px + 3, py - 23); ctx.restore();
+    ctx.beginPath(); ctx.moveTo(tx - 18, ty); ctx.lineTo(tx - 30, ty - 8); ctx.lineTo(tx - 30, ty + 8); ctx.closePath(); ctx.fillStyle = "#f17605"; ctx.fill();
+    ctx.font = "800 14px system-ui"; ctx.fillStyle = "#9c4a00"; ctx.fillText("가로 한 가지만 바꿈", px + 3, py - 23); ctx.restore();
   }
   ctx.strokeStyle = PALETTE.test; ctx.lineWidth = 3; ctx.setLineDash([]);
   ctx.beginPath(); ctx.moveTo(tx - 11, ty); ctx.lineTo(tx + 11, ty); ctx.moveTo(tx, ty - 11); ctx.lineTo(tx, ty + 11); ctx.stroke();
