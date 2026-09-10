@@ -302,7 +302,7 @@ small { font-size: .875rem !important; }
 .scenario-card .card-visual { grid-column: 1; grid-row: 1 / 4; align-self: center; display: block; width: 96px; height: 68px; background-image: url('/illustrations/learning-inputs.jpg'); background-repeat: no-repeat; background-size: 300% auto; border: 2px solid #fff; border-radius: 12px; }
 .scenario-card[data-preset="digits"] .card-visual, .scenario-card[data-preset="omr"] .card-visual { background-position: right center; }
 .scenario-card[data-preset="omr"] .card-visual { background-image: url('/illustrations/omr-classroom.jpg'); background-size: cover; background-position: center 48%; }
-.scenario-card[data-preset="xor"] .card-visual { background-position: left center; }
+.scenario-card[data-preset="xor"] .card-visual { background-image: url('/illustrations/switch-corridor-card.jpg'); background-size: cover; background-position: center; }
 .scenario-card[data-preset="custom"] .card-visual { background-position: center center; }
 .scenario-card .card-no { position: absolute; top: 7px; left: 7px; display: grid; width: 25px; height: 25px; place-items: center; color: #fff; background: var(--accent); border: 2px solid #fff; border-radius: 50%; font-size: .7rem; }
 .scenario-card .card-visual { transition: transform .3s cubic-bezier(.2,.75,.25,1); }
@@ -317,7 +317,7 @@ small { font-size: .875rem !important; }
 .scenario-story > p { font-size: 1rem; }
 .scenario-illustration { display: block !important; height: clamp(190px, 28vh, 280px); margin: calc(clamp(17px, 1.8vw, 25px) * -1) calc(clamp(17px, 1.8vw, 25px) * -1) 14px; background-size: 300% auto; border: 0; border-bottom: 1px solid #e1e4e8; border-radius: 0; }
 .scenario-illustration[data-preset="omr"] { background-image: url('/illustrations/omr-classroom.jpg'); background-size: cover; background-position: center 48%; }
-.scenario-illustration[data-preset="xor"] { background-position: left center; }
+.scenario-illustration[data-preset="xor"] { background-image: url('/illustrations/switch-corridor.jpg'); background-size: cover; background-position: center; }
 .scenario-illustration[data-preset="custom"] { background-position: center center; }
 .scenario-illustration.changing { animation: illustration-in .48s cubic-bezier(.2,.75,.25,1); }
 .story-question { padding: 9px 12px; background: var(--orange-soft); border-color: #f4c49b; }
