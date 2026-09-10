@@ -49,6 +49,13 @@ describe("그림 지도 설명 상태", () => {
   it("직접 그린 자료는 맨 앞에 추가되고 해당 특징 지도도 다시 계산한다", () => {
     const store = new PixelLabStore("omr"); const originalLength = store.snapshot.data.length; store.clear(); store.paintMany([2, 3, 17], 1); store.selectLabel(4); store.addDrawing();
     expect(store.snapshot.data).toHaveLength(originalLength + 1); expect(store.snapshot.data[0]?.label).toBe(4); expect(store.snapshot.data[0]?.pixels[2]).toBe(1); expect(store.snapshot.latestAddedIndex).toBe(0); expect(store.snapshot.model.epoch).toBe(0);
+    expect(store.snapshot.drawing).toEqual(store.snapshot.data[0]?.pixels);
+    expect(store.snapshot.drawing).not.toBe(store.snapshot.data[0]?.pixels);
+  });
+
+  it("추가한 그림을 고친 뒤에는 이전 자료가 방금 추가로 남지 않는다", () => {
+    const store = new PixelLabStore("digits"); store.addDrawing(); expect(store.snapshot.latestAddedIndex).toBe(0);
+    store.paint(0, 1); expect(store.snapshot.latestAddedIndex).toBeNull();
   });
 
   it("삐져나간 OMR 자국에서도 진한 위치 특징이 유용한 분류 성능을 낸다", () => {

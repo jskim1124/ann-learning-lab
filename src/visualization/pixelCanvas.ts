@@ -15,7 +15,7 @@ export function drawPixelCanvas(canvas: HTMLCanvasElement, pixels: number[], hig
   highlight.forEach((index) => { const x = index % PIXEL_SIZE; const y = Math.floor(index / PIXEL_SIZE); context.strokeStyle = "#f17605"; context.lineWidth = Math.max(3, cell * .12); context.strokeRect(x * cell + 2, y * cell + 2, cell - 4, cell - 4); });
 }
 
-export function drawOmrInputCanvas(canvas: HTMLCanvasElement, pixels: number[]): void {
+export function drawOmrInputCanvas(canvas: HTMLCanvasElement, pixels: number[], highlight: number[] = []): void {
   const context = canvas.getContext("2d"); if (!context) return;
   const cell = canvas.width / PIXEL_SIZE;
   context.clearRect(0, 0, canvas.width, canvas.height); context.fillStyle = "#faf9f5"; context.fillRect(0, 0, canvas.width, canvas.height);
@@ -30,11 +30,18 @@ export function drawOmrInputCanvas(canvas: HTMLCanvasElement, pixels: number[]):
     const left = (center - 1) * cell; const top = 4 * cell; const width = 2 * cell; const height = 7 * cell;
     context.strokeStyle = "#17191d"; context.lineWidth = Math.max(1.5, cell * .07); context.strokeRect(left, top, width, height);
   });
+  highlight.forEach((index) => { const x = index % PIXEL_SIZE; const y = Math.floor(index / PIXEL_SIZE); context.strokeStyle = "#f17605"; context.lineWidth = Math.max(3, cell * .12); context.strokeRect(x * cell + 2, y * cell + 2, cell - 4, cell - 4); });
+}
+
+/** Draw one pixel example with the same visual grammar used by its editor. */
+export function drawPixelInputCanvas(canvas: HTMLCanvasElement, pixels: number[], task: PixelTaskName, highlight: number[] = []): void {
+  if (task === "omr") drawOmrInputCanvas(canvas, pixels, highlight);
+  else drawPixelCanvas(canvas, pixels, highlight, task);
 }
 
 export function drawPixelConversionFrame(canvas: HTMLCanvasElement, pixels: number[], task: PixelTaskName, progress: number): void {
   const context = canvas.getContext("2d"); if (!context) return; const amount = Math.max(0, Math.min(1, progress));
-  const source = document.createElement("canvas"); source.width = canvas.width; source.height = canvas.height; if (task === "omr") drawOmrInputCanvas(source, pixels); else drawPixelCanvas(source, pixels, [], task);
+  const source = document.createElement("canvas"); source.width = canvas.width; source.height = canvas.height; drawPixelInputCanvas(source, pixels, task);
   const pixelated = document.createElement("canvas"); pixelated.width = canvas.width; pixelated.height = canvas.height; drawPixelCanvas(pixelated, pixels, [], task);
   context.clearRect(0, 0, canvas.width, canvas.height); context.drawImage(source, 0, 0);
   if (amount > 0) {

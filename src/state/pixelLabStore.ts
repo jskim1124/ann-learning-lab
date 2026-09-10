@@ -40,11 +40,11 @@ export class PixelLabStore {
   subscribe(listener: (state: PixelLabState) => void): () => void { this.listeners.add(listener); listener(this.state); return () => this.listeners.delete(listener); }
   private emit(): void { this.listeners.forEach((listener) => listener(this.state)); }
   setTask(task: PixelTaskName): void { if (this.state.task !== task) { this.state = this.fresh(task); this.emit(); } }
-  paint(index: number, value = 1): void { if (index < 0 || index >= PIXEL_INPUTS) return; const drawing = [...this.state.drawing]; drawing[index] = value; this.state = { ...this.state, drawing, mapExampleIndex: null }; this.emit(); }
-  paintMany(indices: number[], value = 1): void { const drawing = [...this.state.drawing]; let changed = false; indices.forEach((index) => { if (index >= 0 && index < PIXEL_INPUTS && drawing[index] !== value) { drawing[index] = value; changed = true; } }); if (!changed) return; this.state = { ...this.state, drawing, mapExampleIndex: null }; this.emit(); }
-  clear(): void { this.state = { ...this.state, drawing: emptyDrawing(this.state.task), mapExampleIndex: null }; this.emit(); }
-  loadSample(label: number, variation = 0): void { this.state = { ...this.state, drawing: sampleForClass(this.state.task, label, variation), selectedLabel: label, mapExampleIndex: null }; this.emit(); }
-  loadDrawing(pixels: number[], label: number): void { if (pixels.length !== PIXEL_INPUTS) return; this.state = { ...this.state, drawing: [...pixels], selectedLabel: label, mapExampleIndex: null }; this.emit(); }
+  paint(index: number, value = 1): void { if (index < 0 || index >= PIXEL_INPUTS) return; const drawing = [...this.state.drawing]; drawing[index] = value; this.state = { ...this.state, drawing, mapExampleIndex: null, latestAddedIndex: null }; this.emit(); }
+  paintMany(indices: number[], value = 1): void { const drawing = [...this.state.drawing]; let changed = false; indices.forEach((index) => { if (index >= 0 && index < PIXEL_INPUTS && drawing[index] !== value) { drawing[index] = value; changed = true; } }); if (!changed) return; this.state = { ...this.state, drawing, mapExampleIndex: null, latestAddedIndex: null }; this.emit(); }
+  clear(): void { this.state = { ...this.state, drawing: emptyDrawing(this.state.task), mapExampleIndex: null, latestAddedIndex: null }; this.emit(); }
+  loadSample(label: number, variation = 0): void { this.state = { ...this.state, drawing: sampleForClass(this.state.task, label, variation), selectedLabel: label, mapExampleIndex: null, latestAddedIndex: null }; this.emit(); }
+  loadDrawing(pixels: number[], label: number): void { if (pixels.length !== PIXEL_INPUTS) return; this.state = { ...this.state, drawing: [...pixels], selectedLabel: label, mapExampleIndex: null, latestAddedIndex: null }; this.emit(); }
   selectLabel(label: number): void { this.state = { ...this.state, selectedLabel: label }; this.emit(); }
   addDrawing(): void {
     const example = { pixels: [...this.state.drawing], label: this.state.selectedLabel }; const data = [example, ...this.state.data];
