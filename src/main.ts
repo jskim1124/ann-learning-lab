@@ -141,11 +141,8 @@ function renderScenario(state: LabState): void {
   element<HTMLElement>("#scenarioDifficulty").textContent = preset.difficulty;
   element<HTMLElement>("#scenarioName").textContent = preset.title;
   element<HTMLElement>("#scenarioStory").textContent = preset.story;
+  element<HTMLElement>("#scenarioMotivation").textContent = preset.motivation ?? preset.story;
   element<HTMLElement>("#scenarioQuestion").textContent = preset.question;
-  element<HTMLElement>("#scenarioAxisX").textContent = preset.axes[0];
-  element<HTMLElement>("#scenarioAxisY").textContent = preset.axes[1];
-  element<HTMLElement>("#axisSummary").hidden = isPixelPreset(state.preset);
-  element<HTMLElement>("#pixelSummary").hidden = !isPixelPreset(state.preset);
   const illustration = element<HTMLElement>("#scenarioIllustration");
   illustration.dataset.mediaKind = preset.mediaKind;
   illustration.dataset.preset = state.preset;

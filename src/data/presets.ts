@@ -4,6 +4,7 @@ export interface DatasetPreset {
   title: string;
   description: string;
   story: string;
+  motivation?: string;
   question: string;
   axes: [string, string];
   classes: [string, string];
@@ -50,7 +51,8 @@ export const PRESETS: Record<PresetName, DatasetPreset> = {
   digits: {
     title: "내가 그린 숫자를 읽을까?",
     description: "14×14 그림의 196개 칸을 실제 입력으로 써서 0·1·2를 구별합니다.",
-    story: "사람마다 숫자의 크기와 기울기가 다릅니다. 14×14칸의 밝기를 그대로 보여 주고 새 손글씨를 읽게 합니다.",
+    story: "친구들이 쓴 0·1·2는 크기와 기울기가 모두 다릅니다.",
+    motivation: "수학·과학 활동에서 손으로 적은 결과를 모으려면, 서로 다른 글씨도 같은 숫자로 읽을 수 있어야 합니다.",
     question: "처음 보는 손글씨 0·1·2를 그림 전체로 구별할 수 있을까요?",
     axes: ["픽셀 가로 위치", "픽셀 세로 위치"],
     classes: ["숫자 그림", "숫자 그림"], difficulty: "손글씨", sourceNote: "실제 입력은 14×14 그림의 밝기 196개입니다.", mediaKind: "digits", recommendedHiddenUnits: 4,
@@ -65,7 +67,8 @@ export const PRESETS: Record<PresetName, DatasetPreset> = {
   omr: {
     title: "OMR 답을 읽을 수 있을까?",
     description: "한 문항 그림의 196개 칸을 보고 ①~⑤ 가운데 칠한 답을 찾습니다.",
-    story: "OMR 표시는 칸을 벗어나거나 흐릴 수 있습니다. 한 문항을 14×14칸으로 바꾸어 어느 답을 칠했는지 찾게 합니다.",
+    story: "OMR 표시는 칸을 벗어나거나 흐리게 칠해질 수 있습니다.",
+    motivation: "답안이 어떻게 읽히고 왜 잘못 읽히는지 알면, 마킹 방법과 인식기의 한계를 함께 설명할 수 있습니다.",
     question: "비뚤게 칠한 OMR 표시도 그림 전체를 보고 읽을 수 있을까요?",
     axes: ["픽셀 가로 위치", "픽셀 세로 위치"], classes: ["OMR", "OMR"], difficulty: "마킹 5가지", sourceNote: "실제 입력은 한 문항 그림의 밝기 196개입니다.", mediaKind: "omr", recommendedHiddenUnits: 4, points: [],
   },
@@ -104,7 +107,8 @@ export const PRESETS: Record<PresetName, DatasetPreset> = {
   xor: {
     title: "복도 양쪽 스위치와 전등",
     description: "복도 양쪽 끝의 스위치로 전등 하나를 켜고 끄는 상황",
-    story: "복도 양쪽 끝에서 전등 하나를 켜고 끕니다. 두 스위치가 서로 다른 방향일 때만 전등이 켜집니다.",
+    story: "긴 복도에서는 어느 쪽 문으로 들어와도 가까운 스위치로 같은 전등을 켜고 끕니다.",
+    motivation: "한 스위치만 보는 규칙으로는 전등 상태를 맞힐 수 없습니다. 이 문제로 은닉 노드가 왜 필요한지 확인할 수 있습니다.",
     question: "두 스위치의 방향을 보고 전등이 켜질지 맞힐 수 있을까요?",
     axes: ["교실 쪽 스위치", "계단 쪽 스위치"], classes: ["전등 꺼짐", "전등 켜짐"], difficulty: "핵심 원리", sourceNote: "이전 버전 호환용 자료입니다.", mediaKind: "points", recommendedHiddenUnits: 2,
     points: [
@@ -145,7 +149,8 @@ export const PRESETS: Record<PresetName, DatasetPreset> = {
   custom: {
     title: "빈 화면에서 직접 만들기",
     description: "두 범주의 점을 직접 배치해 신경망이 어떤 경계를 만드는지 관찰합니다.",
-    story: "숫자, 그림, 웹캠, 글 가운데 하나를 고릅니다. 두 범주의 사례를 모아 나만의 모델을 만듭니다.",
+    story: "학교생활에서 궁금했던 두 집단의 차이를 직접 자료로 모읍니다.",
+    motivation: "질문을 직접 정해 시험해 보면, 어떤 자료와 특징이 모델의 판단을 바꾸는지 확인할 수 있습니다.",
     question: "내가 만든 점들의 규칙을 모델이 찾아낼 수 있을까요?",
     axes: ["가로 힌트", "세로 힌트"], classes: ["파란 결과", "주황 결과"], difficulty: "직접 만들기", sourceNote: "직접 관찰한 자료인지, 연습용으로 만든 자료인지 기록해 두세요.", mediaKind: "points", recommendedHiddenUnits: 3,
     points: [],
