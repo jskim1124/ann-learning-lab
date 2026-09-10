@@ -55,6 +55,7 @@
         </div>
         <div class="custom-data-layout" id="customDataView" hidden>
           <aside class="workbook-panel custom-setup-panel">
+            <span class="page-kicker">입력 형식</span><div class="custom-input-tabs" role="group" aria-label="학습 자료 입력 형식"><button data-custom-input="numbers" class="active" type="button">숫자 값</button><button data-custom-input="drawing" type="button">드로잉</button><button data-custom-input="webcam" type="button">웹캠</button><button data-custom-input="text" type="button">텍스트</button></div><p id="customInputHelp">특징값을 숫자로 직접 입력합니다.</p>
             <div class="title-line"><div><span class="page-kicker">클래스 설정</span><h2>어떤 두 결과를 나눌까요?</h2></div><button class="button secondary compact-button" id="customLoadExample" type="button">예시 채우기</button></div>
             <div class="custom-class-inputs"><label><span>파란 클래스</span><input id="customClassZero" type="text" maxlength="18" value="A 결과"></label><label><span>주황 클래스</span><input id="customClassOne" type="text" maxlength="18" value="B 결과"></label></div>
             <hr>
@@ -62,8 +63,11 @@
             <div id="customFeatureNames" class="custom-feature-names"></div>
           </aside>
           <article class="graph-sheet custom-entry-sheet">
-            <div class="graph-heading"><div><span id="customRowCount">입력한 사례 0개</span><h2>측정한 사례 입력하기</h2></div><p>점 하나가 될 실제 사례를 한 줄씩 넣습니다.</p></div>
+            <div class="graph-heading"><div><span id="customRowCount">입력한 사례 0개</span><h2>학습 사례 모으기</h2></div><p>추가한 사례 하나가 특징 지도에서 점 하나가 됩니다.</p></div>
             <form id="customRowForm" class="custom-row-form"><label><span>사례 이름</span><input id="customRowName" type="text" maxlength="18" placeholder="예: 관찰 1"></label><label><span>클래스</span><select id="customRowClass"></select></label><div id="customRowValues" class="custom-row-values"></div><button class="button primary" type="submit">학습 자료에 추가</button></form>
+            <section id="customDrawingCapture" class="custom-capture" hidden><canvas id="customDrawingCanvas" width="320" height="220" aria-label="학습 자료로 쓸 그림을 직접 그리는 칸"></canvas><div><label>이 그림의 클래스<select id="customDrawingClass"></select></label><button class="button secondary" id="customDrawingClear" type="button">지우기</button><button class="button primary" id="customDrawingAdd" type="button">그림을 자료에 추가</button></div></section>
+            <section id="customWebcamCapture" class="custom-capture" hidden><div class="custom-camera"><video id="customWebcamVideo" autoplay playsinline muted></video><canvas id="customWebcamPreview" width="320" height="220" aria-label="촬영한 웹캠 자료"></canvas></div><div><label>이 사진의 클래스<select id="customWebcamClass"></select></label><button class="button secondary" id="customWebcamStart" type="button">카메라 켜기</button><button class="button primary" id="customWebcamAdd" type="button">현재 장면을 자료에 추가</button></div></section>
+            <section id="customTextCapture" class="custom-capture custom-text-capture" hidden><label><span>학습시킬 문장</span><textarea id="customTextValue" rows="4" placeholder="짧은 문장이나 단어를 입력하세요"></textarea></label><div><label>이 글의 클래스<select id="customTextClass"></select></label><button class="button primary" id="customTextAdd" type="button">글을 자료에 추가</button></div></section>
             <div class="custom-table-wrap"><table><thead id="customTableHead"></thead><tbody id="customTableBody"></tbody></table></div>
           </article>
         </div>

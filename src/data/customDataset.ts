@@ -1,5 +1,7 @@
 import type { DataPoint, Label } from "../types";
 
+export type CustomInputKind = "numbers" | "drawing" | "webcam" | "text";
+
 export interface CustomRow {
   id: number;
   name: string;
@@ -8,6 +10,7 @@ export interface CustomRow {
 }
 
 export interface CustomDatasetDraft {
+  inputKind: CustomInputKind;
   classes: [string, string];
   features: string[];
   rows: CustomRow[];
@@ -22,12 +25,19 @@ export interface CustomProjection {
   points: DataPoint[];
 }
 
-export function createCustomDraft(): CustomDatasetDraft {
-  return { classes: ["A 결과", "B 결과"], features: ["특징 1", "특징 2", "특징 3"], rows: [], xFeature: 0, yFeature: 1, nextId: 1 };
+export function featuresForInput(kind: CustomInputKind): string[] {
+  if (kind === "text") return ["글자 수", "단어 수", "다른 글자 비율", "숫자 비율"];
+  if (kind === "drawing" || kind === "webcam") return ["진한 양", "가로 위치", "세로 위치", "퍼진 정도"];
+  return ["특징 1", "특징 2", "특징 3"];
+}
+
+export function createCustomDraft(inputKind: CustomInputKind = "numbers"): CustomDatasetDraft {
+  return { inputKind, classes: ["A 결과", "B 결과"], features: featuresForInput(inputKind), rows: [], xFeature: 0, yFeature: 1, nextId: 1 };
 }
 
 export function createCustomExample(): CustomDatasetDraft {
   return {
+    inputKind: "numbers",
     classes: ["A 종류", "B 종류"],
     features: ["길이", "무게", "밝기"],
     rows: [
@@ -44,6 +54,29 @@ export function createCustomExample(): CustomDatasetDraft {
     yFeature: 1,
     nextId: 9,
   };
+}
+
+export function textFeatures(source: string): number[] {
+  const compact = [...source].filter((character) => !/\s/u.test(character));
+  const words = source.trim() ? source.trim().split(/\s+/u).length : 0;
+  const unique = new Set(compact.map((character) => character.toLocaleLowerCase())).size;
+  const digits = compact.filter((character) => /[0-9]/u.test(character)).length;
+  return [compact.length, words, compact.length ? unique / compact.length * 100 : 0, compact.length ? digits / compact.length * 100 : 0];
+}
+
+export function imageFeatures(rgba: Uint8ClampedArray, width: number, height: number): number[] {
+  let ink = 0; let weightedX = 0; let weightedY = 0;
+  const strengths: number[] = [];
+  for (let y = 0; y < height; y += 1) for (let x = 0; x < width; x += 1) {
+    const offset = (y * width + x) * 4; const alpha = (rgba[offset + 3] ?? 255) / 255;
+    const brightness = ((rgba[offset] ?? 255) + (rgba[offset + 1] ?? 255) + (rgba[offset + 2] ?? 255)) / (3 * 255);
+    const strength = Math.max(0, 1 - brightness) * alpha; strengths.push(strength); ink += strength; weightedX += x * strength; weightedY += y * strength;
+  }
+  if (ink < 1e-6) return [0, (width - 1) / 2, (height - 1) / 2, 0];
+  const centerX = weightedX / ink; const centerY = weightedY / ink; let spread = 0;
+  strengths.forEach((strength, index) => { const x = index % width; const y = Math.floor(index / width); spread += ((x - centerX) ** 2 + (y - centerY) ** 2) * strength; });
+  const maxDistance = Math.hypot(width - 1, height - 1) || 1;
+  return [ink / (width * height) * 100, centerX, centerY, Math.sqrt(spread / ink) / maxDistance * 100];
 }
 
 function normalized(values: number[]): number[] {

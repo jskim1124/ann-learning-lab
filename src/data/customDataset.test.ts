@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { centroidAccuracy, createCustomDraft, createCustomExample, projectCustomDataset, validateCustomDataset } from "./customDataset";
+import { centroidAccuracy, createCustomDraft, createCustomExample, imageFeatures, projectCustomDataset, textFeatures, validateCustomDataset } from "./customDataset";
 
 describe("직접 만드는 자료", () => {
   it("고른 두 특징을 -0.9부터 0.9 사이의 점으로 바꾼다", () => {
@@ -24,5 +24,12 @@ describe("직접 만드는 자료", () => {
     draft.xFeature = 1; draft.yFeature = 2;
     const weak = centroidAccuracy(projectCustomDataset(draft).points);
     expect(strong).toBeGreaterThan(weak);
+  });
+
+  it("텍스트와 그림을 비교 가능한 숫자 특징으로 바꾼다", () => {
+    expect(textFeatures("안녕 2026")).toEqual([6, 2, expect.any(Number), expect.any(Number)]);
+    const pixels = new Uint8ClampedArray([0, 0, 0, 255, 255, 255, 255, 255]);
+    const features = imageFeatures(pixels, 2, 1);
+    expect(features[0]).toBe(50); expect(features[1]).toBe(0);
   });
 });
