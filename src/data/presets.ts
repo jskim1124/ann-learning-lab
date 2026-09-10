@@ -51,9 +51,9 @@ export const PRESETS: Record<PresetName, DatasetPreset> = {
   digits: {
     title: "내가 그린 숫자를 읽을까?",
     description: "14×14 그림의 196개 칸을 실제 입력으로 써서 0·1·2를 구별합니다.",
-    story: "친구들이 쓴 0·1·2는 크기와 기울기가 모두 다릅니다.",
-    motivation: "수학·과학 활동에서 손으로 적은 결과를 모으려면, 서로 다른 글씨도 같은 숫자로 읽을 수 있어야 합니다.",
-    question: "처음 보는 손글씨 0·1·2를 그림 전체로 구별할 수 있을까요?",
+    story: "중학교 2학년 민서는 과학 실험이 끝난 뒤, 여섯 모둠이 종이에 적은 온도 측정값을 하나의 표로 옮기고 있습니다.",
+    motivation: "그런데 친구마다 0·1·2의 크기와 기울기가 달라, 민서는 숫자를 하나씩 다시 확인해야 합니다.",
+    question: "글씨 모양이 달라도 0·1·2를 알아보는 모델을 함께 만들어 봅시다.",
     axes: ["픽셀 가로 위치", "픽셀 세로 위치"],
     classes: ["숫자 그림", "숫자 그림"], difficulty: "손글씨", sourceNote: "실제 입력은 14×14 그림의 밝기 196개입니다.", mediaKind: "digits", recommendedHiddenUnits: 4,
     points: [
@@ -67,9 +67,9 @@ export const PRESETS: Record<PresetName, DatasetPreset> = {
   omr: {
     title: "OMR 답을 읽을 수 있을까?",
     description: "한 문항 그림의 196개 칸을 보고 ①~⑤ 가운데 칠한 답을 찾습니다.",
-    story: "OMR 표시는 칸을 벗어나거나 흐리게 칠해질 수 있습니다.",
-    motivation: "답안이 어떻게 읽히고 왜 잘못 읽히는지 알면, 마킹 방법과 인식기의 한계를 함께 설명할 수 있습니다.",
-    question: "비뚤게 칠한 OMR 표시도 그림 전체를 보고 읽을 수 있을까요?",
+    story: "2학년 지우네 반은 학교 축제 체험 부스를 정하려고 ①~⑤ OMR 카드로 의견을 모았습니다.",
+    motivation: "급하게 칠한 카드에는 흐린 표시와 칸을 벗어난 표시가 섞여 있어, 단순히 가장 진한 칸만 찾으면 다른 답으로 읽을 수 있습니다.",
+    question: "비뚤거나 흐린 표시도 알맞은 답으로 읽는 모델을 만들어 봅시다.",
     axes: ["픽셀 가로 위치", "픽셀 세로 위치"], classes: ["OMR", "OMR"], difficulty: "마킹 5가지", sourceNote: "실제 입력은 한 문항 그림의 밝기 196개입니다.", mediaKind: "omr", recommendedHiddenUnits: 4, points: [],
   },
   shot: {
@@ -107,9 +107,9 @@ export const PRESETS: Record<PresetName, DatasetPreset> = {
   xor: {
     title: "복도 양쪽 스위치와 전등",
     description: "복도 양쪽 끝의 스위치로 전등 하나를 켜고 끄는 상황",
-    story: "긴 복도에서는 어느 쪽 문으로 들어와도 가까운 스위치로 같은 전등을 켜고 끕니다.",
-    motivation: "한 스위치만 보는 규칙으로는 전등 상태를 맞힐 수 없습니다. 이 문제로 은닉 노드가 왜 필요한지 확인할 수 있습니다.",
-    question: "두 스위치의 방향을 보고 전등이 켜질지 맞힐 수 있을까요?",
+    story: "전기 단원을 배우던 서준이는 긴 복도 어느 쪽 문으로 들어와도 가까운 스위치로 같은 전등을 켜고 끌 수 있다는 것을 발견했습니다.",
+    motivation: "하지만 스위치 하나의 방향만 봐서는 전등이 켜졌는지 알 수 없고, 네 가지 상태는 직선 하나로도 나뉘지 않습니다.",
+    question: "은닉 노드 두 개가 네 가지 스위치 상태를 어떻게 나누는지 찾아봅시다.",
     axes: ["교실 쪽 스위치", "계단 쪽 스위치"], classes: ["전등 꺼짐", "전등 켜짐"], difficulty: "핵심 원리", sourceNote: "이전 버전 호환용 자료입니다.", mediaKind: "points", recommendedHiddenUnits: 2,
     points: [
       { x: -0.86, y: -0.82, label: 0 }, { x: -0.66, y: -0.58, label: 0 }, { x: -0.48, y: -0.76, label: 0 },
@@ -149,9 +149,9 @@ export const PRESETS: Record<PresetName, DatasetPreset> = {
   custom: {
     title: "빈 화면에서 직접 만들기",
     description: "두 범주의 점을 직접 배치해 신경망이 어떤 경계를 만드는지 관찰합니다.",
-    story: "학교생활에서 궁금했던 두 집단의 차이를 직접 자료로 모읍니다.",
-    motivation: "질문을 직접 정해 시험해 보면, 어떤 자료와 특징이 모델의 판단을 바꾸는지 확인할 수 있습니다.",
-    question: "내가 만든 점들의 규칙을 모델이 찾아낼 수 있을까요?",
+    story: "정보 수업에서 하은이 모둠은 학교생활에서 궁금했던 질문을 실제 자료로 확인하는 프로젝트를 시작했습니다.",
+    motivation: "숫자·그림·웹캠·글 중 어떤 자료를 모을지, 두 결과를 나누려면 어떤 특징을 볼지 모둠이 직접 정해야 합니다.",
+    question: "우리 질문에 맞는 자료와 특징을 골라 분류 모델을 만들어 봅시다.",
     axes: ["가로 힌트", "세로 힌트"], classes: ["파란 결과", "주황 결과"], difficulty: "직접 만들기", sourceNote: "직접 관찰한 자료인지, 연습용으로 만든 자료인지 기록해 두세요.", mediaKind: "points", recommendedHiddenUnits: 3,
     points: [],
   },
