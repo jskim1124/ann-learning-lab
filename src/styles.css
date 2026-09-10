@@ -133,7 +133,7 @@ textarea { resize: vertical; line-height: 1.45; }
 .cause-steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin-bottom: 11px; }.cause-steps button { min-height: 44px; padding: 5px; color: #586372; background: #f2f4f6; border: 1px solid #cbd1d8; font-size: .8rem; font-weight: 750; }.cause-steps button span { display: block; font-weight: 900; }.cause-steps button.active { color: white; background: var(--blue); border-color: var(--blue); }
 .causal-explanation { flex: 1; min-height: 0; padding: 3px 4px 7px; overflow: auto; }.scene-no { display: inline-block; margin-bottom: 3px; color: var(--blue); font-size: .82rem; font-weight: 850; }.causal-explanation h2 { margin-bottom: 5px; font-size: 1.08rem; }.causal-explanation p { margin-bottom: 6px; color: #536071; font-size: .89rem; line-height: 1.48; }
 .plain-rule { padding: 7px 10px; background: #f1f4f7; border-left: 4px solid #778493; font-size: .85rem; line-height: 1.45; }
-.switch-rule { display: grid; gap: 5px; margin-top: 12px; padding: 12px 14px; color: #314052; background: #f1f4f7; border-left: 4px solid var(--blue); }.switch-rule b { font-size: .9rem; }.switch-rule span { color: #596676; font-size: .84rem; line-height: 1.45; }
+.xor-rule { display: grid; gap: 3px; margin-top: 8px; padding: 8px 10px; color: #314052; background: #f1f4f7; border-left: 4px solid var(--blue); }.xor-rule b { font-size: .9rem; }.xor-rule span { color: #596676; font-size: .84rem; line-height: 1.4; }
 .neuron-choices { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin: 6px 0; }.neuron-choice { min-width: 0; padding: 4px 5px; text-align: left; color: #4a5565; background: white; border: 1px solid #c8ced6; border-left: 4px solid var(--neuron-color); }.neuron-choice span, .neuron-choice strong { display: block; font-size: .7rem; overflow-wrap: anywhere; }.neuron-choice.active { background: #edf4fa; box-shadow: inset 0 0 0 1px var(--neuron-color); }
 .contribution-list { display: grid; gap: 8px; margin: 10px 0; }.contribution-row { display: grid; grid-template-columns: 55px 1fr 58px; gap: 7px; align-items: center; font-size: .82rem; }.contribution-row > b { text-align: right; }.contribution-track { position: relative; height: 12px; background: linear-gradient(90deg, #edf0f3 49%, #9ca5b0 49%, #9ca5b0 51%, #edf0f3 51%); }.contribution-track i { position: absolute; top: 2px; height: 8px; }.contribution-track i.positive { left: 50%; background: #c96424; }.contribution-track i.negative { right: 50%; background: #3568d4; }
 .sum-line { display: flex; justify-content: space-between; padding-top: 9px; border-top: 1px solid #d5dae0; font-size: .88rem; }.final-equation { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin: 10px 0; padding: 11px; background: #f1f4f7; }.final-equation span { color: var(--muted); font-size: .83rem; }
@@ -276,10 +276,10 @@ small { font-size: .875rem !important; }
 .graph-heading { min-height: 42px; }
 .graph-heading span, .graph-heading p, .legend, .axis-x, .axis-y { font-size: .875rem; }
 .canvas-wrap canvas, .latent-map-wrap canvas { border-color: #b9c2cd; border-radius: 10px; }
-.think-box, .guided-highlight, .step-quiz, .switch-rule, .plain-rule, .story-question, .custom-separation, .prediction, .pixel-summary { border-radius: 10px; }
+.think-box, .guided-highlight, .step-quiz, .xor-rule, .plain-rule, .story-question, .custom-separation, .prediction, .pixel-summary { border-radius: 10px; }
 .think-box { background: var(--purple-soft); border: 1px solid #d9d0ff; }
 .plain-rule { border: 1px solid #d7dde5; }
-.switch-rule, .boundary-note { border: 1px solid #b8cff0; }
+.xor-rule, .boundary-note { border: 1px solid #b8cff0; }
 .custom-separation, .pixel-summary { border: 1px solid #b8cff0; }
 .workbook-panel .data-source { border: 1px solid #d3d9e1; }
 .think-box p { color: #4f5862; font-size: .875rem; }
@@ -302,7 +302,7 @@ small { font-size: .875rem !important; }
 .scenario-card .card-visual { grid-column: 1; grid-row: 1 / 4; align-self: center; display: block; width: 96px; height: 68px; background-image: url('/illustrations/learning-inputs.jpg'); background-repeat: no-repeat; background-size: 300% auto; border: 2px solid #fff; border-radius: 12px; }
 .scenario-card[data-preset="digits"] .card-visual, .scenario-card[data-preset="omr"] .card-visual { background-position: right center; }
 .scenario-card[data-preset="omr"] .card-visual { background-image: url('/illustrations/omr-classroom.jpg'); background-size: cover; background-position: center 48%; }
-.scenario-card[data-preset="xor"] .card-visual { background-image: url('/illustrations/switch-corridor-card.jpg'); background-size: cover; background-position: center; }
+.scenario-card[data-preset="xor"] .card-visual { background-image: url('/illustrations/penalty-kick.png'); background-size: cover; background-position: 68% center; }
 .scenario-card[data-preset="custom"] .card-visual { background-position: center center; }
 .scenario-card .card-no { position: absolute; top: 7px; left: 7px; display: grid; width: 25px; height: 25px; place-items: center; color: #fff; background: var(--accent); border: 2px solid #fff; border-radius: 50%; font-size: .7rem; }
 .scenario-card .card-visual { transition: transform .3s cubic-bezier(.2,.75,.25,1); }
@@ -317,7 +317,7 @@ small { font-size: .875rem !important; }
 .scenario-story > p { font-size: 1rem; }
 .scenario-illustration { display: block !important; height: clamp(190px, 28vh, 280px); margin: calc(clamp(17px, 1.8vw, 25px) * -1) calc(clamp(17px, 1.8vw, 25px) * -1) 14px; background-size: 300% auto; border: 0; border-bottom: 1px solid #e1e4e8; border-radius: 0; }
 .scenario-illustration[data-preset="omr"] { background-image: url('/illustrations/omr-classroom.jpg'); background-size: cover; background-position: center 48%; }
-.scenario-illustration[data-preset="xor"] { background-image: url('/illustrations/switch-corridor.jpg'); background-size: cover; background-position: center; }
+.scenario-illustration[data-preset="xor"] { background-image: url('/illustrations/penalty-kick.png'); background-size: cover; background-position: center 52%; }
 .scenario-illustration[data-preset="custom"] { background-position: center center; }
 .scenario-illustration.changing { animation: illustration-in .48s cubic-bezier(.2,.75,.25,1); }
 .story-question { padding: 9px 12px; background: var(--orange-soft); border-color: #f4c49b; }

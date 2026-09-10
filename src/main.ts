@@ -14,7 +14,7 @@ import { PixelLabStore, type PixelLabState } from "./state/pixelLabStore";
 import type { ActivationName, Label, PresetName } from "./types";
 import { drawDecisionSurface, HIDDEN_COLORS } from "./visualization/decisionSurface";
 import { drawCustomFeaturePlot } from "./visualization/customFeaturePlot";
-import { drawSwitchLesson, SWITCH_LESSON } from "./visualization/switchLesson";
+import { drawXorLesson, XOR_LESSON } from "./visualization/xorLesson";
 import { drawLossChart } from "./visualization/lossChart";
 import { drawMediaSample, mediaSampleText, playSoundSample, toggleMediaPixel } from "./visualization/mediaSample";
 import { networkGraphMarkup } from "./visualization/networkGraph";
@@ -174,7 +174,11 @@ function renderScenario(state: LabState): void {
   element<HTMLElement>("#mediaSample").hidden = preset.mediaKind === "points";
   element<HTMLElement>("#pointEditor").hidden = preset.mediaKind !== "points";
   element<HTMLButtonElement>("#playMediaSound").hidden = preset.mediaKind !== "sound";
-  element<HTMLElement>("#dataGraphTitle").textContent = preset.mediaKind === "points" ? "관찰 자료" : "두 힌트로 펼친 설명 지도";
+  element<HTMLElement>("#dataGraphTitle").textContent = state.preset === "xor" ? "승부차기 방향 네 경우" : preset.mediaKind === "points" ? "관찰 자료" : "두 힌트로 펼친 설명 지도";
+  const pointPrompt = element<HTMLElement>("#pointEditor .think-box p");
+  pointPrompt.textContent = state.preset === "xor"
+    ? "왼쪽·왼쪽과 오른쪽·오른쪽은 막힘, 방향이 다른 두 경우는 골입니다. 직선 하나로 두 골만 묶을 수 있을까요?"
+    : "자와 직선 하나만으로 두 결과를 나눌 수 있나요? 어렵다면 선이 몇 개쯤 필요할까요?";
 }
 
 function renderExperiments(state: LabState, store: LabStore): void {
@@ -205,10 +209,10 @@ function renderCausalExplanation(state: LabState, store: LabStore): void {
     const step = Number(button.dataset.explanationStep);
     button.classList.toggle("active", step === state.explanationStep);
     button.disabled = step > state.furthestExplanationStep;
-    const labels = state.preset === "xor" ? SWITCH_LESSON.map((lesson) => lesson.tab) : ["새 점", "뉴런 신호", "합치기", "최종 판단"];
+    const labels = state.preset === "xor" ? XOR_LESSON.map((lesson) => lesson.tab) : ["새 점", "뉴런 신호", "합치기", "최종 판단"];
     if (button.lastChild) button.lastChild.textContent = labels[step - 1] ?? "";
   });
-  if (state.preset === "xor") { const lesson = SWITCH_LESSON[state.explanationStep - 1]!; target.innerHTML = `<span class="scene-no">${state.explanationStep} / 4</span><h2>${lesson.title}</h2><p>${lesson.body}</p><div class="switch-rule"><b>${state.explanationStep === 1 ? "먼저 네 경우 읽기" : state.explanationStep === 2 ? "은닉 노드 1개" : state.explanationStep === 3 ? "은닉 노드 하나 추가" : "대표 선을 한 번씩 고치기"}</b><span>${state.explanationStep === 1 ? "점의 위치는 두 스위치, 색은 전등 상태입니다." : state.explanationStep === 2 ? "노드 하나가 선 하나를 맡지만 아직 두 답이 섞입니다." : state.explanationStep === 3 ? "두 노드가 서로 다른 바깥쪽 꺼짐을 하나씩 맡습니다." : "연습할 때마다 지금 오답이 줄어드는 쪽으로 조금씩 움직입니다."}</span></div>`; return; }
+  if (state.preset === "xor") { const lesson = XOR_LESSON[state.explanationStep - 1]!; target.innerHTML = `<span class="scene-no">${state.explanationStep} / 4</span><h2>${lesson.title}</h2><p>${lesson.body}</p><div class="xor-rule"><b>${state.explanationStep === 1 ? "먼저 네 경우 읽기" : state.explanationStep === 2 ? "은닉 노드 1개" : state.explanationStep === 3 ? "은닉 노드 하나 추가" : "대표 선 고치기"}</b><span>${state.explanationStep === 1 ? "가로는 키커, 세로는 골키퍼의 방향이며 색은 결과입니다." : state.explanationStep === 2 ? "선 하나로는 골과 막힘이 섞입니다." : state.explanationStep === 3 ? "두 노드가 양끝의 막힘을 하나씩 맡습니다." : "놓친 골이 안쪽에 오도록 연결값과 선이 움직입니다."}</span></div>`; return; }
   const x = state.testInput.x.toFixed(2); const y = state.testInput.y.toFixed(2);
   if (state.explanationStep === 1) {
     target.innerHTML = `<span class="scene-no">장면 1</span><h2>같은 높이에서 옆으로만 움직입니다</h2><p>노란 점과 보라색 십자는 세로 위치가 같습니다. 가로 방향의 힌트 하나만 바꾸면 무엇이 달라지는지 살펴봅니다.</p><div class="plain-rule">노란 점 = 바꾸기 전<br>보라색 십자 = 가로 힌트 하나만 바꾼 뒤</div>`;
@@ -232,7 +236,7 @@ function renderCausalExplanation(state: LabState, store: LabStore): void {
 }
 
 function quizDefinition(state: LabState): { question: string; choices: Array<[string, string]>; correct: string; explanation: string } {
-  if (state.preset === "xor") { const lesson = SWITCH_LESSON[state.explanationStep - 1]!; return { question: lesson.question, choices: lesson.choices, correct: lesson.correct, explanation: lesson.explanation }; }
+  if (state.preset === "xor") { const lesson = XOR_LESSON[state.explanationStep - 1]!; return { question: lesson.question, choices: lesson.choices, correct: lesson.correct, explanation: lesson.explanation }; }
   const result = forward(state.model, state.testInput.x, state.testInput.y);
   const previousX = Math.max(-.9, state.testInput.x - .65); const previous = forward(state.model, previousX, state.testInput.y);
   if (state.explanationStep === 1) return { question: "노란 점에서 십자로 갈 때 그대로인 것은?", choices: [["height", "세로 높이"], ["side", "가로 위치"]], correct: "height", explanation: "옆으로만 움직였으므로 세로 높이는 그대로입니다." };
@@ -263,7 +267,7 @@ function renderQuiz(state: LabState, store: LabStore): void {
 }
 
 function renderHighlightGuide(state: LabState): void {
-  if (state.preset === "xor") { const lesson = SWITCH_LESSON[state.explanationStep - 1]!; element<HTMLElement>("#highlightInstruction").textContent = lesson.reveal; const switchButton = element<HTMLButtonElement>("#revealHighlight"); switchButton.disabled = state.highlightRevealed; switchButton.textContent = state.highlightRevealed ? "그래프에서 확인했습니다" : lesson.reveal; element<HTMLElement>("#highlightResult").textContent = state.highlightRevealed ? lesson.result : "버튼을 누른 뒤 그래프에서 확인하고 문제를 풉니다."; return; }
+  if (state.preset === "xor") { const lesson = XOR_LESSON[state.explanationStep - 1]!; element<HTMLElement>("#highlightInstruction").textContent = lesson.reveal; const revealButton = element<HTMLButtonElement>("#revealHighlight"); revealButton.disabled = state.highlightRevealed; revealButton.textContent = state.highlightRevealed ? "그래프에서 확인했습니다" : lesson.reveal; element<HTMLElement>("#highlightResult").textContent = state.highlightRevealed ? lesson.result : "버튼을 누른 뒤 그래프에서 확인하고 문제를 풉니다."; return; }
   const preset = PRESETS[state.preset]; const previousX = Math.max(-.9, state.testInput.x - .65);
   const before = forward(state.model, previousX, state.testInput.y); const after = forward(state.model, state.testInput.x, state.testInput.y);
   element<HTMLElement>("#highlightInstruction").textContent = `${preset.axes[0].replace("설명 지도: ", "")}만 바꾸고 세로 높이는 그대로 둡니다.`;
@@ -454,7 +458,7 @@ function render(state: LabState, store: LabStore, pixelStore: PixelLabStore): vo
     element<SVGSVGElement>("#networkSvg").innerHTML = networkGraphMarkup(state.model, prediction.hidden);
   }
   if (state.lessonStep === 3 && !isPixelPreset(state.preset) && !isCustomPreset(state.preset)) {
-    if (state.preset === "xor") drawSwitchLesson(element<HTMLCanvasElement>("#decisionCanvas"), state.explanationStep, state.highlightRevealed);
+    if (state.preset === "xor") drawXorLesson(element<HTMLCanvasElement>("#decisionCanvas"), state.explanationStep, state.highlightRevealed);
     else drawDecisionSurface(element<HTMLCanvasElement>("#decisionCanvas"), state.model, state.data, state.testInput, { explanationStep: state.explanationStep, selectedNeuron: state.selectedNeuron, highlightRevealed: state.highlightRevealed });
     renderCausalExplanation(state, store); renderHighlightGuide(state); renderQuiz(state, store);
   }
@@ -474,9 +478,9 @@ function render(state: LabState, store: LabStore, pixelStore: PixelLabStore): vo
   element<HTMLPreElement>("#formulaPanel").textContent = calculationText(state);
   const titles = ["옆으로 한 가지만 바꾸기", "작은 질문의 색 선", "여러 표를 한데 모으기", "두 답이 같아지는 검은 선"];
   const subtitles = ["노란 점과 보라 십자의 세로 높이를 비교하세요.", "한 번에 가로 힌트 하나만 바꿉니다.", "바꾸기 전과 뒤의 가능성을 비교하세요.", "검은 선 위에서는 두 답이 같은 표를 받습니다."];
-  element<HTMLElement>("#plotTitle").textContent = state.preset === "xor" ? SWITCH_LESSON[state.explanationStep - 1]!.tab : titles[state.explanationStep - 1]!;
-  const switchSubtitles = ["점의 위치는 스위치 방향, 색은 전등 상태입니다.", "은닉 노드 하나가 맡은 선 한 개입니다.", "노드가 늘면 서로 다른 선을 하나씩 맡을 수 있습니다.", "회색 점선에서 보라 선까지 이동 순서를 봅니다."];
-  element<HTMLElement>("#plotSubtitle").textContent = state.preset === "xor" ? switchSubtitles[state.explanationStep - 1]! : subtitles[state.explanationStep - 1]!;
+  element<HTMLElement>("#plotTitle").textContent = state.preset === "xor" ? XOR_LESSON[state.explanationStep - 1]!.tab : titles[state.explanationStep - 1]!;
+  const xorSubtitles = ["가로는 키커, 세로는 골키퍼의 방향이며 색은 결과입니다.", "어느 선 하나로도 골과 막힘을 완전히 나눌 수 없습니다.", "두 선 사이에 방향이 다른 두 골만 남습니다.", "주황색 대표 골을 안쪽에 넣는 선의 이동을 봅니다."];
+  element<HTMLElement>("#plotSubtitle").textContent = state.preset === "xor" ? xorSubtitles[state.explanationStep - 1]! : subtitles[state.explanationStep - 1]!;
   if (state.lessonStep === 5) renderExperiments(state, store);
   renderPixelLab(state, pixelStore.snapshot); renderCustomLab(state);
 }

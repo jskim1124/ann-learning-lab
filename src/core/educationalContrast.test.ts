@@ -13,7 +13,7 @@ describe("educational contrast", () => {
     const twoMetrics = evaluate(two, data);
     expect(twoMetrics.accuracy ?? 0).toBeGreaterThan(oneMetrics.accuracy ?? 0);
     expect(twoMetrics.loss ?? 1).toBeLessThan(oneMetrics.loss ?? 0);
-    expect(twoMetrics.correct).toBe(12);
+    expect(twoMetrics.correct).toBe(4);
   });
 
   it("keeps parameter and graph node counts aligned", () => {
