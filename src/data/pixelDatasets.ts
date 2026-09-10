@@ -64,6 +64,9 @@ export function sampleForClass(task: PixelTaskName, label: number, variation = 0
   const dx = variation % 3 - 1; const dy = Math.floor(variation / 3) % 3 - 1;
   return task === "digits" ? digit(label, dx, dy, variation % 4 === 0 ? 1 : 0) : omr(label, variation);
 }
+export function starterDrawing(task: PixelTaskName): number[] {
+  return task === "digits" ? digit(0, 0, 0, 0) : omr(0, 1);
+}
 export function createPixelDataset(task: PixelTaskName): PixelExample[] {
   const random = randomSource(task === "digits" ? 2048 : 4096); const count = task === "digits" ? 24 : 18; const result: PixelExample[] = [];
   PIXEL_TASKS[task].classes.forEach((_, label) => { for (let index = 0; index < count; index += 1) result.push({ pixels: vary(sampleForClass(task, label, index), random), label }); });

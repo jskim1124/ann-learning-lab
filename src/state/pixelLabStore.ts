@@ -1,6 +1,6 @@
 import { evaluatePixelModel, forwardPixels, initializePixelModel, trainPixelModel, type PixelExample, type PixelModel } from "../core/pixelNetwork";
 import { constrainPixelModelToProjection, createPixelFeatureProjection, createPixelProjection, type PixelProjection, type PixelProjectionMode } from "../core/pixelProjection";
-import { createPixelDataset, emptyDrawing, PIXEL_INPUTS, PIXEL_TASKS, sampleForClass, type PixelTaskName } from "../data/pixelDatasets";
+import { createPixelDataset, emptyDrawing, PIXEL_INPUTS, PIXEL_TASKS, sampleForClass, starterDrawing, type PixelTaskName } from "../data/pixelDatasets";
 import type { ActivationName } from "../types";
 
 export interface PixelHistoryPoint { epoch: number; loss: number; }
@@ -34,7 +34,7 @@ export class PixelLabStore {
   constructor(task: PixelTaskName = "digits") { this.state = this.fresh(task); }
   private fresh(task: PixelTaskName): PixelLabState {
     const info = PIXEL_TASKS[task]; const data = createPixelDataset(task); const projection = createPixelProjection(data); const model = constrainPixelModelToProjection(initializePixelModel(PIXEL_INPUTS, info.hiddenUnits, info.classes.length), projection);
-    return { task, data, model, drawing: sampleForClass(task, 0), selectedLabel: 0, learningRate: .12, history: [{ epoch: 0, loss: evaluatePixelModel(model, data).loss }], understandStep: 1, furthestUnderstandStep: 1, highlightRevealed: false, quizPassed: false, projection, showNeuronBoundaries: true, showDecisionBoundary: true, featureView: "position", trainingFeatureView: "learned", exploredFeatures: [], scoreCalcStep: 0, mapExampleIndex: null, latestAddedIndex: null };
+    return { task, data, model, drawing: starterDrawing(task), selectedLabel: 0, learningRate: .12, history: [{ epoch: 0, loss: evaluatePixelModel(model, data).loss }], understandStep: 1, furthestUnderstandStep: 1, highlightRevealed: false, quizPassed: false, projection, showNeuronBoundaries: true, showDecisionBoundary: true, featureView: "position", trainingFeatureView: "learned", exploredFeatures: [], scoreCalcStep: 0, mapExampleIndex: null, latestAddedIndex: null };
   }
   get snapshot(): PixelLabState { return this.state; }
   subscribe(listener: (state: PixelLabState) => void): () => void { this.listeners.add(listener); listener(this.state); return () => this.listeners.delete(listener); }
