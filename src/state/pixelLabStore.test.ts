@@ -74,6 +74,26 @@ describe("그림 지도 설명 상태", () => {
     expect(store.snapshot.classes).toEqual(before);
   });
 
+  it("클래스를 지우면 해당 그림과 출력 뉴런을 함께 지우고 번호를 다시 잇는다", () => {
+    const store = new PixelLabStore("digits"); store.addClass("3"); store.selectLabel(3); store.addDrawing();
+    expect(store.removeClass(1)).toBeNull();
+    expect(store.snapshot.classes).toEqual(["0", "2", "3"]);
+    expect(store.snapshot.data.some((example) => example.label === 1)).toBe(true);
+    expect(store.snapshot.data.every((example) => example.label < 3)).toBe(true);
+    expect(store.snapshot.model.classCount).toBe(3); expect(store.probabilities()).toHaveLength(3);
+    store.removeClass(2); expect(store.removeClass(0)).toMatch(/두 개 이상/);
+  });
+
+  it("모든 클래스에 그림이 두 장 모여야 다음 단계로 갈 수 있다", () => {
+    const store = new PixelLabStore("digits");
+    expect(store.addClass("3")).toBeNull();
+    expect(store.classCoverageError()).toContain("3 클래스");
+    store.addDrawing();
+    expect(store.classCoverageError()).toContain("3 클래스");
+    store.addDrawing();
+    expect(store.classCoverageError()).toBeNull();
+  });
+
   it("삐져나간 OMR 자국에서도 진한 위치 특징이 유용한 분류 성능을 낸다", () => {
     const store = new PixelLabStore("omr"); store.setTrainingFeature("position"); store.setHiddenUnits(6); store.train(1000);
     expect(store.metrics().accuracy).toBeGreaterThan(.8);

@@ -11,7 +11,7 @@ export interface CustomRow {
 
 export interface CustomDatasetDraft {
   inputKind: CustomInputKind;
-  classes: [string, string];
+  classes: string[];
   features: string[];
   rows: CustomRow[];
   xFeature: number;
@@ -21,13 +21,13 @@ export interface CustomDatasetDraft {
 
 export interface CustomProjection {
   axes: [string, string];
-  classes: [string, string];
+  classes: string[];
   points: DataPoint[];
 }
 
 export function featuresForInput(kind: CustomInputKind): string[] {
   if (kind === "text") return ["글자 수", "단어 수", "다른 글자 비율", "숫자 비율"];
-  if (kind === "drawing" || kind === "webcam") return ["진한 양", "가로 위치", "세로 위치", "퍼진 정도"];
+  if (kind === "drawing" || kind === "webcam") return ["진한 양", "가로 위치", "세로 위치", "퍼진 정도", "위쪽 갈라짐"];
   return ["특징 1", "특징 2", "특징 3"];
 }
 
@@ -38,11 +38,11 @@ export function createCustomDraft(inputKind: CustomInputKind = "numbers"): Custo
 export function createWebcamDraft(): CustomDatasetDraft {
   return {
     inputKind: "webcam",
-    classes: ["손이 왼쪽", "손이 오른쪽"],
-    features: ["배경과 달라진 양", "손의 가로 위치", "손의 세로 위치", "달라진 부분의 퍼짐"],
+    classes: ["가위", "바위", "보"],
+    features: ["손 모양이 차지한 양", "손의 가로 위치", "손의 세로 위치", "손 모양의 퍼짐", "위쪽 갈라짐"],
     rows: [],
-    xFeature: 1,
-    yFeature: 0,
+    xFeature: 0,
+    yFeature: 4,
     nextId: 1,
   };
 }
@@ -84,16 +84,26 @@ export function imageFeatures(rgba: Uint8ClampedArray, width: number, height: nu
     const brightness = ((rgba[offset] ?? 255) + (rgba[offset + 1] ?? 255) + (rgba[offset + 2] ?? 255)) / (3 * 255);
     const strength = Math.max(0, 1 - brightness) * alpha; strengths.push(strength); ink += strength; weightedX += x * strength; weightedY += y * strength;
   }
-  if (ink < 1e-6) return [0, (width - 1) / 2, (height - 1) / 2, 0];
+  if (ink < 1e-6) return [0, (width - 1) / 2, (height - 1) / 2, 0, 0];
   const centerX = weightedX / ink; const centerY = weightedY / ink; let spread = 0;
   strengths.forEach((strength, index) => { const x = index % width; const y = Math.floor(index / width); spread += ((x - centerX) ** 2 + (y - centerY) ** 2) * strength; });
   const maxDistance = Math.hypot(width - 1, height - 1) || 1;
-  return [ink / (width * height) * 100, centerX, centerY, Math.sqrt(spread / ink) / maxDistance * 100];
+  const upperRows = Math.max(1, Math.floor(height * .58)); let splitRows = 0; let visibleRows = 0;
+  for (let y = 0; y < upperRows; y += 1) {
+    let segments = 0; let inside = false; let rowInk = 0;
+    for (let x = 0; x < width; x += 1) {
+      const active = (strengths[y * width + x] ?? 0) >= .22; rowInk += strengths[y * width + x] ?? 0;
+      if (active && !inside) segments += 1; inside = active;
+    }
+    if (rowInk >= .5) { visibleRows += 1; if (segments >= 2) splitRows += 1; }
+  }
+  const split = visibleRows ? splitRows / visibleRows * 100 : 0;
+  return [ink / (width * height) * 100, centerX, centerY, Math.sqrt(spread / ink) / maxDistance * 100, split];
 }
 
 /** 배경과 달라진 밝기만 남겨, 고정된 교실 배경이 손의 위치 점수에 섞이지 않게 한다. */
 export function differenceFeatures(current: Uint8ClampedArray, background: Uint8ClampedArray, width: number, height: number): number[] {
-  if (current.length !== background.length || current.length !== width * height * 4) return [0, (width - 1) / 2, (height - 1) / 2, 0];
+  if (current.length !== background.length || current.length !== width * height * 4) return [0, (width - 1) / 2, (height - 1) / 2, 0, 0];
   const difference = new Uint8ClampedArray(current.length);
   for (let index = 0; index < current.length; index += 4) {
     const now = ((current[index] ?? 255) + (current[index + 1] ?? 255) + (current[index + 2] ?? 255)) / 3;
@@ -123,23 +133,39 @@ export function projectCustomDataset(draft: CustomDatasetDraft): CustomProjectio
 
 export function validateCustomDataset(draft: CustomDatasetDraft): string | null {
   if (draft.features.length < 2 || draft.features.some((name) => !name.trim())) return "특징 이름을 두 개 이상 적어 주세요.";
-  if (!draft.classes[0].trim() || !draft.classes[1].trim()) return "두 클래스의 이름을 모두 적어 주세요.";
-  if (draft.rows.length < 4) return "사례를 네 개 이상 입력해 주세요.";
-  if (!draft.rows.some((row) => row.label === 0) || !draft.rows.some((row) => row.label === 1)) return "두 클래스의 사례를 모두 입력해 주세요.";
+  if (draft.classes.length < 2 || draft.classes.some((name) => !name.trim())) return "클래스 이름을 두 개 이상 모두 적어 주세요.";
+  if (draft.rows.length < draft.classes.length * 2) return "클래스마다 사례를 두 개 이상 입력해 주세요.";
+  if (draft.classes.some((_, label) => draft.rows.filter((row) => row.label === label).length < 2)) return "클래스마다 사례를 두 개 이상 입력해 주세요.";
   if (draft.rows.some((row) => row.values.length !== draft.features.length || row.values.some((value) => !Number.isFinite(value)))) return "모든 사례의 특징값을 숫자로 입력해 주세요.";
   if (draft.xFeature === draft.yFeature) return "가로와 세로에는 서로 다른 특징을 골라 주세요.";
   return null;
 }
 
-export function centroidAccuracy(points: DataPoint[]): number {
+export function centroidAccuracy(points: DataPoint[], classCount = Math.max(0, ...points.map((point) => point.label)) + 1): number {
   if (!points.length) return 0;
-  const centers = ([0, 1] as const).map((label) => {
+  const centers = Array.from({ length: classCount }, (_, label) => {
     const members = points.filter((point) => point.label === label);
     return members.length ? { x: members.reduce((sum, point) => sum + point.x, 0) / members.length, y: members.reduce((sum, point) => sum + point.y, 0) / members.length } : { x: 0, y: 0 };
   });
   const correct = points.filter((point) => {
     const distances = centers.map((center) => (point.x - center.x) ** 2 + (point.y - center.y) ** 2);
-    return (distances[1]! < distances[0]! ? 1 : 0) === point.label;
+    return distances.indexOf(Math.min(...distances)) === point.label;
   }).length;
   return correct / points.length;
+}
+
+export function addCustomClass(draft: CustomDatasetDraft, name: string): string | null {
+  const normalizedName = name.trim();
+  if (!normalizedName) return "새 클래스 이름을 입력해 주세요.";
+  if (draft.classes.some((item) => item.toLocaleLowerCase() === normalizedName.toLocaleLowerCase())) return "이미 있는 클래스 이름입니다.";
+  if (draft.classes.length >= 6) return "클래스는 최대 6개까지 만들 수 있습니다.";
+  draft.classes.push(normalizedName); return null;
+}
+
+export function removeCustomClass(draft: CustomDatasetDraft, index: number): string | null {
+  if (draft.classes.length <= 2) return "분류하려면 클래스가 두 개 이상 필요합니다.";
+  if (index < 0 || index >= draft.classes.length) return "삭제할 클래스를 찾지 못했습니다.";
+  draft.classes.splice(index, 1);
+  draft.rows = draft.rows.filter((row) => row.label !== index).map((row) => ({ ...row, label: row.label > index ? row.label - 1 : row.label }));
+  return null;
 }

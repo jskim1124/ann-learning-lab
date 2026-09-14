@@ -57,6 +57,21 @@ export class PixelLabStore {
     this.state = { ...this.state, classes, selectedLabel: classes.length - 1, model, history: [{ epoch: 0, loss: evaluatePixelModel(model, this.state.data).loss }], mapExampleIndex: null, latestAddedIndex: null };
     this.emit(); return null;
   }
+  removeClass(index: number): string | null {
+    if (this.state.classes.length <= 2) return "분류하려면 클래스가 두 개 이상 필요합니다.";
+    if (index < 0 || index >= this.state.classes.length) return "삭제할 클래스를 찾지 못했습니다.";
+    const classes = this.state.classes.filter((_, classIndex) => classIndex !== index);
+    const data = this.state.data.filter((example) => example.label !== index).map((example) => ({ ...example, pixels: [...example.pixels], label: example.label > index ? example.label - 1 : example.label }));
+    const selectedLabel = Math.min(this.state.selectedLabel > index ? this.state.selectedLabel - 1 : this.state.selectedLabel, classes.length - 1);
+    const projection = createPixelFeatureProjection(data, this.state.task, this.state.trainingFeatureView);
+    const model = constrainPixelModelToProjection(initializePixelModel(PIXEL_INPUTS, this.state.model.hiddenUnits, classes.length, 31, this.state.model.activation), projection);
+    this.state = { ...this.state, classes, data, selectedLabel, projection, model, history: [{ epoch: 0, loss: evaluatePixelModel(model, data).loss }], mapExampleIndex: null, latestAddedIndex: null };
+    this.emit(); return null;
+  }
+  classCoverageError(minimum = 2): string | null {
+    const missing = this.state.classes.filter((_, label) => this.state.data.filter((example) => example.label === label).length < minimum);
+    return missing.length ? `${missing.join(", ")} 클래스에 그림을 ${minimum}장 이상 넣어 주세요.` : null;
+  }
   addDrawing(): void {
     const example = { pixels: [...this.state.drawing], label: this.state.selectedLabel }; const data = [example, ...this.state.data];
     const projection = createPixelFeatureProjection(data, this.state.task, this.state.trainingFeatureView);

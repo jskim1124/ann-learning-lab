@@ -33,4 +33,19 @@ describe("픽셀 모델 Scratch 내보내기", () => {
       target.costumes.forEach((costume) => { expect(costume.assetId).toMatch(/^[a-f0-9]{32}$/i); expect(ArrayBuffer.isView(files[costume.md5ext])).toBe(true); });
     });
   });
+
+  it("두 특징과 여러 클래스를 쓰는 모델도 Scratch 나의 블록으로 만든다", () => {
+    const model = initializePixelModel(2, 4, 3, 47);
+    const files = createPixelScratchProjectFiles(model, ["가위", "바위", "보"], [.25, -.4], {
+      blockName: "두 특징으로 예측하기",
+      inputListName: "특징 두 개",
+      inputSummary: "선택한 특징 2개",
+    });
+    const project = JSON.parse(new TextDecoder().decode(files["project.json"]!)); const sprite = project.targets[1];
+    expect(sprite.blocks.prototype.mutation.proccode).toBe("두 특징으로 예측하기");
+    expect(sprite.lists.list_pixels).toEqual(["특징 두 개", [.25, -.4]]);
+    expect(sprite.lists.list_labels[1]).toEqual(["가위", "바위", "보"]);
+    expect(sprite.lists.list_w1[1]).toHaveLength(8);
+    expect(sprite.lists.list_w2[1]).toHaveLength(12);
+  });
 });

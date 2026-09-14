@@ -7,7 +7,7 @@ export interface DatasetPreset {
   motivation?: string;
   question: string;
   axes: [string, string];
-  classes: [string, string];
+  classes: string[];
   difficulty: string;
   sourceNote: string;
   mediaKind: MediaKind;
@@ -147,18 +147,18 @@ export const PRESETS: Record<PresetName, DatasetPreset> = {
     ],
   },
   webcam: {
-    title: "웹캠에서 손이 어느 쪽일까?",
-    description: "배경과 달라진 부분을 찾아 손이 화면 왼쪽과 오른쪽 중 어디에 있는지 구별합니다.",
-    story: "정보 동아리의 수아와 도윤은 학교 축제 퀴즈에 키보드 대신 몸을 움직여 답하는 화면을 만들고 있습니다. 학생이 카메라 왼쪽에 손을 들면 1번, 오른쪽에 들면 2번을 고르게 하려 합니다.",
-    motivation: "사람마다 손 크기와 서 있는 거리가 다르고 교실 밝기도 달라집니다. 먼저 빈 배경을 기준으로 잡은 뒤 여러 장면을 모아야 손이 있는 쪽을 안정적으로 찾을 수 있습니다.",
-    question: "웹캠 사진을 직접 모아 ‘손이 왼쪽’과 ‘손이 오른쪽’을 구별하는 모델을 만들어 봅시다.",
-    axes: ["손의 가로 위치", "배경과 달라진 양"], classes: ["손이 왼쪽", "손이 오른쪽"], difficulty: "웹캠", sourceNote: "카메라 영상은 저장하거나 전송하지 않습니다. 이 브라우저 안에서 배경과 달라진 부분의 위치·양만 숫자로 바꿉니다.", mediaKind: "points", recommendedHiddenUnits: 2, points: [],
+    title: "웹캠으로 가위바위보를 알아볼까?",
+    description: "빈 배경과 달라진 손 모양을 모아 가위·바위·보 세 가지를 구별합니다.",
+    story: "정보 동아리의 수아와 도윤은 학교 축제에서 화면을 보며 가위바위보를 하는 체험을 준비하고 있습니다. 참가자가 손을 내면 컴퓨터가 가위, 바위, 보 중 하나를 읽어 점수를 알려 주게 하려 합니다.",
+    motivation: "사람마다 손 크기와 카메라까지의 거리가 달라 같은 가위도 조금씩 다르게 보입니다. 여러 사람의 손 모양을 직접 모아야 처음 보는 손도 더 잘 구별할 수 있습니다.",
+    question: "빈 배경을 먼저 기억시킨 뒤 가위·바위·보 사진을 모아, 어떤 특징이 세 손 모양을 잘 나누는지 찾아봅시다.",
+    axes: ["손 모양이 차지한 양", "위쪽 갈라짐"], classes: ["가위", "바위", "보"], difficulty: "웹캠", sourceNote: "카메라 영상은 저장하거나 전송하지 않습니다. 이 브라우저 안에서 배경과 달라진 손 모양을 다섯 숫자로 바꾸고, 학생이 고른 두 특징만 작은 신경망에 넣습니다.", mediaKind: "points", recommendedHiddenUnits: 4, points: [],
   },
   custom: {
     title: "빈 화면에서 직접 만들기",
-    description: "두 범주의 점을 직접 배치해 신경망이 어떤 경계를 만드는지 관찰합니다.",
+    description: "자료 형식과 클래스를 정하고, 고른 두 특징으로 신경망의 경계를 관찰합니다.",
     story: "정보 수업에서 하은이 모둠은 학교생활에서 궁금했던 질문을 실제 자료로 확인하는 프로젝트를 시작했습니다.",
-    motivation: "숫자·그림·웹캠·글 중 어떤 자료를 모을지, 두 결과를 나누려면 어떤 특징을 볼지 모둠이 직접 정해야 합니다.",
+    motivation: "숫자·그림·웹캠·글 중 어떤 자료를 모을지, 여러 클래스를 나누려면 어떤 특징을 볼지 모둠이 직접 정해야 합니다.",
     question: "우리 질문에 맞는 자료와 특징을 골라 분류 모델을 만들어 봅시다.",
     axes: ["가로 힌트", "세로 힌트"], classes: ["파란 결과", "주황 결과"], difficulty: "직접 만들기", sourceNote: "직접 관찰한 자료인지, 연습용으로 만든 자료인지 기록해 두세요.", mediaKind: "points", recommendedHiddenUnits: 3,
     points: [],

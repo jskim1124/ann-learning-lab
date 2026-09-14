@@ -6,8 +6,8 @@ export const PIXEL_INPUTS = PIXEL_SIZE * PIXEL_SIZE;
 export const OMR_CENTERS = [1, 4, 7, 10, 13] as const;
 
 export const PIXEL_TASKS = {
-  digits: { title: "내가 그린 숫자를 읽을까?", question: "친구마다 다르게 쓴 0·1·2를 그림 그대로 보고 구별할 수 있을까요?", story: "종이에 쓴 숫자는 크기와 기울기, 선 굵기가 모두 달라요. 숫자를 몇 가지 말로 바꾸지 않고 14×14칸의 밝기 196개를 그대로 보여 주면, 신경망은 여러 그림에서 되풀이되는 무늬를 찾습니다.", classes: ["0", "1", "2"], hiddenUnits: 2 },
-  omr: { title: "OMR 답을 읽을 수 있을까?", question: "다섯 답 칸 중 진하게 칠한 칸을 그림만 보고 읽을 수 있을까요?", story: "OMR 답 칸은 같은 모양으로 나란히 있지만, 연필 자국은 위치와 진하기가 조금씩 달라요. 한 문항의 칸 그림 전체를 196개 밝기로 바꾸어 신경망에 보여 줍니다.", classes: ["①", "②", "③", "④", "⑤"], hiddenUnits: 4 },
+  digits: { title: "내가 그린 숫자를 읽을까?", question: "친구마다 다르게 쓴 0·1·2를 그림 그대로 보고 구별할 수 있을까요?", story: "종이에 쓴 숫자는 크기와 기울기, 선 굵기가 모두 달라요. 그림은 14×14칸의 밝기 196개가 됩니다. 이 수업에서는 학습 그림끼리 비교해 만든 두 기준으로 지도를 그리고, 신경망이 그 지도에서 경계를 찾습니다.", classes: ["0", "1", "2"], hiddenUnits: 2 },
+  omr: { title: "OMR 답을 읽을 수 있을까?", question: "다섯 답 칸 중 진하게 칠한 칸을 그림만 보고 읽을 수 있을까요?", story: "OMR 답 칸은 같은 모양으로 나란히 있지만, 연필 자국은 위치와 진하기가 조금씩 달라요. 그림은 14×14칸의 밝기 196개가 됩니다. 이 수업에서는 학습 그림끼리 비교해 만든 두 기준으로 지도를 그리고, 신경망이 그 지도에서 경계를 찾습니다.", classes: ["①", "②", "③", "④", "⑤"], hiddenUnits: 4 },
 } as const;
 
 function randomSource(seed: number): () => number { let value = seed >>> 0; return () => { value = Math.imul(1664525, value) + 1013904223 >>> 0; return value / 4294967296; }; }

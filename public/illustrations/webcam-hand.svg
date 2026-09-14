@@ -1,20 +1,19 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 420" role="img" aria-labelledby="title desc">
-  <title id="title">웹캠 앞에서 손 위치를 알아보는 학생</title>
-  <desc id="desc">노트북 화면의 왼쪽과 오른쪽 영역, 화면 왼쪽에 손을 든 학생을 단순한 선과 면으로 표현한 그림</desc>
+  <title id="title">웹캠으로 가위바위보 손 모양을 모으는 학생</title>
+  <desc id="desc">노트북 화면 안의 가위, 바위, 보 세 손 모양과 이를 촬영하는 학생을 표현한 삽화</desc>
   <rect width="900" height="420" fill="#fff8f1"/>
-  <rect x="75" y="48" width="530" height="304" rx="18" fill="#fff" stroke="#343844" stroke-width="8"/>
-  <circle cx="340" cy="65" r="7" fill="#7446f5"/>
-  <rect x="102" y="88" width="476" height="230" rx="8" fill="#e9f1fe"/>
-  <path d="M340 88v230" stroke="#1769d2" stroke-width="5" stroke-dasharray="12 12" opacity=".55"/>
-  <text x="210" y="120" font-family="sans-serif" font-size="27" font-weight="700" text-anchor="middle" fill="#1769d2">왼쪽</text>
-  <text x="470" y="120" font-family="sans-serif" font-size="27" font-weight="700" text-anchor="middle" fill="#1769d2">오른쪽</text>
-  <circle cx="310" cy="202" r="44" fill="#f4c8a8"/>
-  <path d="M242 318c7-65 36-93 68-93s61 28 68 93" fill="#7446f5"/>
-  <path d="M252 254c-49-17-62-69-54-122" fill="none" stroke="#f4c8a8" stroke-width="32" stroke-linecap="round"/>
-  <path d="M189 129l-13-35m19 35 3-39m5 43 19-33" fill="none" stroke="#f4c8a8" stroke-width="12" stroke-linecap="round"/>
-  <path d="M45 352h590l54 34H18z" fill="#343844"/>
-  <rect x="676" y="84" width="154" height="208" rx="16" fill="#fff" stroke="#df466f" stroke-width="7"/>
-  <circle cx="753" cy="157" r="39" fill="#f17605" opacity=".92"/>
-  <path d="M707 258c8-55 29-79 46-79s39 24 47 79" fill="#df466f"/>
-  <path d="M672 330h166" stroke="#7446f5" stroke-width="14" stroke-linecap="round"/>
+  <rect x="85" y="42" width="548" height="310" rx="20" fill="#fff" stroke="#343844" stroke-width="8"/>
+  <circle cx="359" cy="61" r="7" fill="#7446f5"/>
+  <rect x="112" y="83" width="494" height="235" rx="10" fill="#edf4fe"/>
+  <g font-family="sans-serif" text-anchor="middle" font-weight="800">
+    <g transform="translate(188 126)"><rect width="112" height="146" rx="18" fill="#fff" stroke="#f17605" stroke-width="5"/><path d="M52 101V72m0 0L33 38m19 34 18-39m-18 39 37-20" fill="none" stroke="#f17605" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/><text x="56" y="132" font-size="21" fill="#343844">가위</text></g>
+    <g transform="translate(326 126)"><rect width="112" height="146" rx="18" fill="#fff" stroke="#df466f" stroke-width="5"/><path d="M35 85c0-31 12-48 22-48s21 17 21 48v19H35z" fill="#df466f"/><circle cx="42" cy="55" r="16" fill="#df466f"/><circle cx="63" cy="50" r="17" fill="#df466f"/><circle cx="79" cy="62" r="14" fill="#df466f"/><text x="56" y="132" font-size="21" fill="#343844">바위</text></g>
+    <g transform="translate(464 126)"><rect width="112" height="146" rx="18" fill="#fff" stroke="#7446f5" stroke-width="5"/><path d="M56 105V63M38 78 27 45m22 29-4-40m17 41 8-41m2 50 20-34" fill="none" stroke="#7446f5" stroke-width="14" stroke-linecap="round"/><path d="M38 78c4 31 32 38 42 8" fill="none" stroke="#7446f5" stroke-width="20" stroke-linecap="round"/><text x="56" y="132" font-size="21" fill="#343844">보</text></g>
+  </g>
+  <path d="M54 352h612l52 34H22z" fill="#343844"/>
+  <circle cx="753" cy="132" r="48" fill="#f4c8a8"/>
+  <path d="M680 354c10-104 42-149 73-149 34 0 66 45 75 149" fill="#1f6bd6"/>
+  <path d="M691 272c-43-20-58-62-45-96" fill="none" stroke="#f4c8a8" stroke-width="34" stroke-linecap="round"/>
+  <path d="M645 174l-15-37m21 38 4-42m4 47 23-34" fill="none" stroke="#f4c8a8" stroke-width="12" stroke-linecap="round"/>
+  <path d="M683 385h166" stroke="#7446f5" stroke-width="14" stroke-linecap="round"/>
 </svg>

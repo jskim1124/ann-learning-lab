@@ -19,7 +19,7 @@ export function createStoredModel(
     createdAt: new Date().toISOString(),
     task,
     inputs: { names: PRESETS[task].axes, range: [-1, 1] },
-    classes: PRESETS[task].classes,
+    classes: [PRESETS[task].classes[0] ?? "0", PRESETS[task].classes[1] ?? "1"],
     model: structuredClone(model),
     metrics: { loss, accuracy },
     data: data.map((point) => ({ ...point })),
