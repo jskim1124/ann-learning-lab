@@ -35,6 +35,18 @@ export function createCustomDraft(inputKind: CustomInputKind = "numbers"): Custo
   return { inputKind, classes: ["A 결과", "B 결과"], features: featuresForInput(inputKind), rows: [], xFeature: 0, yFeature: 1, nextId: 1 };
 }
 
+export function createWebcamDraft(): CustomDatasetDraft {
+  return {
+    inputKind: "webcam",
+    classes: ["손이 왼쪽", "손이 오른쪽"],
+    features: ["배경과 달라진 양", "손의 가로 위치", "손의 세로 위치", "달라진 부분의 퍼짐"],
+    rows: [],
+    xFeature: 1,
+    yFeature: 0,
+    nextId: 1,
+  };
+}
+
 export function createCustomExample(): CustomDatasetDraft {
   return {
     inputKind: "numbers",
@@ -77,6 +89,20 @@ export function imageFeatures(rgba: Uint8ClampedArray, width: number, height: nu
   strengths.forEach((strength, index) => { const x = index % width; const y = Math.floor(index / width); spread += ((x - centerX) ** 2 + (y - centerY) ** 2) * strength; });
   const maxDistance = Math.hypot(width - 1, height - 1) || 1;
   return [ink / (width * height) * 100, centerX, centerY, Math.sqrt(spread / ink) / maxDistance * 100];
+}
+
+/** 배경과 달라진 밝기만 남겨, 고정된 교실 배경이 손의 위치 점수에 섞이지 않게 한다. */
+export function differenceFeatures(current: Uint8ClampedArray, background: Uint8ClampedArray, width: number, height: number): number[] {
+  if (current.length !== background.length || current.length !== width * height * 4) return [0, (width - 1) / 2, (height - 1) / 2, 0];
+  const difference = new Uint8ClampedArray(current.length);
+  for (let index = 0; index < current.length; index += 4) {
+    const now = ((current[index] ?? 255) + (current[index + 1] ?? 255) + (current[index + 2] ?? 255)) / 3;
+    const before = ((background[index] ?? 255) + (background[index + 1] ?? 255) + (background[index + 2] ?? 255)) / 3;
+    const change = Math.abs(now - before);
+    const ink = change < 18 ? 255 : Math.max(0, 255 - change * 1.45);
+    difference[index] = ink; difference[index + 1] = ink; difference[index + 2] = ink; difference[index + 3] = 255;
+  }
+  return imageFeatures(difference, width, height);
 }
 
 function normalized(values: number[]): number[] {

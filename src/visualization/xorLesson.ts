@@ -25,22 +25,22 @@ export const XOR_LESSON: XorLessonStep[] = [
     explanation: "키커가 찬 쪽과 골키퍼가 몸을 던진 쪽이 다르면 골입니다.",
   },
   {
-    tab: "노드 1개",
-    title: "은닉 노드 1개는 선 하나를 찾습니다",
+    tab: "뉴런 1개",
+    title: "은닉 뉴런 1개는 선 하나를 찾습니다",
     body: "골과 막힘이 대각선으로 번갈아 있습니다. 어느 방향으로 선 하나를 그어도 양쪽에 골과 막힘이 함께 남습니다.",
-    reveal: "은닉 노드 1개의 선 보기",
+    reveal: "은닉 뉴런 1개의 선 보기",
     result: "선 하나의 양쪽 모두에 골과 막힘이 섞여 있습니다.",
-    question: "은닉 노드 1개만으로 네 경우를 완전히 나눌 수 있을까요?",
+    question: "은닉 뉴런 1개만으로 네 경우를 완전히 나눌 수 있을까요?",
     choices: [["no", "나눌 수 없다"], ["yes", "나눌 수 있다"]],
     correct: "no",
-    explanation: "노드 하나는 선 하나만 찾으므로 대각선의 두 골을 한 영역으로 묶지 못합니다.",
+    explanation: "은닉 뉴런 하나는 선 하나만 찾으므로 대각선의 두 골을 한 영역으로 묶지 못합니다.",
   },
   {
-    tab: "노드 2개",
-    title: "노드를 하나 더하면 선도 두 개가 됩니다",
-    body: "첫 노드는 왼쪽·왼쪽 막힘을, 둘째 노드는 오른쪽·오른쪽 막힘을 바깥으로 나눕니다. 두 선 사이에는 골 두 개만 남습니다.",
-    reveal: "두 노드가 맡은 선 함께 보기",
-    result: "은닉 노드 두 개가 양쪽의 막힘을 하나씩 나누어 맡았습니다.",
+    tab: "뉴런 2개",
+    title: "은닉 뉴런을 하나 더하면 선도 두 개가 됩니다",
+    body: "첫 뉴런은 왼쪽·왼쪽 막힘을, 둘째 뉴런은 오른쪽·오른쪽 막힘을 바깥으로 나눕니다. 두 선 사이에는 골 두 개만 남습니다.",
+    reveal: "두 뉴런이 맡은 선 함께 보기",
+    result: "은닉 뉴런 두 개가 양쪽의 막힘을 하나씩 나누어 맡았습니다.",
     question: "두 선 사이에 남은 두 경우의 결과는 무엇일까요?",
     choices: [["goal", "골"], ["blocked", "막힘"]],
     correct: "goal",
@@ -105,15 +105,32 @@ function drawArrow(ctx: CanvasRenderingContext2D, from: [number, number], to: [n
   ctx.fill();
 }
 
-export function drawXorLesson(canvas: HTMLCanvasElement, step: 1 | 2 | 3 | 4, revealed: boolean): void {
+export function xorMovingBoundarySum(progress: number): number {
+  return -.10 + Math.max(0, Math.min(1, progress)) * .45;
+}
+
+function drawAnimatedBand(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, upper: number): void {
+  const cells = 48; const width = canvas.width / cells; const height = canvas.height / cells;
+  for (let row = 0; row < cells; row += 1) for (let col = 0; col < cells; col += 1) {
+    const x = -1 + (col + .5) / cells * 2; const y = 1 - (row + .5) / cells * 2; const sum = x + y;
+    const inside = sum >= -.35 && sum <= upper; const edgeDistance = inside ? Math.min(sum + .35, upper - sum) : Math.min(Math.abs(sum + .35), Math.abs(sum - upper));
+    const strength = Math.max(.07, Math.min(.2, .07 + edgeDistance * .2));
+    ctx.fillStyle = inside ? `rgba(241,118,5,${strength})` : `rgba(31,107,214,${strength * .55})`;
+    ctx.fillRect(col * width, row * height, Math.ceil(width) + 1, Math.ceil(height) + 1);
+  }
+}
+
+export function drawXorLesson(canvas: HTMLCanvasElement, step: 1 | 2 | 3 | 4, revealed: boolean, progress = 1): void {
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
+  const revealProgress = revealed ? Math.max(0, Math.min(1, progress)) : 0;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = step === 3 && revealed ? "rgba(53,104,212,.10)" : "#f7f8fa";
+  ctx.fillStyle = step === 3 && revealed ? `rgba(53,104,212,${.10 * revealProgress})` : "#f7f8fa";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
+  if (step === 4 && revealed) drawAnimatedBand(ctx, canvas, xorMovingBoundarySum(revealProgress));
   if (step === 3 && revealed) {
     const polygon = [[-1, .65], [-.65, 1], [1, -.65], [.65, -1]].map(([x, y]) => canvasPoint(canvas, x!, y!));
-    ctx.fillStyle = "rgba(241,118,5,.20)";
+    ctx.fillStyle = `rgba(241,118,5,${.20 * revealProgress})`;
     ctx.beginPath();
     ctx.moveTo(...polygon[0]!);
     polygon.slice(1).forEach((point) => ctx.lineTo(...point));
@@ -127,31 +144,33 @@ export function drawXorLesson(canvas: HTMLCanvasElement, step: 1 | 2 | 3 | 4, re
     ctx.beginPath(); ctx.moveTo(0, canvas.height * ratio); ctx.lineTo(canvas.width, canvas.height * ratio); ctx.stroke();
   });
   if (step === 2 && revealed) {
+    ctx.save(); ctx.globalAlpha = revealProgress;
     drawLine(ctx, canvas, 0, "#6f7784", 4, true);
-    drawNodeBadge(ctx, 20, 18, "은닉 노드 1 → 선 1개", "#6f7784");
+    drawNodeBadge(ctx, 20, 18, "은닉 뉴런 1 → 선 1개", "#6f7784"); ctx.restore();
   }
   if (step === 3 && revealed) {
+    ctx.save(); ctx.globalAlpha = revealProgress;
     drawLine(ctx, canvas, -.35, "#7446f5", 4);
     drawLine(ctx, canvas, .35, "#df466f", 4);
-    drawNodeBadge(ctx, 20, 18, "은닉 노드 1", "#7446f5");
-    drawNodeBadge(ctx, 20, 54, "은닉 노드 2", "#df466f");
+    drawNodeBadge(ctx, 20, 18, "은닉 뉴런 1", "#7446f5");
+    drawNodeBadge(ctx, 20, 54, "은닉 뉴런 2", "#df466f"); ctx.restore();
   }
   if (step === 4) {
     drawLine(ctx, canvas, -.35, "#111827", 4);
     drawLine(ctx, canvas, -.10, "#7b8491", 3, true);
-    drawNodeBadge(ctx, 20, 18, "대표 선 · 은닉 노드 2", "#7446f5");
+    drawNodeBadge(ctx, canvas.width / 2 - 100, 18, "대표 선 · 은닉 뉴런 2", "#7446f5");
     if (revealed) {
-      [-.01, .08, .17, .26].forEach((sum, index) => drawLine(ctx, canvas, sum, `rgba(116,87,199,${.18 + index * .13})`, 3));
-      drawLine(ctx, canvas, .35, "#7446f5", 5);
+      [-.01, .08, .17, .26].filter((_, index) => revealProgress >= (index + 1) / 5).forEach((sum, index) => drawLine(ctx, canvas, sum, `rgba(116,87,199,${.18 + index * .13})`, 3));
+      drawLine(ctx, canvas, xorMovingBoundarySum(revealProgress), "#7446f5", 5);
       const from = canvasPoint(canvas, -.05, -.05);
-      const to = canvasPoint(canvas, .175, .175);
+      const final = canvasPoint(canvas, .175, .175); const to: [number, number] = [from[0] + (final[0] - from[0]) * revealProgress, from[1] + (final[1] - from[1]) * revealProgress];
       drawArrow(ctx, from, to);
       ctx.fillStyle = "#566271";
       ctx.font = "800 13px system-ui";
       ctx.textAlign = "left";
       ctx.fillText("연습 전", from[0] - 72, from[1] + 30);
       ctx.fillStyle = "#7446f5";
-      ctx.fillText("골 점을 안쪽에 넣은 뒤", to[0] + 15, to[1] - 15);
+      ctx.fillText(revealProgress < 1 ? "골 쪽으로 옮기는 중" : "골 점을 안쪽에 넣은 뒤", to[0] + 15, to[1] - 15);
     }
   }
   const cases = [
@@ -163,7 +182,7 @@ export function drawXorLesson(canvas: HTMLCanvasElement, step: 1 | 2 | 3 | 4, re
   cases.forEach(({ x, y, goal, label }) => {
     const [px, py] = canvasPoint(canvas, x, y);
     const emphasized = !revealed || step !== 1 || goal;
-    ctx.globalAlpha = emphasized ? 1 : .22;
+    ctx.globalAlpha = emphasized ? 1 : 1 - .78 * revealProgress;
     ctx.fillStyle = goal ? PALETTE.one : PALETTE.zero;
     ctx.strokeStyle = "white";
     ctx.lineWidth = 4;
@@ -180,12 +199,13 @@ export function drawXorLesson(canvas: HTMLCanvasElement, step: 1 | 2 | 3 | 4, re
     ctx.fillText(label, px, py + 34);
     ctx.globalAlpha = 1;
     if (step === 4 && revealed && goal && x < 0) {
+      ctx.globalAlpha = .35 + .65 * revealProgress;
       ctx.strokeStyle = "#f17605";
       ctx.lineWidth = 5;
       ctx.beginPath();
       ctx.arc(px, py, 24, 0, Math.PI * 2);
       ctx.stroke();
-      drawNodeBadge(ctx, px + 28, py - 18, "대표 오답 → 골", "#f17605");
+      ctx.globalAlpha = 1;
     }
   });
 }

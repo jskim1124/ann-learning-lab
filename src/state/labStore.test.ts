@@ -43,6 +43,13 @@ describe("lab interactions", () => {
     expect(store.snapshot.model.epoch).toBe(0);
   });
 
+  it("웹캠 자료를 넣어도 웹캠 활동을 그대로 유지한다", () => {
+    const store = new LabStore();
+    store.setPreset("webcam");
+    store.setCustomData([{ x: -.6, y: .1, label: 0 }, { x: .6, y: .2, label: 1 }], "webcam");
+    expect(store.snapshot).toMatchObject({ preset: "webcam", data: [{ x: -.6, y: .1, label: 0 }, { x: .6, y: .2, label: 1 }] });
+  });
+
   it("분류선과 최종 경계선을 독립적으로 겹쳐 보고 탐침 입력을 제한한다", () => {
     const store = new LabStore();
     expect(store.snapshot).toMatchObject({ showNeuronBoundaries: true, showDecisionBoundary: true });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { centroidAccuracy, createCustomDraft, createCustomExample, imageFeatures, projectCustomDataset, textFeatures, validateCustomDataset } from "./customDataset";
+import { centroidAccuracy, createCustomDraft, createCustomExample, createWebcamDraft, differenceFeatures, imageFeatures, projectCustomDataset, textFeatures, validateCustomDataset } from "./customDataset";
 
 describe("직접 만드는 자료", () => {
   it("고른 두 특징을 -0.9부터 0.9 사이의 점으로 바꾼다", () => {
@@ -31,5 +31,21 @@ describe("직접 만드는 자료", () => {
     const pixels = new Uint8ClampedArray([0, 0, 0, 255, 255, 255, 255, 255]);
     const features = imageFeatures(pixels, 2, 1);
     expect(features[0]).toBe(50); expect(features[1]).toBe(0);
+  });
+
+  it("웹캠 활동은 손의 가로 위치를 첫 번째 지도 특징으로 연다", () => {
+    const draft = createWebcamDraft();
+    expect(draft.inputKind).toBe("webcam");
+    expect(draft.classes).toEqual(["손이 왼쪽", "손이 오른쪽"]);
+    expect(projectCustomDataset(draft).axes).toEqual(["손의 가로 위치", "배경과 달라진 양"]);
+  });
+
+  it("웹캠 배경과 달라진 부분의 위치만 특징으로 잰다", () => {
+    const background = new Uint8ClampedArray(4 * 3 * 4).fill(255);
+    const left = background.slice();
+    for (let y = 0; y < 3; y += 1) { const offset = (y * 4) * 4; left[offset] = 0; left[offset + 1] = 0; left[offset + 2] = 0; }
+    const values = differenceFeatures(left, background, 4, 3);
+    expect(values[0]).toBeGreaterThan(20);
+    expect(values[1]).toBeLessThan(1);
   });
 });
