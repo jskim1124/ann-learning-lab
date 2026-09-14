@@ -24,7 +24,7 @@ export function generateScratchExtension(model: NetworkModel): string {
     getInfo(){ return {id:"neurallab",name:"Neural Lab",blocks:[
       {opcode:"category",blockType:Scratch.BlockType.REPORTER,text:"입력 A [X] B [Y] 의 결과",arguments:{X:{type:Scratch.ArgumentType.NUMBER,defaultValue:0},Y:{type:Scratch.ArgumentType.NUMBER,defaultValue:0}}},
       {opcode:"probability",blockType:Scratch.BlockType.REPORTER,text:"입력 A [X] B [Y] 의 결과 1 가능성",arguments:{X:{type:Scratch.ArgumentType.NUMBER,defaultValue:0},Y:{type:Scratch.ArgumentType.NUMBER,defaultValue:0}}},
-      {opcode:"hidden",blockType:Scratch.BlockType.REPORTER,text:"입력 A [X] B [Y] 의 규칙 찾기 칸 [N] 값",arguments:{X:{type:Scratch.ArgumentType.NUMBER,defaultValue:0},Y:{type:Scratch.ArgumentType.NUMBER,defaultValue:0},N:{type:Scratch.ArgumentType.NUMBER,defaultValue:1}}}
+      {opcode:"hidden",blockType:Scratch.BlockType.REPORTER,text:"입력 A [X] B [Y] 의 은닉 뉴런 [N] 값",arguments:{X:{type:Scratch.ArgumentType.NUMBER,defaultValue:0},Y:{type:Scratch.ArgumentType.NUMBER,defaultValue:0},N:{type:Scratch.ArgumentType.NUMBER,defaultValue:1}}}
     ]};}
     category(args){ return predict(args.X,args.Y).probability>=0.5?1:0; }
     probability(args){ return predict(args.X,args.Y).probability; }

@@ -84,7 +84,7 @@ describe("그림 지도 설명 상태", () => {
     expect(store.metrics().accuracy).toBeGreaterThan(.8);
   });
 
-  it("규칙 칸 수와 중간값 방식을 바꾸면 같은 자료로 처음부터 다시 연습한다", () => {
+  it("은닉 뉴런 수와 중간값 방식을 바꾸면 같은 자료로 처음부터 다시 연습한다", () => {
     const store = new PixelLabStore("digits"); store.train(3);
     store.setHiddenUnits(1);
     expect(store.snapshot.model.hiddenUnits).toBe(1); expect(store.snapshot.model.epoch).toBe(0);

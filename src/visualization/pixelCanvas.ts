@@ -51,8 +51,8 @@ export function drawPixelConversionFrame(canvas: HTMLCanvasElement, pixels: numb
 }
 
 export function pixelIndexAt(canvas: HTMLCanvasElement, clientX: number, clientY: number): number {
-  const rect = canvas.getBoundingClientRect(); const x = Math.floor((clientX - rect.left) / rect.width * PIXEL_SIZE); const y = Math.floor((clientY - rect.top) / rect.height * PIXEL_SIZE);
-  return Math.max(0, Math.min(PIXEL_SIZE * PIXEL_SIZE - 1, y * PIXEL_SIZE + x));
+  const rect = canvas.getBoundingClientRect(); const x = Math.max(0, Math.min(PIXEL_SIZE - 1, Math.floor((clientX - rect.left) / Math.max(1, rect.width) * PIXEL_SIZE))); const y = Math.max(0, Math.min(PIXEL_SIZE - 1, Math.floor((clientY - rect.top) / Math.max(1, rect.height) * PIXEL_SIZE)));
+  return y * PIXEL_SIZE + x;
 }
 
 export function pixelLineIndices(from: number, to: number): number[] {

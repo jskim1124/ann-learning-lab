@@ -88,7 +88,7 @@ function createBlocks(model: NetworkModel, variableIds: Record<string, string>):
 
   let previous = defineId;
   for (let h = 0; h < model.config.hiddenUnits; h += 1) {
-    const name = `규칙 ${h + 1} 값`;
+    const name = `은닉 뉴런 ${h + 1} 값`;
     if (model.config.activation !== "relu") {
       const setId = createSet(name, activationExpression(h), previous);
       chain(previous, setId); previous = setId;
@@ -105,7 +105,7 @@ function createBlocks(model: NetworkModel, variableIds: Record<string, string>):
 
   let logit: Expression = number(model.parameters.outputBias);
   for (let h = 0; h < model.config.hiddenUnits; h += 1) {
-    logit = add(logit, mul(number(model.parameters.hiddenOutput[h] ?? 0), variable(`규칙 ${h + 1} 값`)));
+    logit = add(logit, mul(number(model.parameters.hiddenOutput[h] ?? 0), variable(`은닉 뉴런 ${h + 1} 값`)));
   }
   const probabilitySet = createSet("결과 1 가능성", sigmoidExpression(logit), previous);
   chain(previous, probabilitySet); previous = probabilitySet;
@@ -132,7 +132,7 @@ function createBlocks(model: NetworkModel, variableIds: Record<string, string>):
 
 export function createScratchProjectFiles(model: NetworkModel): Record<string, Uint8Array> {
   const encoder = new TextEncoder();
-  const variableNames = ["결과 1 가능성", "예측 결과", ...Array.from({ length: model.config.hiddenUnits }, (_, i) => `규칙 ${i + 1} 값`)];
+  const variableNames = ["결과 1 가능성", "예측 결과", ...Array.from({ length: model.config.hiddenUnits }, (_, i) => `은닉 뉴런 ${i + 1} 값`)];
   const variableIds = Object.fromEntries(variableNames.map((name, index) => [name, `neural_var_${index}`]));
   const variables = Object.fromEntries(variableNames.map((name) => [variableIds[name], [name, 0]]));
   const project = {

@@ -4,6 +4,27 @@ import type { PixelTaskName } from "../data/pixelDatasets";
 export type PixelProjectionMode = "position" | "ink" | "learned";
 export interface PixelProjection { mean: number[]; horizontal: number[]; vertical: number[]; horizontalScale: number; verticalScale: number; }
 export interface ProjectionAxisDetails { contributions: number[]; rawScore: number; mapScore: number; }
+export interface PixelAxisLabel { title: string; negative: string; positive: string; }
+export interface PixelAxisLegend { horizontal: PixelAxisLabel; vertical: PixelAxisLabel; }
+
+/** The words shown beside the map must describe the exact axes used by the projection. */
+export function pixelAxisLegend(task: PixelTaskName, mode: PixelProjectionMode): PixelAxisLegend {
+  if (mode === "position") return task === "omr" ? {
+    horizontal: { title: "마킹 좌우 위치", negative: "왼쪽 −1", positive: "오른쪽 +1" },
+    vertical: { title: "마킹 위아래 위치", negative: "아래 −1", positive: "위 +1" },
+  } : {
+    horizontal: { title: "획 좌우 위치", negative: "왼쪽 −1", positive: "오른쪽 +1" },
+    vertical: { title: "획 위아래 위치", negative: "아래 −1", positive: "위 +1" },
+  };
+  if (mode === "ink") return {
+    horizontal: { title: "칠한 양", negative: "적음 −1", positive: "많음 +1" },
+    vertical: { title: task === "omr" ? "마킹 자국 퍼짐" : "획 퍼짐", negative: "모임 −1", positive: "퍼짐 +1" },
+  };
+  return {
+    horizontal: { title: "그림 차이 1", negative: "−1 쪽", positive: "+1 쪽" },
+    vertical: { title: "그림 차이 2", negative: "−1 쪽", positive: "+1 쪽" },
+  };
+}
 
 function normalize(vector: number[]): number[] { const length = Math.sqrt(vector.reduce((sum, value) => sum + value * value, 0)) || 1; return vector.map((value) => value / length); }
 function dot(left: number[], right: number[]): number { return left.reduce((sum, value, index) => sum + value * (right[index] ?? 0), 0); }
@@ -29,7 +50,7 @@ export function createPixelFeatureProjection(data: PixelExample[], task: PixelTa
   if (mode === "learned") return createPixelProjection(data);
   const size = Math.round(Math.sqrt(data[0]?.pixels.length ?? 196)); const middle = (size - 1) / 2;
   if (mode === "position") {
-    const horizontal = Array.from({ length: size * size }, (_, index) => index % size - middle); const vertical = Array.from({ length: size * size }, (_, index) => Math.floor(index / size) - middle);
+    const horizontal = Array.from({ length: size * size }, (_, index) => index % size - middle); const vertical = Array.from({ length: size * size }, (_, index) => middle - Math.floor(index / size));
     return projectionFromAxes(data, horizontal, vertical);
   }
   const amount = Array<number>(size * size).fill(1); const spread = Array.from({ length: size * size }, (_, index) => { const x = index % size - middle; const y = Math.floor(index / size) - middle; return Math.hypot(x, y); }); const averageSpread = spread.reduce((sum, value) => sum + value, 0) / spread.length;
