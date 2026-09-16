@@ -47,7 +47,7 @@ export class TabularLesson {
     if(this.step<=2){line(`${row.name} · 정답 ${draft.classes[row.label]}`);line(`${projected.axes[0]} = ${fmt(v)} / ${projected.axes[1]} = ${fmt(row.values[draft.yFeature]!)}`);if(this.revealed||this.step===2){line(Math.abs(high-low)<1e-9?"학습 자료의 값이 모두 같아 가로 좌표는 0입니다.":`가로 좌표 = (${fmt(v)} − ${fmt(low)}) ÷ (${fmt(high)} − ${fmt(low)}) × 1.8 − 0.9 ≈ ${fmt(point.pixels[0]!)}`);line("학습 자료의 최솟값은 −0.9, 최댓값은 +0.9. 값의 순서는 그대로입니다.");}}
     else if(this.step===3){line("가로 × 연결값 + 세로 × 연결값 + 시작값 = 0");line("보라 배경은 양수, 주황은 음수입니다. 화살표는 값이 커지는 쪽입니다.");}
     else{line(`같은 점의 합 ${fmt(pixelHiddenLineValue(before,point.pixels,0))} → ${fmt(pixelHiddenLineValue(after,point.pixels,0))}`);line(`정답 점수 ${(forwardPixels(before,point.pixels).probabilities[row.label]!*100).toFixed(1)}% → ${(forwardPixels(after,point.pixels).probabilities[row.label]!*100).toFixed(1)}%`);line("틀린 정도를 줄이는 방향으로 연결값을 고칩니다. 매번 같은 방향으로 움직이지는 않습니다.");if(this.frame===30)line(`${this.prediction==="up"?"예상대로":"예상과 달리"} 합이 커졌습니다. 점은 그대로이고 연결값과 기준선이 바뀌었습니다.`);}
-    this.el("tlPrediction").hidden=this.step!==4;this.root.querySelectorAll<HTMLElement>("[data-tl-predict]").forEach(el=>el.setAttribute("aria-pressed",String(el.dataset.tlPredict===this.prediction)));
+    this.el("tlPrediction").hidden=this.step!==4||this.frame>=30;this.root.querySelectorAll<HTMLElement>("[data-tl-predict]").forEach(el=>el.setAttribute("aria-pressed",String(el.dataset.tlPredict===this.prediction)));
     this.el("tlAction").textContent=["값이 좌표가 되는 과정 보기","이 분포 확인하기","뉴런 기준선 보기",`${this.frame} / 30 · 실제 학습 보기`][this.step-1]!;
     this.el<HTMLButtonElement>("tlAction").disabled=this.step===4?this.timer!==0:this.revealed;
     this.el("tlQuiz").hidden=this.step===4?this.frame<30:!this.revealed;

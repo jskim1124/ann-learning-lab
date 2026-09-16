@@ -23,6 +23,7 @@ describe("네 단계 특징 탐구",()=>{
     click("flAction");answer("아니요");click("flNext");click("flAction");answer("0");click("flNext");
     (root.querySelector('[data-fl-predict="up"]') as HTMLButtonElement).click();click("flAction");vi.advanceTimersByTime(3100);
     expect(root.querySelector("#flCalculation")!.textContent).toContain("예상대로");
+    expect((root.querySelector("#flPredict") as HTMLElement).hidden).toBe(true);
     answer("예상과 정답이 다르기 때문");click("flNext");expect(next).toHaveBeenCalledOnce();
     (root.querySelector('[data-fl-step="1"]') as HTMLButtonElement).click();expect(root.querySelector("#flTitle")!.textContent).toContain("어떤 수");
     lesson.reset();expect((root.querySelector("#flAnswer") as HTMLInputElement).value).toBe("");
