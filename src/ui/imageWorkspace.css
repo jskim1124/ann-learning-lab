@@ -38,6 +38,39 @@
 .bias-candidates span { flex: 1; text-align: center; background: #f3f5f8; padding: 6px; border-radius: 8px; }
 .bias-candidates b { display: block; margin-top: 4px; }
 .calculation-pop { animation: calculation-pulse .6s ease; }
+.movement-scores { display:flex; gap:12px; align-items:center; padding:8px; border-radius:8px; background:#f5f6f8; }
+.movement-scores > span { color:#f17605; flex:1; }
+.movement-scores > span:nth-child(2) { color:#df466f; }
+.boundary-position { display:grid; gap:4px; background:#f4f6f9; border-radius:10px; padding:10px; font-size:14px; line-height:1.4; width:100%; }
+.score-conversion { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
+.score-conversion span { padding:6px; background:#f5f6f8; border-radius:7px; }
+.score-conversion b { display:block; }
+.conversion-help { font-size:14px; }
+.conversion-help p { margin:5px 0 0; line-height:1.4; }
+.neuron-count-example { display:grid; gap:8px; }
+.neuron-count-example button[aria-pressed="true"] { background:#e9f1fe; color:#1769d2; border-color:#1769d2; }
+.learning-chart { display:flex!important; flex-direction:column; align-items:stretch!important; gap:2px!important; flex:none; max-height:none!important; }
+.learning-chart-controls { display:flex; flex-wrap:wrap; align-items:center; gap:8px; width:100%; font-size:14px; }
+.learning-chart-controls > div { display:flex; gap:3px; }
+.learning-chart-controls label { white-space:nowrap; display:flex; align-items:center; gap:4px; }
+.learning-chart-controls button { min-height:28px; padding:3px 8px; font-size:14px; }
+.learning-chart-controls button[aria-pressed="true"] { color:#1769d2; background:#e9f1fe; border-color:#1769d2; }
+.learning-chart-controls > button:last-child { margin-left:auto; }
+.learning-chart canvas { width:100%!important; height:72px!important; min-width:0; }
+.learning-chart-help { width:min(720px,95vw); max-height:94dvh; border:1px solid #d5dce5; border-radius:18px; padding:22px; color:#202633; }
+.learning-chart-help::backdrop { background:#1c243e55; }
+.learning-chart-help header { display:flex; align-items:center; justify-content:space-between; }
+.learning-chart-help h2 { font-size:22px; margin:0; }
+.learning-chart-help h3 { font-size:18px; margin:12px 0 4px; }
+.learning-chart-help p { font-size:15px; line-height:1.5; margin:10px 0; }
+.learning-chart-help canvas { width:100%; height:min(29dvh,240px); }
+.learning-chart-help nav { display:flex; gap:8px; margin:12px 0; }
+.learning-chart-help button[aria-pressed="true"] { background:#e9f1fe; color:#1769d2; border-color:#1769d2; }
+.loss-comparison,.landscape-actions { display:flex; gap:12px; }
+.loss-comparison span { flex:1; padding:14px; border-radius:10px; background:#f3f5f8; }
+.loss-comparison b { display:block; margin-top:6px; }
+.landscape-actions button { flex:1; }
+.chart-caveat { color:#606b7a; }
 @keyframes calculation-pulse { from { background-color: #fff0e0; } to { background-color: transparent; } }
 @media (prefers-reduced-motion: reduce) { .calculation-pop, .tiny-grid .current { animation: none; } }
 .image-compact-tabs { display: none; }

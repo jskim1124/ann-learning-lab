@@ -11,7 +11,7 @@ export interface ImageState {
   task: ImageTask; classes: string[]; data: ImageSample[]; model: PixelModel; mode: ImageMode;
   projection: PixelProjection; feature: PixelProjectionMode; rate: number;
   features: ImageFeature[]; xFeature: string; yFeature: string;
-  history: Array<{ epoch: number; loss: number }>; selectedClass: number; selectedSample: number | null;
+  history: Array<{ epoch: number; loss: number; accuracy?: number }>; selectedClass: number; selectedSample: number | null;
   input: number[]; inputImage?: string; inputSource: "drawing" | "webcam";
   testCount: number; testCorrect: number; revision: number;
 }
@@ -30,10 +30,10 @@ export class ImageLabStore {
     const features = imageFeatures(data), xFeature = task === "omr" ? "position" : builtin ? "ink" : "auto1", yFeature = task === "omr" ? "ink" : builtin ? "center" : "auto2";
     const projection = selectedImageProjection(data, features, xFeature, yFeature);
     const mode: ImageMode = task === "webcam" ? "pixels" : "map";
-    let model = initializePixelModel(IMAGE_INPUTS, 8, names.length, 31);
+    let model = initializePixelModel(IMAGE_INPUTS, 1, names.length, 31);
     if (mode === "map") model = constrainPixelModelToProjection(model, projection);
     return { task, classes: names, data, model, mode, projection, feature: "learned", features, xFeature, yFeature, rate: .12,
-      history: [{ epoch: 0, loss: evaluatePixelModel(model, data).loss }], selectedClass: 0, selectedSample: null,
+      history: [{ epoch: 0, ...evaluatePixelModel(model, data) }], selectedClass: 0, selectedSample: null,
       input: Array<number>(IMAGE_INPUTS).fill(0), inputSource: task === "webcam" ? "webcam" : "drawing", testCount: 0, testCorrect: 0, revision: 0 };
   }
   get snapshot(): ImageState { return this.state; }
@@ -47,7 +47,7 @@ export class ImageLabStore {
     const projection = rebuildMap ? selectedImageProjection(s.data, features, s.xFeature, s.yFeature) : s.projection;
     let model = initializePixelModel(IMAGE_INPUTS, s.model.hiddenUnits, s.classes.length, 31, s.model.activation);
     if (s.mode === "map") model = constrainPixelModelToProjection(model, projection);
-    this.state = { ...s, model, projection, features, selectedSample: null, history: [{ epoch: 0, loss: evaluatePixelModel(model, s.data).loss }], testCount: 0, testCorrect: 0, revision: s.revision + 1 };
+    this.state = { ...s, model, projection, features, selectedSample: null, history: [{ epoch: 0, ...evaluatePixelModel(model, s.data) }], testCount: 0, testCorrect: 0, revision: s.revision + 1 };
   }
   resetModel(): void { this.reset(); this.emit(); }
   setMode(mode: ImageMode): void { if (mode === this.state.mode) return; this.state = { ...this.state, mode }; this.reset(true); this.emit(); }
@@ -109,7 +109,7 @@ export class ImageLabStore {
     const s = this.state; let model = s.model;
     if (s.mode === "pixels") model = trainPixelModel(model, s.data, epochs, s.rate);
     else for (let i = 0; i < epochs; i++) model = constrainPixelModelToProjection(trainPixelModel(model, s.data, 1, s.rate), s.projection);
-    this.state = { ...s, model, history: [...s.history, { epoch: model.epoch, loss: evaluatePixelModel(model, s.data).loss }].slice(-240), testCount: 0, testCorrect: 0 };
+    this.state = { ...s, model, history: [...s.history, { epoch: model.epoch, ...evaluatePixelModel(model, s.data) }].slice(-240), testCount: 0, testCorrect: 0 };
     this.emit(); return null;
   }
   predict(pixels = this.focus().pixels) { return forwardPixels(this.state.model, pixels); }

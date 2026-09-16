@@ -9,7 +9,7 @@ describe("여러 클래스를 쓰는 특징 지도 모델", () => {
       { x: .8, y: -.8, label: 1 }, { x: .7, y: -.6, label: 1 },
       { x: 0, y: .8, label: 2 }, { x: .1, y: .6, label: 2 },
     ], ["가위", "바위", "보"]);
-    store.train(500);
+    store.setHiddenUnits(3); store.train(500);
     expect(store.snapshot.model.classCount).toBe(3);
     expect(store.probabilities()).toHaveLength(3);
     expect(store.probabilities().reduce((sum, value) => sum + value, 0)).toBeCloseTo(1, 8);

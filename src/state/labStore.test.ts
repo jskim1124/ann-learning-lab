@@ -61,6 +61,7 @@ describe("lab interactions", () => {
 
   it("moves through the causal explanation and quiz without changing the model", () => {
     const store = new LabStore();
+    store.setConfig({ hiddenUnits: 2 });
     const model = store.snapshot.model;
     store.setExplanationStep(3);
     store.setSelectedNeuron(1);
@@ -71,10 +72,10 @@ describe("lab interactions", () => {
     expect(store.snapshot).toMatchObject({ explanationStep: 4, quizAnswer: null });
   });
 
-  it("opens lessons in order and selects the recommended model size", () => {
+  it("opens lessons in order and starts with one hidden neuron", () => {
     const store = new LabStore();
     store.setPreset("sketch");
-    expect(store.snapshot.model.config.hiddenUnits).toBe(4);
+    expect(store.snapshot.model.config.hiddenUnits).toBe(1);
     store.nextLesson();
     expect(store.snapshot).toMatchObject({ lessonStep: 2, furthestLessonStep: 2 });
   });
@@ -89,13 +90,13 @@ describe("lab interactions", () => {
     expect(store.snapshot.experiments).toHaveLength(0);
   });
 
-  it("persists validated settings for the next session", () => {
+  it("persists activation and rate but starts a new session with one hidden neuron", () => {
     const first = new LabStore();
     first.setPreset("digits");
     first.setConfig({ hiddenUnits: 4, activation: "relu", learningRate: 0.12 });
     const restored = new LabStore();
     expect(restored.snapshot.preset).toBe("digits");
-    expect(restored.snapshot.model.config).toMatchObject({ hiddenUnits: 4, activation: "relu", learningRate: 0.12 });
+    expect(restored.snapshot.model.config).toMatchObject({ hiddenUnits: 1, activation: "relu", learningRate: 0.12 });
   });
 
   it("reveals one highlighted change before resetting the next quiz", () => {

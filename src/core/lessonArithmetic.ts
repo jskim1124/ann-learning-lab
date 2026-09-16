@@ -13,13 +13,14 @@ export function smallFeatureExample(id: string) {
   const feature: ImageFeature = { id: kind, name: names[kind]!, weights, description: "계산 방법을 배우기 위한 4×4 예제" };
   return { pixels, feature, calculation: featureCalculation(feature, pixels) };
 }
-export function outputTeachingModel(): PixelModel {
-  return { inputSize: 2, hiddenUnits: 2, classCount: 2, epoch: 0, activation: "tanh", inputHidden: [[1.4, .5], [.2, -1.3]], hiddenBias: [.2, -.1], hiddenOutput: [[1.2, -.8], [-.6, 1.1]], outputBias: [.1, -.15] };
+export function outputTeachingModel(hiddenUnits = 2): PixelModel {
+  const count = hiddenUnits === 1 ? 1 : 2;
+  return { inputSize: 2, hiddenUnits: count, classCount: 3, epoch: 0, activation: "relu", inputHidden: [[1, .5], [-.6, 1]].slice(0,count), hiddenBias: [.3, .1].slice(0,count), hiddenOutput: [[-1, .8], [1, -.4], [.2, 1.3]].map(w=>w.slice(0,count)), outputBias: [1, 0, .15] };
 }
 /** Finite-search learning: hold all weights fixed, compare only three bias candidates. */
 export function biasDirectionExample() {
   const point = [.2, .2];
-  const initial: PixelModel = { inputSize: 2, hiddenUnits: 1, classCount: 2, epoch: 0, activation: "tanh", inputHidden: [[1, .5]], hiddenBias: [-.6], hiddenOutput: [[-1], [1]], outputBias: [0, 0] };
+  const initial: PixelModel = { inputSize: 2, hiddenUnits: 1, classCount: 2, epoch: 0, activation: "relu", inputHidden: [[1, .5]], hiddenBias: [0], hiddenOutput: [[-1], [1]], outputBias: [1, 0] };
   const frames = [initial];
   for (let i = 0; i < 8; i++) {
     const current = frames.at(-1)!;
@@ -28,6 +29,19 @@ export function biasDirectionExample() {
   }
   const candidates = [-.1, 0, .1].map(change => ({ change, probability: forwardPixels({ ...initial, hiddenBias: [initial.hiddenBias[0]! + change] }, point).probabilities[1]! }));
   return { point, frames, candidates };
+}
+
+/** Display-only interpolation. It never mutates or adds a training update. */
+export function interpolatePixelModel(a: PixelModel, b: PixelModel, progress: number): PixelModel {
+  const t=Math.max(0,Math.min(1,progress));
+  const vector=(x:number[],y:number[])=>x.map((v,i)=>v+(y[i]!-v)*t);
+  return {...a,inputHidden:a.inputHidden.map((v,i)=>vector(v,b.inputHidden[i]!)),hiddenBias:vector(a.hiddenBias,b.hiddenBias),hiddenOutput:a.hiddenOutput.map((v,i)=>vector(v,b.hiddenOutput[i]!)),outputBias:vector(a.outputBias,b.outputBias)};
+}
+
+/** The lesson's visible positive-value conversion is exactly softmax, not a second score. */
+export function outputScoreBreakdown(model: PixelModel, input: number[]) {
+  const result=forwardPixels(model,input), positive=result.logits.map(v=>Math.exp(v));
+  return {...result,positive,total:positive.reduce((a,b)=>a+b,0)};
 }
 export function numberChoices(answer: number): number[] {
   const rounded = Number(answer.toFixed(2));

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { biasDirectionExample, numberChoices, outputTeachingModel, smallFeatureExample } from "./lessonArithmetic";
+import { biasDirectionExample, interpolatePixelModel, numberChoices, outputScoreBreakdown, outputTeachingModel, smallFeatureExample } from "./lessonArithmetic";
 import { forwardPixels } from "./pixelNetwork";
 
 describe("한눈에 따라 계산하는 작은 예제", () => {
@@ -26,7 +26,21 @@ describe("한눈에 따라 계산하는 작은 예제", () => {
   });
   it("출력값은 변환된 뉴런 신호에 연결값을 곱한 합이다",()=>{
     const model=outputTeachingModel(), values=forwardPixels(model,[.4,.2]);
-    expect(values.hidden[0]).toBeCloseTo(Math.tanh(.4*1.4+.2*.5+.2));
-    expect(values.logits[0]).toBeCloseTo(values.hidden[0]!*1.2+values.hidden[1]!*(-.8)+.1);
+    expect(values.hidden[0]).toBeCloseTo(.4+.2*.5+.3);
+    expect(values.logits[0]).toBeCloseTo(-values.hidden[0]!+values.hidden[1]!*.8+1);
+  });
+  it("애니메이션 중간 계산과 경계 위치도 실제 모델과 일치한다",()=>{
+    const {frames,point}=biasDirectionExample(), original=JSON.stringify(frames);
+    const model=interpolatePixelModel(frames[0]!,frames[1]!, .5);
+    expect(model.hiddenBias[0]).toBeCloseTo(.05);
+    const r=forwardPixels(model,point);
+    expect(r.logits[0]).toBeCloseTo(.65);expect(r.logits[1]).toBeCloseTo(.35);
+    for(const frame of frames){const b=frame.hiddenBias[0]!,boundary=forwardPixels(frame,[.4-b,.2]);expect(boundary.logits[0]).toBeCloseTo(boundary.logits[1]!);}
+    expect(JSON.stringify(frames)).toBe(original);
+  });
+  it.each([1,2])("은닉 %i개에서도 출력은 세 개이고 양수 비율은 실제 확률과 같다",hidden=>{
+    const model=outputTeachingModel(hidden),r=outputScoreBreakdown(model,[.4,.2]);
+    expect(r.hidden).toHaveLength(hidden);expect(r.logits).toHaveLength(3);
+    r.positive.forEach((v,i)=>expect(v/r.total).toBeCloseTo(r.probabilities[i]!,12));
   });
 });

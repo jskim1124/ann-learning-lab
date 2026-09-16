@@ -1,17 +1,15 @@
 import { drawImagePixels } from "../core/imageInput";
 import { featureCalculation, featureScore, imageFeatureLegend } from "../core/imageFeatures";
-import { smallFeatureExample, outputTeachingModel, biasDirectionExample, numberChoices } from "../core/lessonArithmetic";
+import { smallFeatureExample, biasDirectionExample, numberChoices } from "../core/lessonArithmetic";
 import { featureMovementExample } from "../core/featureLessonModel";
-import { forwardPixels } from "../core/pixelNetwork";
 import { projectPixels } from "../core/pixelProjection";
 import type { ImageLabStore } from "../state/imageLabStore";
-import { drawPixelLatentMap, drawPixelNeuronMovement, hiddenPlane, pixelHiddenLineValue, pixelMapExampleAt } from "../visualization/pixelLatentMap";
-import { NEURON_COLORS } from "../visualization/neuronColors";
+import { drawPixelLatentMap, pixelMapExampleAt } from "../visualization/pixelLatentMap";
+import { renderMovementScene, renderOutputScene } from "./lessonScenes";
 import { workspacePanels } from "./workspacePanels";
 
 const esc = (s: string) => s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 const n = (v: number) => Number(v.toFixed(2)).toString();
-const identity = { mean: [0, 0], horizontal: [1, 0], vertical: [0, 1], horizontalScale: 1, verticalScale: 1 };
 type Choice = { text: string; correct: boolean };
 
 /** Small examples and real data are separate. Animation frames always show real arithmetic. */
@@ -21,6 +19,9 @@ export class ImageFeatureLesson {
   private sample = 0;
   private pixel = 0;
   private timer = 0;
+  private animation = 0;
+  private playing = false;
+  private outputNeurons = 1;
   private frame = 0;
   private example = true;
   private passed = new Set<number>();
@@ -40,7 +41,7 @@ export class ImageFeatureLesson {
         <div id="flPointControl"><label>점의 가로 위치 <input id="flPointX" type="range" min="-.9" max=".9" step=".05" value=".4"></label><label>점의 세로 위치 <input id="flPointY" type="range" min="-.9" max=".9" step=".05" value=".2"></label></div>
         <p id="flVisualNote"></p><div id="flSelected"></div>
       </section>
-      <section class="image-panel image-lesson-copy"><nav class="image-lesson-tabs" aria-label="이해 순서">${["특징 계산", "분포·선택", "뉴런·출력", "선 움직임"].map((s,i)=>`<button data-fl-step="${i+1}">${i+1} ${s}</button>`).join("")}</nav>
+      <section class="image-panel image-lesson-copy"><nav class="image-lesson-tabs" aria-label="이해 순서">${["특징 계산", "분포·선택", "선 움직임", "뉴런·출력"].map((s,i)=>`<button data-fl-step="${i+1}">${i+1} ${s}</button>`).join("")}</nav>
         <h2 id="flTitle"></h2><p id="flText"></p>
         <div class="feature-axis-pair"><label>가로 특징<select id="flX"></select></label><label>세로 특징<select id="flY"></select></label><button id="flCreate">+ 특징 만들기</button></div>
         <div id="flCalculation" class="image-calculation" aria-live="polite"></div>
@@ -56,6 +57,8 @@ export class ImageFeatureLesson {
       if (step) { this.stop(); this.step = Number(step.dataset.flStep); this.reveal = 0; this.frame = 0; this.answer = null; this.prediction = null; this.render(); }
       if (source) { this.stop(); this.example = source.dataset.flSource === "example"; this.reveal = 0; this.frame = 0; this.answer = null; this.render(); }
       if (prediction) { this.prediction = prediction.dataset.flPredict!; this.render(); }
+      const count=target.closest<HTMLElement>("[data-output-neurons]");
+      if(count){this.outputNeurons=Number(count.dataset.outputNeurons);this.render();}
     });
     ["flX", "flY"].forEach(id => this.el(id).addEventListener("change", () => {
       this.stop(); const error = store.setAxes(this.el<HTMLSelectElement>("flX").value, this.el<HTMLSelectElement>("flY").value);
@@ -69,10 +72,10 @@ export class ImageFeatureLesson {
     click("flReplay", () => { this.stop(); this.reveal = 0; this.frame = 0; this.answer = null; this.render(); });
     click("flAction", () => { this.stop(); this.advance(); });
     click("flPlay", () => {
-      if (this.timer) { this.stop(); return this.render(); }
-      if (this.step === 4 && !this.prediction && this.example) return message("먼저 어느 쪽으로 고칠지 골라 보세요.");
+      if (this.playing) { this.stop(); return this.render(); }
+      if (this.step === 3 && !this.prediction && this.example) return message("먼저 어느 쪽으로 고칠지 골라 보세요.");
       if (this.complete()) { this.reveal = 0; this.frame = 0; }
-      const tick = () => { this.advance(); if (!this.complete()) this.timer = window.setTimeout(tick, 1000); else this.timer = 0; this.render(); }; tick();
+      this.playing = true; this.play();
     });
     click("flNext", () => { if (!this.passed.has(this.step)) return message("아래 선택형 문제를 확인해 주세요."); this.stop(); if (this.step === 4) { store.setMode("map"); this.next(); } else { this.step++; this.reveal = 0; this.frame = 0; this.answer = null; this.example = true; this.render(); } });
     click("flCreate", () => { this.paint.fill(0); this.el<HTMLInputElement>("flName").value = ""; this.el("flEditorError").textContent = ""; this.drawMask(); this.el<HTMLDialogElement>("flEditor").showModal(); });
@@ -83,12 +86,25 @@ export class ImageFeatureLesson {
     workspacePanels(root, [...root.querySelector(".image-understanding")!.children], ["예제·그래프", "설명·확인"], () => this.render());
   }
   private el<T extends HTMLElement=HTMLElement>(id:string):T { return this.root.querySelector(`#${id}`) as T; }
-  stop():void { window.clearTimeout(this.timer); this.timer = 0; }
+  stop():void { window.clearTimeout(this.timer); window.cancelAnimationFrame(this.animation); this.timer = 0; this.animation = 0; this.playing = false; }
+  private transition():void {
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+    this.el("flCalculation").animate?.([{opacity:.25,transform:"translateY(7px)"},{opacity:1,transform:"translateY(0)"}],{duration:420,easing:"ease-out"});
+  }
+  private play():void {
+    if (!this.playing) return;
+    const finish=()=>{ if(this.complete()){this.stop();this.render();}else this.timer=window.setTimeout(()=>this.play(),this.step===3?450:1100); };
+    if(this.step!==3 || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches){this.advance();finish();return;}
+    const from=this.frame,to=Math.min(this.limit(),Math.floor(from+1.000001)),start=performance.now();
+    this.render();
+    const tick=(now:number)=>{if(!this.playing)return;const t=Math.min(1,(now-start)/800),ease=t*t*(3-2*t);this.frame=from+(to-from)*ease;this.renderMovement();if(t<1)this.animation=window.requestAnimationFrame(tick);else{this.frame=to;this.render();finish();}};
+    this.animation=window.requestAnimationFrame(tick);
+  }
   reset():void { this.stop(); this.step = 1; this.sample = 0; this.reveal = 0; this.frame = 0; this.example = true; this.answer = null; this.prediction = null; this.passed.clear(); this.signature = ""; }
   openFeatures():void { this.step = 2; this.reveal = 0; this.render(); }
-  private limit():number { return this.step === 1 ? this.example ? 7 : 3 : this.step === 2 ? 1 : this.step === 3 ? 3 : this.example ? 8 : 30; }
-  private complete():boolean { return (this.step === 4 ? this.frame : this.reveal) >= this.limit(); }
-  private advance():void { if (this.step === 4) { if (this.example && !this.prediction) return this.message("먼저 고칠 방향을 골라 보세요."); this.frame = Math.min(this.limit(), this.frame + 1); } else this.reveal = Math.min(this.limit(), this.reveal + 1); this.render(); }
+  private limit():number { return this.step === 1 ? this.example ? 7 : 3 : this.step === 2 ? 1 : this.step === 4 ? 4 : this.example ? 8 : 30; }
+  private complete():boolean { return (this.step === 3 ? this.frame : this.reveal) >= this.limit(); }
+  private advance():void { if (this.step === 3) { if (this.example && !this.prediction) return this.message("먼저 고칠 방향을 골라 보세요."); this.frame = Math.min(this.limit(), Math.floor(this.frame + 1.000001)); } else this.reveal = Math.min(this.limit(), this.reveal + 1); this.render(); this.transition(); }
   private drawMask():void { const ctx = this.el<HTMLCanvasElement>("flMask").getContext("2d")!; this.paint.forEach((v,i)=>{ ctx.fillStyle=v>0?"#ffe0bf":v<0?"#dbccff":"white"; ctx.fillRect(i%14*30,Math.floor(i/14)*30,30,30); ctx.strokeStyle="#d6dbe2"; ctx.strokeRect(i%14*30,Math.floor(i/14)*30,30,30); }); }
   private quiz(question:string, choices:Choice[], explanation:string):void {
     this.el("flQuestion").textContent = question;
@@ -112,26 +128,28 @@ export class ImageFeatureLesson {
     for (const [id,value] of [["flX",s.xFeature],["flY",s.yFeature]]) { const select = this.el<HTMLSelectElement>(id!); select.innerHTML = s.features.map(f=>`<option value="${f.id}">${esc(f.name)}</option>`).join(""); select.value = value!; }
     this.root.querySelectorAll<HTMLElement>("[data-fl-step]").forEach(b=>{ const selected=Number(b.dataset.flStep)===this.step; b.classList.toggle("active",selected); b.classList.toggle("done",this.passed.has(Number(b.dataset.flStep))); b.setAttribute("aria-pressed",String(selected)); });
     this.root.querySelectorAll<HTMLElement>("[data-fl-source]").forEach(b=>b.setAttribute("aria-pressed",String((b.dataset.flSource==="example")===this.example)));
-    this.el("flExampleTabs").hidden = this.step===2 || this.step===3;
-    this.el("flSourceNote").textContent = this.step===2 ? "내 자료 · 한 점은 한 장의 그림입니다." : this.example || this.step===3 ? "원리를 배우는 작은 예제 · 실제 학습 자료와는 별개입니다." : "내 자료 · 실제 계산값을 확인합니다. 표시한 수는 반올림했습니다.";
+    this.el("flExampleTabs").hidden = this.step===2 || this.step===4;
+    this.el("flSourceNote").textContent = this.step===2 ? "내 자료 · 한 점은 한 장의 그림입니다." : this.example || this.step===4 ? "원리를 배우는 작은 예제 · 실제 학습 자료와는 별개입니다." : "내 자료 · 실제 계산값을 확인합니다. 표시한 수는 반올림했습니다.";
     this.el("flTiny").hidden = this.step!==1 || !this.example;
     this.el("flPicture").hidden = this.step!==1 || this.example;
     this.el("flMap").hidden = this.step===1;
     this.el("flOther").hidden = this.step>2 || this.step===1&&this.example;
-    this.el("flPointControl").hidden = this.step!==3;
+    this.el("flPointControl").hidden = this.step!==4;
     const pair = this.root.querySelector<HTMLElement>(".feature-axis-pair")!; pair.hidden = this.step>=3;
     (pair.querySelector("label:nth-child(2)") as HTMLElement).hidden=this.step===1;
     this.el("flCreate").hidden=this.step!==2;
     this.el("flSelected").replaceChildren(); this.el("flVisualNote").textContent="";
-    if (this.step===1) this.renderCalculation(); else if (this.step===2) this.renderDistribution(); else if (this.step===3) this.renderOutput(); else this.renderMovement();
+    if (this.step===1) this.renderCalculation(); else if (this.step===2) this.renderDistribution(); else if (this.step===3) this.renderMovement(); else this.renderOutput();
     const done=this.complete();
-    this.el("flPredict").hidden=this.step!==4||!this.example||this.frame>0;
+    this.el("flPredict").hidden=this.step!==3||!this.example||this.frame>0||this.playing;
     this.root.querySelectorAll<HTMLElement>("[data-fl-predict]").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.flPredict===this.prediction)));
     this.el("flQuiz").hidden=!done; this.el<HTMLButtonElement>("flNext").disabled=!this.passed.has(this.step);
     this.el("flNext").textContent=this.step===4?"고른 특징으로 직접 학습하기 →":"다음 내용 →";
-    this.el("flAction").textContent=done?"확인 완료":this.step===4?`한 번 고치기 (${this.frame}/${this.limit()})`:`다음 계산 (${this.reveal}/${this.limit()})`;
+    this.el("flAction").textContent=done?"확인 완료":this.step===3?`한 번 고치기 (${Math.floor(this.frame)}/${this.limit()})`:`다음 계산 (${this.reveal}/${this.limit()})`;
     this.el<HTMLButtonElement>("flAction").disabled=done;
-    this.el("flPlay").hidden=this.step===2;this.el("flPlay").textContent=this.timer?"Ⅱ 멈춤":"▶ 재생";
+    this.el("flPlay").hidden=this.step===2;this.el("flPlay").textContent=this.playing?"Ⅱ 멈춤":"▶ 재생";
+    this.el("flPlay").setAttribute("aria-label",this.playing?"계산 과정 일시 정지":"계산 과정 자동 재생");
+    this.el("flCalculation").setAttribute("aria-live",this.playing?"off":"polite");
   }
   private renderCalculation():void {
     const s=this.store.snapshot, feature=s.features.find(f=>f.id===s.xFeature)!, row=s.data[this.sample]!, calc=featureCalculation(feature,row.pixels), small=smallFeatureExample(feature.id), box=this.el("flCalculation");
@@ -162,23 +180,11 @@ export class ImageFeatureLesson {
     this.quiz("어떤 특징 조합을 먼저 시험해 볼까요?",[{text:"서로 다른 클래스가 덜 겹치는 조합",correct:true},{text:"모든 점이 한곳에 겹치는 조합",correct:false}],"덜 겹치면 구분에 도움이 될 수 있습니다. 새 그림도 잘 맞히는지는 따로 시험해야 합니다.");
   }
   private renderOutput():void {
-    const model=outputTeachingModel(), result=forwardPixels(model,this.focus), sums=model.inputHidden.map((w,i)=>w[0]!*this.focus[0]!+w[1]!*this.focus[1]!+model.hiddenBias[i]!);
-    this.el("flTitle").textContent=["입력값을 곱하고 더해요","합을 신호로 바꿔요","출력 노드가 신호를 합쳐요","1등인 답이 바뀌는 곳이 최종 경계예요"][this.reveal]!;
-    this.el("flVisualTitle").textContent="색 선 → 뉴런 신호 → 검은 경계";
-    this.el("flText").textContent=this.reveal===0?"예제의 연결값은 계산을 보기 쉽게 정했습니다. 실제 연습에서는 처음에 임의로 정한 연결값을 학습으로 고칩니다.":this.reveal===1?"합을 −1~1 사이의 신호로 부드럽게 줄입니다. 큰 합일수록 큰 신호입니다. 복잡한 변환 공식 대신 아래 실제 값을 비교하세요.":this.reveal===2?"출력 A와 B는 같은 두 신호에 서로 다른 연결값을 곱해 더합니다. 출력값이 더 큰 답을 고릅니다.":"지도 곳곳에서 같은 계산을 합니다. 가장 큰 두 출력값이 같아져 1등이 바뀌는 곳을 이으면 검은 경계가 됩니다. 색 선 하나를 그대로 복사한 것이 아닙니다.";
-    drawPixelLatentMap(this.el("flMap"),model,[],this.focus,identity,{view:"decision",onlyNeuron:this.reveal<1?0:undefined,showNeuronBoundaries:true,showDecisionBoundary:this.reveal>=3,axisLegend:{horizontal:{title:"가로 입력값",negative:"−1",positive:"+1"},vertical:{title:"세로 입력값",negative:"−1",positive:"+1"}},focusLabel:"움직이는 예제 점"});
-    const rows=model.inputHidden.map((w,i)=>`<span style="color:${NEURON_COLORS[i]}">뉴런 ${i+1}: ${n(this.focus[0]!)} × ${n(w[0]!)} + ${n(this.focus[1]!)} × (${n(w[1]!)}) + (${n(model.hiddenBias[i]!)}) ≈ <b>${n(sums[i]!)}</b>${this.reveal>=1?` → 신호 ${n(result.hidden[i]!)}`:""}</span>`).join("");
-    this.el("flCalculation").innerHTML=this.reveal<2?`${rows}<span>곱할 값은 연결값, 마지막에 더하는 값은 선의 위치를 조절하는 값입니다. 색 선 위의 합은 0입니다. 점을 움직여 확인하세요.</span>`:model.hiddenOutput.map((w,c)=>`<span>출력 ${c?'B':'A'}: ${n(result.hidden[0]!)} × (${n(w[0]!)}) + ${n(result.hidden[1]!)} × (${n(w[1]!)}) + (${n(model.outputBias[c]!)}) ≈ <b>${n(result.logits[c]!)}</b></span>`).join("")+`<b>지금은 ${result.logits[0]!>result.logits[1]!?"A":"B"}의 출력값이 더 큽니다.</b><span>퍼센트 막대는 출력값들을 비교하기 쉽게 바꾼 값입니다. 정답 보장은 아닙니다.</span>`;
-    this.el("flSelected").innerHTML=`<div class="lesson-signal-flow" aria-label="입력에서 은닉 뉴런을 거쳐 출력으로 이어지는 계산"><span>입력<br><b>${n(this.focus[0]!)} · ${n(this.focus[1]!)}</b></span><i>→</i><span><b style="color:${NEURON_COLORS[0]}">뉴런 1: ${n(result.hidden[0]!)}</b><br><b style="color:${NEURON_COLORS[1]}">뉴런 2: ${n(result.hidden[1]!)}</b></span><i>→</i><span>출력 A <b>${n(result.logits[0]!)}</b><br>출력 B <b>${n(result.logits[1]!)}</b></span></div>`;
-    this.quiz("검은 최종 경계는 어떤 곳일까요?",[{text:"뉴런 1개의 합이 0인 곳",correct:false},{text:"가장 큰 두 출력값이 같아지는 곳",correct:true}],"색 선은 개별 뉴런의 기준이고, 검은 선은 뉴런 신호를 합친 최종 판단의 경계입니다.");
+    const quiz=renderOutputScene(this.root,this.focus,this.reveal,this.outputNeurons);
+    this.quiz(quiz.question,quiz.choices,quiz.explanation);
   }
   private renderMovement():void {
-    const s=this.store.snapshot, toy=this.example, movement=this.movement!, data=toy?[{pixels:this.bias.point,label:1}]:s.data, projection=toy?identity:s.projection, focus=toy?this.bias.point:movement.example.pixels, before=toy?this.bias.frames[0]!:movement.frames[0]!, after=toy?this.bias.frames[this.frame]!:movement.frames[this.frame]!, p=projectPixels(projection,focus), oldPlane=hiddenPlane(before,projection,0), plane=hiddenPlane(after,projection,0), label=toy?1:movement.example.label;
-    this.el("flTitle").textContent=toy?"한 값만 바꾸어 방향을 확인해요":"내 자료에서도 연결값이 바뀌어요"; this.el("flVisualTitle").textContent="대표 뉴런 1개의 선 움직임";
-    this.el("flText").textContent=toy?"정답은 B인데 A로 예상했습니다. 이번 작은 실험에서는 두 연결값을 고정하고 ‘더해주는 값’만 바꿉니다. 세 후보 중 B의 점수가 가장 높은 값을 고릅니다.":"실제 연습과 같은 계산입니다. 이 그림의 오차를 줄이도록 여러 연결값과 더해주는 값을 함께 바꿉니다. 여기서는 대표선 하나만 관찰합니다.";
-    drawPixelNeuronMovement(this.el("flMap"),before,after,data,focus,projection,toy?"정답 B":"고른 그림",0,toy?undefined:imageFeatureLegend(s.features,s.xFeature,s.yFeature));
-    this.el("flCalculation").innerHTML=toy?`${this.frame===0?`<span>처음 상태에서 세 가지를 비교하면</span><div class="bias-candidates">${this.bias.candidates.map(c=>`<span>${c.change<0?"0.1 빼기":c.change>0?"0.1 더하기":"그대로"}<b>B ${(c.probability*100).toFixed(1)}%</b></span>`).join("")}</div>`:""}<span>더해주는 값: −0.6 + (0.1 × ${this.frame}번) = <b>${n(after.hiddenBias[0]!)}</b></span><b>${n(p.x)} × 1 + ${n(p.y)} × 0.5 + (${n(after.hiddenBias[0]!)}) = ${n(pixelHiddenLineValue(after,focus,0))}</b><span>현재 B 점수 ${(forwardPixels(after,focus).probabilities[1]!*100).toFixed(1)}%. 합이 커지면 B 쪽 신호가 커집니다. 같은 점은 고정인데, 합이 0인 선은 반대쪽으로 이동합니다.</span>`:`<span>전: ${n(p.x)} × ${n(oldPlane.horizontal)} + ${n(p.y)} × (${n(oldPlane.vertical)}) + (${n(oldPlane.constant)}) ≈ ${n(pixelHiddenLineValue(before,focus,0))}</span><span>후: ${n(p.x)} × ${n(plane.horizontal)} + ${n(p.y)} × (${n(plane.vertical)}) + (${n(plane.constant)}) ≈ ${n(pixelHiddenLineValue(after,focus,0))}</span><span>정답 점수 ${(forwardPixels(before,focus).probabilities[label]!*100).toFixed(1)}% → ${(forwardPixels(after,focus).probabilities[label]!*100).toFixed(1)}%</span><span>‘작은 예제’의 세 후보 비교는 방향 이해용입니다. 실제 학습은 현재 오차에 따라 여러 값을 조금씩 고칩니다.</span>`;
-    if (toy && this.frame > 0 && this.prediction) { const feedback=document.createElement("span"); feedback.className=this.prediction==="up"?"correct":"wrong"; feedback.textContent=this.prediction==="up"?"예측이 맞아요. 이 예제에서는 0.1 더할 때 B 점수가 커집니다.":"방향을 다시 확인해요. 이 예제에서는 0.1 더할 때 B 점수가 커집니다.";this.el("flVisualNote").append(feedback); }
-    this.quiz(toy?"이 예제에서 더해주는 값을 늘린 이유는?":"실제 학습에서 계산값을 바꾸는 목적은?",[{text:"선을 언제나 같은 방향으로 보내려고",correct:false},{text:"지금 그림의 정답 점수를 높이려고",correct:true}],"그림을 옮긴 것이 아니라 계산에 쓰는 값을 바꿨습니다. 다른 모델·그림에서는 고칠 방향이 달라집니다.");
+    const quiz=renderMovementScene(this.root,this.store.snapshot,this.example,this.frame,this.bias,this.movement!,this.prediction);
+    if(!this.playing || this.complete())this.quiz(quiz.question,quiz.choices,quiz.explanation);
   }
 }

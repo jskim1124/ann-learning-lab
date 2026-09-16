@@ -1,7 +1,7 @@
 import { evaluatePixelModel, forwardPixels, initializePixelModel, trainPixelModel, type PixelExample, type PixelModel } from "../core/pixelNetwork";
 import type { ActivationName, DataPoint } from "../types";
 
-export interface FeatureHistoryPoint { epoch: number; loss: number; }
+export interface FeatureHistoryPoint { epoch: number; loss: number; accuracy?: number; }
 export interface FeatureLabState {
   classes: string[];
   data: PixelExample[];
@@ -20,7 +20,7 @@ export class FeatureLabStore {
   private listeners = new Set<Listener>();
 
   constructor() {
-    const model = initializePixelModel(2, 3, 2, 47);
+    const model = initializePixelModel(2, 1, 2, 47);
     this.state = { classes: ["A 결과", "B 결과"], data: [], model, learningRate: .1, history: [{ epoch: 0, loss: 0 }], testInput: { x: 0, y: 0 }, showNeuronBoundaries: true, showDecisionBoundary: true };
   }
 
@@ -29,7 +29,7 @@ export class FeatureLabStore {
   private emit(): void { this.listeners.forEach((listener) => listener(this.state)); }
   private restart(classes = this.state.classes, data = this.state.data, hiddenUnits = this.state.model.hiddenUnits, activation = this.state.model.activation): void {
     const model = initializePixelModel(2, hiddenUnits, classes.length, 47, activation);
-    this.state = { ...this.state, classes: [...classes], data: data.map((item) => ({ pixels: [...item.pixels], label: item.label })), model, history: [{ epoch: 0, loss: evaluatePixelModel(model, data).loss }] };
+    this.state = { ...this.state, classes: [...classes], data: data.map((item) => ({ pixels: [...item.pixels], label: item.label })), model, history: [{ epoch: 0, ...evaluatePixelModel(model, data) }] };
   }
 
   setDataset(points: DataPoint[], classes: string[]): void {
@@ -40,7 +40,7 @@ export class FeatureLabStore {
   train(epochs: number): void {
     const model = trainPixelModel(this.state.model, this.state.data, epochs, this.state.learningRate);
     const metrics = evaluatePixelModel(model, this.state.data);
-    this.state = { ...this.state, model, history: [...this.state.history, { epoch: model.epoch, loss: metrics.loss }].slice(-240) };
+    this.state = { ...this.state, model, history: [...this.state.history, { epoch: model.epoch, loss: metrics.loss, accuracy: metrics.accuracy }].slice(-240) };
     this.emit();
   }
   setHiddenUnits(hiddenUnits: number): void { this.restart(this.state.classes, this.state.data, Math.max(1, Math.min(8, Math.round(hiddenUnits))), this.state.model.activation); this.emit(); }

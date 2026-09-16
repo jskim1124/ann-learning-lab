@@ -138,6 +138,11 @@ function renderCustomLab(state: LabState): void {
 let renderedLessonStep = 0;
 let renderedScenarioPreset: PresetName | null = null;
 let uiRerender = () => {};
+let resizeFrame = 0;
+window.addEventListener("resize", () => {
+  window.cancelAnimationFrame(resizeFrame);
+  resizeFrame = window.requestAnimationFrame(() => { resizeFrame = 0; uiRerender(); });
+});
 let explanationMotionFrame = 0; let explanationMotionProgress = 1;
 
 function startUnderstandingMotion(_kind: "boundary", duration = 950): void {
@@ -450,7 +455,7 @@ export function mountApp(store = createInitialStore()): LabStore {
   document.querySelectorAll<HTMLButtonElement>("[data-preset]").forEach((card) => card.addEventListener("click", () => {
     const preset = card.dataset.preset as PresetName;
     boundarySelectedPoint = null; featureSelectedPoint = null; customClassPage=0; customSelectedClass=0; tabularLesson?.reset();
-    if (preset === "custom") { customDraft = createCustomDraft(); syncCustomPreset("custom"); imageWorkspace.configure("custom"); }
+    if (preset === "custom") { customDraft = createCustomDraft(); featureStore.setHiddenUnits(1); syncCustomPreset("custom"); imageWorkspace.configure("custom"); }
     else if (isPixelPreset(preset) || preset === "webcam") imageWorkspace.configure(preset);
     store.setPreset(preset); if (preset === "custom") syncCustomStore(store);
   }));

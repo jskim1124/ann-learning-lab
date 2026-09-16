@@ -45,6 +45,7 @@ export interface Metrics {
 export interface HistoryPoint {
   epoch: number;
   loss: number;
+  accuracy?: number;
 }
 
 export interface ExperimentRecord {

@@ -7,11 +7,11 @@ import { NEURON_COLORS as HIDDEN } from "./neuronColors";
 const STRONG = ["#f17605", "#df466f", "#7446f5", "#1f6bd6", "#1558b7", "#a93658"];
 export type PixelMapView = "placement" | "decision";
 export type PixelFeatureView = PixelProjectionMode;
-const MAP_MARGIN = { left: 50, right: 14, top: 13, bottom: 39 } as const;
+export const MAP_MARGIN = { left: 50, right: 14, top: 13, bottom: 39 } as const;
 const MAP_HIT_RADIUS = 14;
 
 function mapGeometry(canvas: HTMLCanvasElement): { width: number; height: number; plotW: number; plotH: number } {
-  const rect = canvas.getBoundingClientRect(); const width = Math.max(520, Math.round(rect.width || 700)); const height = Math.max(300, Math.round(rect.height || 420));
+  const rect = canvas.getBoundingClientRect(); const width = Math.max(200, Math.round(rect.width || 700)); const height = Math.max(150, Math.round(rect.height || 420));
   return { width, height, plotW: width - MAP_MARGIN.left - MAP_MARGIN.right, plotH: height - MAP_MARGIN.top - MAP_MARGIN.bottom };
 }
 function mapCanvasPoint(point: { x: number; y: number }, plotW: number, plotH: number): { x: number; y: number } {
@@ -40,7 +40,7 @@ function lineEndpoints(plane: { constant: number; horizontal: number; vertical: 
   return points.slice(0, 2);
 }
 
-export interface PixelMapOptions { view?: PixelMapView; focusLabel?: string; previousModel?: PixelModel; highlightAxis?: "horizontal" | "vertical"; showNeuronBoundaries?: boolean; showDecisionBoundary?: boolean; axisLegend?: PixelAxisLegend; onlyNeuron?: number; }
+export interface PixelMapOptions { view?: PixelMapView; focusLabel?: string; previousModel?: PixelModel; highlightAxis?: "horizontal" | "vertical"; showNeuronBoundaries?: boolean; showDecisionBoundary?: boolean; axisLegend?: PixelAxisLegend; onlyNeuron?: number; resolution?: number; classLabels?: string[]; }
 
 export function drawPixelLatentMap(canvas: HTMLCanvasElement, model: PixelModel, data: PixelExample[], focusPixels: number[], projection: PixelProjection, options: PixelMapOptions = {}): void {
   const context = canvas.getContext("2d"); if (!context) return;
@@ -48,7 +48,8 @@ export function drawPixelLatentMap(canvas: HTMLCanvasElement, model: PixelModel,
   const ratio = window.devicePixelRatio || 1; const { width, height, plotW, plotH } = mapGeometry(canvas);
   if (canvas.width !== width * ratio || canvas.height !== height * ratio) { canvas.width = width * ratio; canvas.height = height * ratio; }
   context.setTransform(ratio, 0, 0, ratio, 0, 0); context.clearRect(0, 0, width, height);
-  const margin = MAP_MARGIN; const cells = 100; const classes: number[][] = []; const previousClasses: number[][] = [];
+  const margin = MAP_MARGIN; const cells = options.resolution ?? 100; const classes: number[][] = []; const previousClasses: number[][] = [];
+  const regionLabels = new Map<number,{x:number;y:number;confidence:number}>();
   const planeModel=projectedPixelModel(model,projection);
   const oldPlaneModel=options.previousModel?projectedPixelModel(options.previousModel,projection):null;
   for (let gy = 0; gy < cells; gy += 1) {
@@ -66,6 +67,7 @@ export function drawPixelLatentMap(canvas: HTMLCanvasElement, model: PixelModel,
         const probabilities = forwardPixels(planeModel, [x,y]).probabilities; const winner = probabilities.indexOf(Math.max(...probabilities)); row.push(winner);
         if (oldPlaneModel) { const oldProbabilities = forwardPixels(oldPlaneModel, [x,y]).probabilities; previousRow.push(oldProbabilities.indexOf(Math.max(...oldProbabilities))); }
         const confidence = probabilities[winner] ?? 0; const base = 1 / Math.max(2, probabilities.length); const certainty = Math.max(0, Math.min(1, (confidence - base) / (1 - base)));
+        if (options.classLabels && Math.abs(x)<.65 && Math.abs(y)<.68 && confidence>(regionLabels.get(winner)?.confidence??0)) regionLabels.set(winner,{x,y,confidence});
         context.fillStyle = mixWithWhite(STRONG[winner % STRONG.length]!, .08 + certainty * .48);
       }
       context.fillRect(margin.left + gx * plotW / cells, margin.top + gy * plotH / cells, plotW / cells + 1, plotH / cells + 1);
@@ -104,6 +106,7 @@ export function drawPixelLatentMap(canvas: HTMLCanvasElement, model: PixelModel,
   }
   data.forEach((example) => { const point = projectPixels(projection, example.pixels); const x = margin.left + (point.x + 1) / 2 * plotW; const y = margin.top + (1 - (point.y + 1) / 2) * plotH; context.beginPath(); context.arc(x, y, 4.7, 0, Math.PI * 2); context.fillStyle = STRONG[example.label % STRONG.length]!; context.globalAlpha = view === "placement" ? .65 : 1; context.fill(); context.globalAlpha = 1; context.strokeStyle = "#fff"; context.lineWidth = 1.2; context.stroke(); });
   if (focusPixels.length) { const point = projectPixels(projection, focusPixels); const x = margin.left + (point.x + 1) / 2 * plotW; const y = margin.top + (1 - (point.y + 1) / 2) * plotH; context.beginPath(); context.arc(x, y, 9, 0, Math.PI * 2); context.fillStyle = "rgba(255,255,255,.9)"; context.fill(); context.strokeStyle = "#111722"; context.lineWidth = 3; context.stroke(); context.fillStyle = "#111722"; context.font = "700 11px sans-serif"; context.textAlign = x > margin.left + plotW * .76 ? "right" : "left"; context.fillText(options.focusLabel ?? "이 그림", x + (context.textAlign === "right" ? -12 : 12), y - 10); }
+  regionLabels.forEach((p,c)=>{const x=margin.left+(p.x+1)/2*plotW,y=margin.top+(1-p.y)/2*plotH;context.font="bold 14px sans-serif";context.textAlign="center";context.fillStyle="rgba(255,255,255,.92)";context.fillRect(x-42,y-17,84,24);context.fillStyle=STRONG[c%STRONG.length]!;context.fillText(`${options.classLabels![c]}로 예상`,x,y);});
   const legend = options.axisLegend; const horizontalLabel = legend ? `${legend.horizontal.title}   ${legend.horizontal.negative}  ←  0  →  ${legend.horizontal.positive}` : "가로 점수   −1  ←   0   →  +1"; const verticalLabel = legend ? `${legend.vertical.title}   ${legend.vertical.negative}  ←  0  →  ${legend.vertical.positive}` : "세로 점수   −1  ←   0   →  +1";
   context.strokeStyle = "#7b8491"; context.lineWidth = 1.1; context.strokeRect(margin.left, margin.top, plotW, plotH); context.fillStyle = "#535e6d"; context.font = "12px sans-serif"; context.textAlign = "center"; context.fillText(horizontalLabel, margin.left + plotW / 2, height - 8); context.save(); context.translate(15, margin.top + plotH / 2); context.rotate(-Math.PI / 2); context.fillText(verticalLabel, 0, 0); context.restore();
 }

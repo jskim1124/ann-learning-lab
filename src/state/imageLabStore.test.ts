@@ -22,7 +22,7 @@ describe("공통 이미지 학습 상태", () => {
     expect(sample.pixels[0]).toBe(0);
   });
   it.each(["digits", "omr"] as const)("%s 그림 전체 모드는 실제로 모든 픽셀을 학습한다", (task) => {
-    const store = new ImageLabStore(task); store.setMode("pixels"); const before = store.metrics().loss;
+    const store = new ImageLabStore(task); store.setMode("pixels"); store.setHiddenUnits(8); const before = store.metrics().loss;
     expect(store.train(250)).toBeNull();
     expect(store.metrics().loss).toBeLessThan(before * .35);
     expect(store.metrics().accuracy).toBeGreaterThan(.9);

@@ -66,13 +66,13 @@ function safeSettings(): { preset: PresetName; hiddenUnits: number; activation: 
 
 function initialState(): LabState {
   const settings = safeSettings();
-  const config = { hiddenUnits: settings.hiddenUnits, activation: settings.activation, learningRate: settings.learningRate, seed: DEFAULT_SEED };
+  const config = { hiddenUnits: 1, activation: settings.activation, learningRate: settings.learningRate, seed: DEFAULT_SEED };
   const model = initializeNetwork(config);
   const data = clonePreset(settings.preset);
   const first = evaluate(model, data);
   return {
     preset: settings.preset, data, pointClass: 0, model,
-    history: [{ epoch: 0, loss: first.loss ?? 0 }],
+    history: [{ epoch: 0, loss: first.loss ?? 0, accuracy: first.accuracy ?? undefined }],
     experiments: safeExperiments(), testInput: { x: 0, y: 0 },
     showNeuronBoundaries: true, showDecisionBoundary: true, autoTraining: false, epochGoal: PRESETS[settings.preset].recommendedHiddenUnits >= 4 ? 2000 : 1000,
     explanationStep: 1, selectedNeuron: 0, quizIndex: 0, quizAnswer: null, highlightRevealed: false,
@@ -102,7 +102,7 @@ export class LabStore {
   private replaceModel(model: NetworkModel): void {
     const metrics = evaluate(model, this.state.data);
     this.state = {
-      ...this.state, model, history: [{ epoch: 0, loss: metrics.loss ?? 0 }], autoTraining: false,
+      ...this.state, model, history: [{ epoch: 0, loss: metrics.loss ?? 0, accuracy: metrics.accuracy ?? undefined }], autoTraining: false,
       selectedNeuron: Math.min(this.state.selectedNeuron, model.config.hiddenUnits - 1), quizAnswer: null, highlightRevealed: false,
     };
     this.stopAuto(false);
@@ -113,18 +113,18 @@ export class LabStore {
     this.replaceModel(initializeNetwork({ ...this.state.model.config, ...change }));
   }
   setPreset(preset: PresetName): void {
-    const config = { ...this.state.model.config, hiddenUnits: PRESETS[preset].recommendedHiddenUnits };
+    const config = { ...this.state.model.config, hiddenUnits: 1 };
     const model = initializeNetwork(config);
     const metrics = evaluate(model, clonePreset(preset));
-    this.state = { ...this.state, preset, data: clonePreset(preset), model, history: [{ epoch: 0, loss: metrics.loss ?? 0 }], selectedNeuron: 0, explanationStep: 1, quizAnswer: null, highlightRevealed: false, mediaSampleIndex: 0, mediaHighlight: false, epochGoal: PRESETS[preset].recommendedHiddenUnits >= 4 ? 2000 : 1000 };
+    this.state = { ...this.state, preset, data: clonePreset(preset), model, history: [{ epoch: 0, loss: metrics.loss ?? 0, accuracy: metrics.accuracy ?? undefined }], selectedNeuron: 0, explanationStep: 1, quizAnswer: null, highlightRevealed: false, mediaSampleIndex: 0, mediaHighlight: false, epochGoal: PRESETS[preset].recommendedHiddenUnits >= 4 ? 2000 : 1000 };
     this.stopAuto(false); this.emit();
   }
   setCustomData(data: DataPoint[], preset: "custom" | "webcam" = "custom"): void {
-    const model = initializeNetwork({ ...this.state.model.config, hiddenUnits: PRESETS[preset].recommendedHiddenUnits });
+    const model = initializeNetwork({ ...this.state.model.config, hiddenUnits: 1 });
     const metrics = evaluate(model, data);
     this.state = {
       ...this.state, preset, data: data.map((point) => ({ ...point })), model,
-      history: [{ epoch: 0, loss: metrics.loss ?? 0 }], selectedNeuron: 0, testInput: { x: 0, y: 0 },
+      history: [{ epoch: 0, loss: metrics.loss ?? 0, accuracy: metrics.accuracy ?? undefined }], selectedNeuron: 0, testInput: { x: 0, y: 0 },
       autoTraining: false, epochGoal: 1000,
     };
     this.stopAuto(false); this.emit();
@@ -160,10 +160,10 @@ export class LabStore {
     const fresh = initializeNetwork(this.state.model.config);
     const model = train(fresh, this.state.data, this.state.epochGoal);
     const metrics = evaluate(model, this.state.data);
-    this.state = { ...this.state, model, history: [{ epoch: model.epoch, loss: metrics.loss ?? 0 }], explanationStep: 1, selectedNeuron: 0, quizAnswer: null, highlightRevealed: false };
+    this.state = { ...this.state, model, history: [{ epoch: model.epoch, loss: metrics.loss ?? 0, accuracy: metrics.accuracy ?? undefined }], explanationStep: 1, selectedNeuron: 0, quizAnswer: null, highlightRevealed: false };
     this.emit(); return null;
   }
-  beginPractice(): void { this.resetModel(); this.setLessonStep(4); }
+  beginPractice(): void { this.setConfig({ hiddenUnits: 1 }); this.setLessonStep(4); }
   nextQuiz(): void {
     const explanationStep = Math.min(4, this.state.explanationStep + 1) as LabState["explanationStep"];
     this.state = { ...this.state, explanationStep, furthestExplanationStep: Math.max(this.state.furthestExplanationStep, explanationStep) as LabState["furthestExplanationStep"], quizAnswer: null, highlightRevealed: false };
@@ -176,7 +176,7 @@ export class LabStore {
     if (error) return error;
     const model = train(this.state.model, this.state.data, epochs);
     const current = evaluate(model, this.state.data);
-    const history = [...this.state.history, { epoch: model.epoch, loss: current.loss ?? 0 }].slice(-240);
+    const history = [...this.state.history, { epoch: model.epoch, loss: current.loss ?? 0, accuracy: current.accuracy ?? undefined }].slice(-240);
     this.state = { ...this.state, model, history };
     this.emit();
     return null;
@@ -235,7 +235,7 @@ export class LabStore {
     this.state = {
       ...this.state, preset: stored.task, data: stored.data.map((point) => ({ ...point })),
       model: structuredClone(stored.model),
-      history: [{ epoch: stored.model.epoch, loss: metrics.loss ?? stored.metrics.loss }],
+      history: [{ epoch: stored.model.epoch, loss: metrics.loss ?? stored.metrics.loss, accuracy: metrics.accuracy ?? undefined }],
       autoTraining: false,
     };
     this.emit();
