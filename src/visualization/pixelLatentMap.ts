@@ -46,7 +46,7 @@ export function drawPixelLatentMap(canvas: HTMLCanvasElement, model: PixelModel,
   for (let gy = 0; gy < cells; gy += 1) {
     const row: number[] = []; classes.push(row); const previousRow: number[] = []; previousClasses.push(previousRow);
     for (let gx = 0; gx < cells; gx += 1) {
-      const x = gx / (cells - 1) * 2 - 1; const y = 1 - gy / (cells - 1) * 2;
+      const x = (gx + .5) / cells * 2 - 1; const y = 1 - (gy + .5) / cells * 2;
       if (view === "placement") {
         context.fillStyle = "#fafafa";
       } else {
@@ -112,12 +112,7 @@ export function drawPixelNeuronMovement(canvas: HTMLCanvasElement, before: Pixel
   context.fillStyle = lineColor; context.font = "700 12px sans-serif"; context.textAlign = "left"; context.fillText(`대표 분류선 ${neuron + 1}`, Math.min(width - 125, end.x + 10), Math.max(28, end.y - 10)); context.strokeStyle = "#7b8491"; context.lineWidth = 1.1; context.strokeRect(margin.left, margin.top, plotW, plotH); context.fillStyle = "#535e6d"; context.font = "12px sans-serif"; context.textAlign = "center"; context.fillText(axisLegend?.horizontal.title ?? "가로 점수", margin.left + plotW / 2, height - 9); context.save(); context.translate(15, margin.top + plotH / 2); context.rotate(-Math.PI / 2); context.fillText(axisLegend?.vertical.title ?? "세로 점수", 0, 0); context.restore();
 }
 
-function rawFeature(pixels: number[], task: PixelTaskName, mode: Exclude<PixelFeatureView, "learned">): { x: number; y: number } {
-  const weights = pixels.map((value) => task === "omr" ? Math.max(0, value - .38) : Math.max(0, value)); const total = weights.reduce((sum, value) => sum + value, 0);
-  if (mode === "ink") { const spread = total <= 1e-8 ? 0 : weights.reduce((sum, value, index) => { const x = index % 14 - 6.5; const y = Math.floor(index / 14) - 6.5; return sum + value * Math.hypot(x, y); }, 0) / total; return { x: pixels.reduce((sum, value) => sum + value, 0), y: spread }; }
-  if (total <= 1e-8) return { x: 6.5, y: 6.5 };
-  return { x: weights.reduce((sum, value, index) => sum + (index % 14 + .5) * value, 0) / total, y: weights.reduce((sum, value, index) => sum + (13.5 - Math.floor(index / 14)) * value, 0) / total };
-}
+
 
 export function pixelFeatureAccuracy(data: PixelExample[], projection: PixelProjection, task: PixelTaskName, mode: PixelFeatureView): number {
   const coordinates = pixelFeatureCoordinates(data, projection, task, mode); const labels = [...new Set(data.map((example) => example.label))]; const centers = new Map(labels.map((label) => { const points = coordinates.filter((_, index) => data[index]?.label === label); return [label, { x: points.reduce((sum, point) => sum + point.x, 0) / points.length, y: points.reduce((sum, point) => sum + point.y, 0) / points.length }] as const; }));
@@ -125,11 +120,9 @@ export function pixelFeatureAccuracy(data: PixelExample[], projection: PixelProj
   return correct / Math.max(1, data.length);
 }
 
-export function pixelFeatureCoordinates(data: PixelExample[], projection: PixelProjection, task: PixelTaskName, mode: PixelFeatureView): Array<{ x: number; y: number }> {
-  if (mode === "learned") return data.map((example) => projectPixels(projection, example.pixels));
-  const raw = data.map((example) => rawFeature(example.pixels, task, mode)); const xs = raw.map((point) => point.x); const ys = raw.map((point) => point.y); const minX = Math.min(...xs); const maxX = Math.max(...xs); const minY = Math.min(...ys); const maxY = Math.max(...ys);
-  const scale = (value: number, minimum: number, maximum: number) => maximum - minimum < 1e-8 ? 0 : ((value - minimum) / (maximum - minimum)) * 1.7 - .85;
-  return raw.map((point) => ({ x: scale(point.x, minX, maxX), y: scale(point.y, minY, maxY) }));
+export function pixelFeatureCoordinates(data: PixelExample[], projection: PixelProjection, _task: PixelTaskName, _mode: PixelFeatureView): Array<{ x: number; y: number }> {
+  // The supplied training projection is authoritative. Never refit axes using the test image.
+  return data.map((example) => projectPixels(projection, example.pixels));
 }
 
 export function drawPixelFeatureMap(canvas: HTMLCanvasElement, data: PixelExample[], focusPixels: number[], projection: PixelProjection, task: PixelTaskName, mode: PixelFeatureView, progress = 1): void {

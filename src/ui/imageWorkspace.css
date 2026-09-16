@@ -1,0 +1,156 @@
+.image-workspace { flex: 1; min-height: 0; min-width: 0; }
+.image-compact-tabs { display: none; }
+.image-workspace h2 { font-size: 18px; margin: 0; }
+.image-workspace button, .image-workspace input, .image-workspace select { font-size: 15px; }
+.image-workspace button { min-height: 36px; border: 1px solid #d9dde4; border-radius: 9px; background: #fff; color: #343844; padding: 6px 12px; }
+.image-workspace button:hover { border-color: #1769d2; }
+.image-workspace button.primary { background: #1769d2; color: #fff; border-color: #1769d2; }
+.image-workspace .image-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px; }
+.image-heading > span { color: #626b76; font-size: 14px; }
+.image-panel { min-width: 0; min-height: 0; padding: 20px; border: 1px solid #e0e3e8; border-radius: 18px; background: white; }
+.image-collection, .image-use { display: grid; height: 100%; min-height: 0; gap: 16px; grid-template-columns: minmax(280px, .8fr) minmax(420px, 1.4fr); }
+.image-use { grid-template-columns: minmax(420px, 1.4fr) minmax(300px, .8fr); }
+.image-classes { display: flex; flex-direction: column; }
+#imageClassList { flex: 1; min-height: 0; display: grid; grid-template-rows: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.image-class { border: 1px solid #e2e5eb; border-radius: 12px; padding: 10px; min-height: 0; display: flex; flex-direction: column; }
+.image-class.selected { border-color: var(--class-color); background: color-mix(in srgb, var(--class-color) 5%, white); }
+.image-class-top { display: flex; align-items: center; gap: 5px; }
+.image-class-top > button:first-child { flex: 1; min-width: 0; font-weight: 750; color: var(--class-color); text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border: 0; background: transparent; }
+.image-class-top > span { font-size: 14px; white-space: nowrap; }
+.image-class-top > button:not(:first-child) { padding: 2px 5px; font-size: 14px; border: 0; background: transparent; }
+.image-thumbnails { display: flex; align-items: center; gap: 7px; min-height: 0; flex: 1; padding-top: 5px; }
+.image-thumbnails button { width: 24%; aspect-ratio: 1; max-height: 100%; min-height: 0; padding: 2px; overflow: hidden; }
+.image-thumbnails canvas, .image-thumbnails img { display: block; width: 100%; height: 100%; object-fit: contain; border-radius: 5px; }
+.image-thumbnails canvas { image-rendering: pixelated; }
+.image-thumbnails p { color: #6b7480; font-size: 14px; margin: 0; }
+#imageNewClass { display: flex; gap: 8px; margin-top: 12px; }
+#imageNewClass input { min-width: 0; flex: 1; border: 1px solid #d9dde4; border-radius: 8px; padding: 8px 10px; }
+.image-pager { display: flex; justify-content: center; align-items: center; gap: 14px; margin-top: 9px; font-size: 14px; }
+.image-pager button { padding: 1px 10px; min-height: 30px; }
+.image-capture-slot { display: flex; align-items: center; }
+.image-capture { width: 100%; }
+.image-capture-pair { display: grid; grid-template-columns: minmax(0, 1.6fr) 24px minmax(0, 1fr); gap: 8px; align-items: center; }
+.image-capture-pair figure { margin: 0; min-width: 0; }
+.image-capture-pair canvas, .image-source { width: 100%; aspect-ratio: 1; display: block; border-radius: 12px; border: 1px solid #d1d6de; overflow: hidden; }
+.image-source { position: relative; background: #f5f6f8; max-width: min(48dvh, 440px); margin: auto; }
+.image-source canvas, .image-source video { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; border-radius: 0; }
+.image-source canvas { touch-action: none; }
+.image-source video { object-fit: cover; transform: scaleX(-1); }
+#imageCameraStill { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+#imageCameraEmpty { position: absolute; inset: 0; display: grid; place-items: center; padding: 25px; color: #657181; text-align: center; }
+.image-processed canvas { image-rendering: pixelated; }
+.image-capture-pair figcaption { margin-top: 8px; color: #606c7b; font-size: 14px; text-align: center; }
+.image-convert-arrow { text-align: center; color: #1769d2; font-size: 22px; }
+.image-capture-buttons { display: flex; gap: 9px; margin-top: 18px; }
+.image-capture-buttons button { flex: 1; }
+#imageCaptureHint, #imagePrivacy { font-size: 14px; color: #616b78; margin: 12px 0 0; }
+.image-input-switch { display: flex; gap: 6px; margin-bottom: 14px; }
+.image-input-switch button.active, .image-lesson-tabs button.active { background: #e9f1fe; border-color: #1769d2; color: #1769d2; }
+.image-train { display: grid; grid-template-columns: minmax(0, 1.9fr) minmax(275px, .85fr); height: 100%; gap: 16px; }
+.image-results-panel { display: flex; flex-direction: column; }
+.image-result-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); flex: 1; gap: 9px; min-height: 0; }
+.image-workspace .image-result { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; min-height: 0; padding: 7px; }
+.image-result canvas { width: min(100%, 150px); flex: 1; min-height: 0; aspect-ratio: 1; object-fit: contain; image-rendering: pixelated; }
+.image-result span, .image-result b { font-size: 14px; line-height: 1.3; }
+.image-result b { color: #1769d2; }
+.image-result b.image-wrong { color: #b73059; }
+.image-result.selected { border-color: #1769d2; background: #e9f1fe; }
+.image-trainer { display: flex; gap: 8px; margin-top: 12px; }
+.image-trainer .primary { flex: 1; }
+.image-loss { display: flex; align-items: center; gap: 12px; margin-top: 10px; border-top: 1px solid #e3e6ea; padding-top: 8px; }
+.image-loss span { white-space: nowrap; font-size: 14px; }
+.image-loss canvas { min-width: 0; width: 100%; height: 60px; }
+.image-model-panel { overflow: auto; }
+.image-hidden { display: grid; grid-template-columns: 1fr auto; font-weight: 750; gap: 8px; }
+.image-hidden input { grid-column: 1 / -1; width: 100%; }
+.image-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 16px 0; }
+.image-metrics > div { border-bottom: 1px solid #e1e4e8; padding-bottom: 8px; }
+.image-metrics span, .image-metrics b { display: block; }
+.image-metrics span { color: #637080; font-size: 14px; }
+.image-metrics b { font-size: 20px; margin-top: 4px; }
+.image-focus { display: flex; align-items: center; gap: 12px; margin: 10px 0; font-size: 14px; }
+.image-focus canvas { width: 64px; height: 64px; border: 1px solid #d9dde4; border-radius: 8px; }
+.image-bar { display: grid; grid-template-columns: minmax(38px, 1fr) 2fr 55px; align-items: center; gap: 8px; margin: 10px 0; font-size: 14px; }
+.image-bar > b { color: var(--class-color); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.image-bar > span { height: 24px; border-radius: 6px; background: color-mix(in srgb, var(--class-color) 12%, white); overflow: hidden; }
+.image-bar i { display: block; height: 100%; background: var(--class-color); transition: width .18s ease; }
+.image-bar output { font-variant-numeric: tabular-nums; text-align: right; }
+.image-detail { border-top: 1px solid #e4e7eb; padding: 12px 0; margin-top: 10px; font-size: 14px; }
+.image-detail summary { cursor: pointer; color: #505d6c; font-weight: 650; }
+.image-detail label { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 12px 0; }
+.image-detail label select { width: 100%; min-width: 0; padding: 8px; border: 1px solid #d9dde4; border-radius: 8px; }
+.image-detail p { margin: 10px 0; color: #586777; font-size: 14px; }
+.image-detail svg { width: 100%; max-height: 260px; }
+#imageMap { flex: 1; min-height: 0; width: 100%; border: 1px solid #dde1e7; border-radius: 10px; }
+.image-map-controls { display: flex; flex-wrap: wrap; gap: 9px; font-size: 14px; padding-top: 8px; }
+.image-map-controls > span { color: #66727e; }
+.image-understanding { height: 100%; display: grid; grid-template-columns: minmax(320px, 1.1fr) minmax(350px, 1fr); gap: 16px; }
+.image-lesson-visual { display: flex; flex-direction: column; align-items: center; }
+.image-lesson-visual .image-heading { width: 100%; }
+.image-lesson-visual > canvas { width: min(100%, 420px, 52dvh); aspect-ratio: 1; flex: none; border: 1px solid #d5dce4; border-radius: 10px; cursor: crosshair; }
+.image-lesson-visual > svg { width: 100%; max-height: 42dvh; }
+#imageLessonBars { width: 100%; }
+.image-lesson-copy { display: flex; flex-direction: column; gap: 16px; }
+.image-lesson-tabs { display: flex; gap: 5px; }
+.image-lesson-tabs button { flex: 1; padding: 6px 2px; }
+.image-lesson-copy > h2 { font-size: 22px; margin-top: 8px; }
+.image-lesson-copy > p { color: #536070; line-height: 1.7; margin: 0; }
+.image-calculation { border: 1px solid #e1e6ed; border-radius: 12px; padding: 16px; display: grid; gap: 9px; }
+.image-calculation b { font-size: 21px; font-variant-numeric: tabular-nums; }
+.image-calculation span { font-size: 15px; color: #5f6a78; }
+.image-quiz { padding: 12px 0; border-top: 1px solid #e3e7ed; }
+.image-quiz > strong { font-size: 16px; }
+#imageLessonAnswers { display: flex; gap: 9px; margin-top: 10px; }
+#imageLessonAnswers button { flex: 1; }
+#imageLessonFeedback { font-size: 14px; margin: 8px 0 0; }
+#imageLessonNext { margin-top: auto; }
+.image-test-result > h2 { font-size: 22px; }
+#imagePredictionTitle { color: #536070; margin: 10px 0 24px; }
+.image-test-check { border-top: 1px solid #e1e5eb; margin-top: 22px; padding-top: 18px; }
+.image-test-check label { display: flex; align-items: center; gap: 12px; margin-bottom: 9px; }
+.image-test-check select { flex: 1; padding: 8px; border: 1px solid #d4dae2; border-radius: 8px; min-width: 0; }
+.image-test-check p { font-size: 14px; color: #637080; margin: 12px 0; }
+@media (max-height: 790px) and (min-width: 901px) {
+  .image-panel { padding: 13px; }
+  .image-workspace .image-heading { margin-bottom: 9px; }
+  .image-lesson-copy { gap: 10px; }
+  .image-lesson-copy > h2 { font-size: 20px; }
+  .image-lesson-copy > p { font-size: 15px; line-height: 1.5; }
+  .image-calculation { padding: 10px; gap: 5px; }
+  .image-lesson-visual > canvas { width: min(100%, 43dvh); }
+  .image-quiz { padding: 7px 0; }
+  .image-thumbnails button { max-width: 63px; }
+}
+@media (max-width: 900px) {
+  html:has(.image-workspace:not([hidden])), body:has(.image-workspace:not([hidden])) { overflow: hidden; }
+  .lesson-shell:has(.image-workspace:not([hidden])) { height: calc(100dvh - 58px); min-height: 0; overflow: hidden; }
+  .lesson-page:has(.image-workspace:not([hidden])) { height: 100%; min-height: 0; overflow: hidden; }
+  .image-collection, .image-use, .image-understanding, .image-train { grid-template-columns: 1fr; flex: 1; height: auto; min-height: 0; }
+  .image-workspace:not([hidden]) { display: flex; flex-direction: column; gap: 8px; }
+  .image-compact-tabs { display: flex; flex: none; gap: 8px; }
+  .image-compact-tabs button { flex: 1; }
+  .image-compact-tabs button[aria-pressed="true"] { color: #1769d2; border-color: #1769d2; background: #edf3fd; }
+  .image-workspace > div > .image-panel:not(.compact-selected) { display: none; }
+  .image-panel { padding: 16px; }
+  #imageClassList { grid-template-columns: 1fr; grid-template-rows: repeat(3, minmax(0, 1fr)); }
+  .image-class-top { flex-wrap: wrap; }
+  .image-class-top > button:first-child { flex-basis: 55%; }
+  .image-thumbnails { flex-wrap: nowrap; }
+  .image-thumbnails button { width: 22%; max-height: min(13dvh, 100px); }
+  .image-source { max-width: min(45dvh, 440px); }
+  .image-result-grid { min-height: 0; }
+  .image-model-panel, .image-test-result { overflow: auto; }
+  #imageMap { min-height: 200px; }
+  .image-lesson-visual > canvas { max-height: none; width: min(100%, 300px); }
+}
+@media (max-width: 500px) {
+  #imageClassList { grid-template-columns: 1fr; grid-template-rows: repeat(3, minmax(0, 1fr)); }
+  .image-thumbnails button { width: 50px; }
+  .image-class-top { flex-wrap: nowrap; }
+  .image-result-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(4, minmax(0, 1fr)); }
+  .image-result { flex-direction: row !important; flex-wrap: wrap; gap: 2px !important; }
+  .image-result canvas { width: 44px; height: 44px; flex: 0 0 44px; }
+  .image-result b, .image-result span { font-size: 13px; }
+  .image-capture-pair { grid-template-columns: minmax(0, 1.4fr) 20px minmax(0, 1fr); }
+  .image-capture-pair figcaption { font-size: 13px; }
+}

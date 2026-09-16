@@ -1,4 +1,7 @@
-import { canvasPoint, PALETTE } from "./canvasUtils";
+import { canvasPoint, PALETTE, probabilityColor } from "./canvasUtils";
+import { forward, trainOne } from "../core/neuralNetwork";
+import type { NetworkModel } from "../types";
+import { contourCell, hiddenBoundarySegment } from "./decisionSurface";
 
 export interface XorLessonStep {
   tab: string;
@@ -27,9 +30,9 @@ export const XOR_LESSON: XorLessonStep[] = [
   {
     tab: "뉴런 1개",
     title: "은닉 뉴런 1개는 선 하나를 찾습니다",
-    body: "골과 막힘이 대각선으로 번갈아 있습니다. 어느 방향으로 선 하나를 그어도 양쪽에 골과 막힘이 함께 남습니다.",
+    body: "골과 막힘이 대각선으로 번갈아 있습니다. 직선 하나로 한쪽에는 골만, 다른 쪽에는 막힘만 남도록 나눌 수 없습니다.",
     reveal: "은닉 뉴런 1개의 선 보기",
-    result: "선 하나의 양쪽 모두에 골과 막힘이 섞여 있습니다.",
+    result: "막힘 한 점이 골 두 점과 같은 쪽에 남았습니다.",
     question: "은닉 뉴런 1개만으로 네 경우를 완전히 나눌 수 있을까요?",
     choices: [["no", "나눌 수 없다"], ["yes", "나눌 수 있다"]],
     correct: "no",
@@ -38,7 +41,7 @@ export const XOR_LESSON: XorLessonStep[] = [
   {
     tab: "뉴런 2개",
     title: "은닉 뉴런을 하나 더하면 선도 두 개가 됩니다",
-    body: "첫 뉴런은 왼쪽·왼쪽 막힘을, 둘째 뉴런은 오른쪽·오른쪽 막힘을 바깥으로 나눕니다. 두 선 사이에는 골 두 개만 남습니다.",
+    body: "가능한 배치의 예입니다. 선 두 개로 양 끝의 막힘을 나누면, 그 사이에 골 두 개를 모을 수 있습니다. 실제 모델은 두 뉴런의 값을 합쳐 답을 고릅니다.",
     reveal: "두 뉴런이 맡은 선 함께 보기",
     result: "은닉 뉴런 두 개가 양쪽의 막힘을 하나씩 나누어 맡았습니다.",
     question: "두 선 사이에 남은 두 경우의 결과는 무엇일까요?",
@@ -49,9 +52,9 @@ export const XOR_LESSON: XorLessonStep[] = [
   {
     tab: "선 연습",
     title: "놓친 골을 보고 선을 옮깁니다",
-    body: "회색 선은 방향이 다른 한 점을 ‘막힘’으로 틀렸습니다. 다시 연습하면 이 점이 두 선 사이에 오도록 움직입니다.",
+    body: "모델이 표시한 골 한 점을 ‘막힘’으로 틀렸습니다. 이 한 점으로 실제 학습하면서 뉴런 2의 값과 골 예상이 함께 바뀌는지 봅시다.",
     reveal: "대표 골 한 점과 선의 이동 보기",
-    result: "회색 점선에서 보라 선까지, 대표 골이 두 선 사이에 들어오도록 조금씩 이동했습니다.",
+    result: "회색은 처음 선, 보라는 학습한 선입니다. 다른 연결값도 함께 고쳤습니다. 여기서는 대표선 하나만 표시합니다.",
     question: "대표 선이 보라색 위치로 움직인 직접 이유는 무엇일까요?",
     choices: [["correct", "놓친 골을 골 영역에 넣으려고"], ["random", "선은 언제나 같은 방향으로 움직여서"]],
     correct: "correct",
@@ -105,19 +108,54 @@ function drawArrow(ctx: CanvasRenderingContext2D, from: [number, number], to: [n
   ctx.fill();
 }
 
-export function xorMovingBoundarySum(progress: number): number {
-  return -.10 + Math.max(0, Math.min(1, progress)) * .45;
+export const XOR_FOCUS = { x: -.65, y: .65, label: 1 };
+/** Every animation frame comes from the same real update used in practice, not a target line. */
+export function createXorLearningTrace(): NetworkModel[] {
+  let model: NetworkModel = {
+    config: { hiddenUnits: 2, activation: "tanh", learningRate: .08, seed: 31 },
+    parameters: { inputHidden: [[4, 4], [-4, -4]], hiddenBias: [1.4, -.4], hiddenOutput: [3, 3], outputBias: -2 },
+    epoch: 0,
+  };
+  const trace = [model];
+  for (let i = 0; i < 30; i++) { model = trainOne(model, [XOR_FOCUS]); trace.push(model); }
+  return trace;
 }
+const LEARNING_TRACE = createXorLearningTrace();
 
-function drawAnimatedBand(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, upper: number): void {
-  const cells = 48; const width = canvas.width / cells; const height = canvas.height / cells;
-  for (let row = 0; row < cells; row += 1) for (let col = 0; col < cells; col += 1) {
-    const x = -1 + (col + .5) / cells * 2; const y = 1 - (row + .5) / cells * 2; const sum = x + y;
-    const inside = sum >= -.35 && sum <= upper; const edgeDistance = inside ? Math.min(sum + .35, upper - sum) : Math.min(Math.abs(sum + .35), Math.abs(sum - upper));
-    const strength = Math.max(.07, Math.min(.2, .07 + edgeDistance * .2));
-    ctx.fillStyle = inside ? `rgba(241,118,5,${strength})` : `rgba(31,107,214,${strength * .55})`;
-    ctx.fillRect(col * width, row * height, Math.ceil(width) + 1, Math.ceil(height) + 1);
+function drawActualLearning(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, progress: number): void {
+  const model = LEARNING_TRACE[Math.round(Math.max(0, Math.min(1, progress)) * 30)]!;
+  const initial = LEARNING_TRACE[0]!;
+  const cells = 48, cw = canvas.width / cells, ch = canvas.height / cells;
+  const values = Array.from({ length: cells + 1 }, (_, r) => Array.from({ length: cells + 1 }, (_, c) => forward(model, -1 + c / cells * 2, 1 - r / cells * 2).probability));
+  for (let r = 0; r < cells; r++) for (let c = 0; c < cells; c++) {
+    ctx.fillStyle = probabilityColor(forward(model, -1 + (c + .5) / cells * 2, 1 - (r + .5) / cells * 2).probability);
+    ctx.fillRect(c * cw, r * ch, cw + 1, ch + 1);
   }
+  ctx.strokeStyle = "#111827"; ctx.lineWidth = 3; ctx.beginPath();
+  for (let r = 0; r < cells; r++) for (let c = 0; c < cells; c++) {
+    contourCell([[c * cw,r * ch,values[r]![c]!],[(c+1)*cw,r*ch,values[r]![c+1]!],[(c+1)*cw,(r+1)*ch,values[r+1]![c+1]!],[c*cw,(r+1)*ch,values[r+1]![c]!]]).forEach(([a,b]) => {ctx.moveTo(...a);ctx.lineTo(...b);});
+  }
+  ctx.stroke();
+  const line = (m: NetworkModel, dashed: boolean) => {
+    const weights = m.parameters.inputHidden[1]!;
+    const segment = hiddenBoundarySegment(weights[0], weights[1], m.parameters.hiddenBias[1]!);
+    if (!segment) return;
+    const a = canvasPoint(canvas, ...segment[0]), b = canvasPoint(canvas, ...segment[1]);
+    ctx.strokeStyle = dashed ? "#7b8491" : "#7446f5"; ctx.lineWidth = dashed ? 3 : 5; ctx.setLineDash(dashed ? [10,7] : []);
+    ctx.beginPath(); ctx.moveTo(...a); ctx.lineTo(...b); ctx.stroke(); ctx.setLineDash([]);
+  };
+  line(initial, true); line(model, false);
+  const nearest = (m: NetworkModel): [number, number] => {
+    const [a,b] = m.parameters.inputHidden[1]!, bias = m.parameters.hiddenBias[1]!;
+    const distance = (a*XOR_FOCUS.x + b*XOR_FOCUS.y + bias)/(a*a+b*b);
+    return canvasPoint(canvas, XOR_FOCUS.x-a*distance, XOR_FOCUS.y-b*distance);
+  };
+  if (progress > 0) drawArrow(ctx, nearest(initial), nearest(model));
+  const before = forward(initial,XOR_FOCUS.x,XOR_FOCUS.y);
+  const current = forward(model,XOR_FOCUS.x,XOR_FOCUS.y);
+  drawNodeBadge(ctx, 16, 14, "보라: 뉴런 2의 선 · 검정: 최종 경계", "#7446f5");
+  drawNodeBadge(ctx, 16, canvas.height*.44, `표시한 골의 뉴런 2 값: ${before.hidden[1]!.toFixed(2)} → ${current.hidden[1]!.toFixed(2)}`, "#7446f5");
+  drawNodeBadge(ctx, 16, canvas.height*.44+35, `골 예상: ${(before.probability*100).toFixed(0)}% → ${(current.probability*100).toFixed(0)}% · ${model.epoch}번 학습`, "#253247");
 }
 
 export function drawXorLesson(canvas: HTMLCanvasElement, step: 1 | 2 | 3 | 4, revealed: boolean, progress = 1): void {
@@ -127,7 +165,7 @@ export function drawXorLesson(canvas: HTMLCanvasElement, step: 1 | 2 | 3 | 4, re
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.fillStyle = step === 3 && revealed ? `rgba(53,104,212,${.10 * revealProgress})` : "#f7f8fa";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-  if (step === 4 && revealed) drawAnimatedBand(ctx, canvas, xorMovingBoundarySum(revealProgress));
+  if (step === 4) drawActualLearning(ctx, canvas, revealProgress);
   if (step === 3 && revealed) {
     const polygon = [[-1, .65], [-.65, 1], [1, -.65], [.65, -1]].map(([x, y]) => canvasPoint(canvas, x!, y!));
     ctx.fillStyle = `rgba(241,118,5,${.20 * revealProgress})`;
@@ -145,7 +183,7 @@ export function drawXorLesson(canvas: HTMLCanvasElement, step: 1 | 2 | 3 | 4, re
   });
   if (step === 2 && revealed) {
     ctx.save(); ctx.globalAlpha = revealProgress;
-    drawLine(ctx, canvas, 0, "#6f7784", 4, true);
+    drawLine(ctx, canvas, .3, "#6f7784", 4, true);
     drawNodeBadge(ctx, 20, 18, "은닉 뉴런 1 → 선 1개", "#6f7784"); ctx.restore();
   }
   if (step === 3 && revealed) {
@@ -155,24 +193,7 @@ export function drawXorLesson(canvas: HTMLCanvasElement, step: 1 | 2 | 3 | 4, re
     drawNodeBadge(ctx, 20, 18, "은닉 뉴런 1", "#7446f5");
     drawNodeBadge(ctx, 20, 54, "은닉 뉴런 2", "#df466f"); ctx.restore();
   }
-  if (step === 4) {
-    drawLine(ctx, canvas, -.35, "#111827", 4);
-    drawLine(ctx, canvas, -.10, "#7b8491", 3, true);
-    drawNodeBadge(ctx, canvas.width / 2 - 100, 18, "대표 선 · 은닉 뉴런 2", "#7446f5");
-    if (revealed) {
-      [-.01, .08, .17, .26].filter((_, index) => revealProgress >= (index + 1) / 5).forEach((sum, index) => drawLine(ctx, canvas, sum, `rgba(116,87,199,${.18 + index * .13})`, 3));
-      drawLine(ctx, canvas, xorMovingBoundarySum(revealProgress), "#7446f5", 5);
-      const from = canvasPoint(canvas, -.05, -.05);
-      const final = canvasPoint(canvas, .175, .175); const to: [number, number] = [from[0] + (final[0] - from[0]) * revealProgress, from[1] + (final[1] - from[1]) * revealProgress];
-      drawArrow(ctx, from, to);
-      ctx.fillStyle = "#566271";
-      ctx.font = "800 13px system-ui";
-      ctx.textAlign = "left";
-      ctx.fillText("연습 전", from[0] - 72, from[1] + 30);
-      ctx.fillStyle = "#7446f5";
-      ctx.fillText(revealProgress < 1 ? "골 쪽으로 옮기는 중" : "골 점을 안쪽에 넣은 뒤", to[0] + 15, to[1] - 15);
-    }
-  }
+
   const cases = [
     { x: -.65, y: -.65, goal: false, label: "왼쪽 · 왼쪽" },
     { x: -.65, y: .65, goal: true, label: "왼쪽 · 오른쪽" },

@@ -31,15 +31,15 @@ describe("고정된 픽셀 그림 지도", () => {
   });
 
   it("OMR의 진한 부분 위치를 쓰면 ①부터 ⑤까지 좌우 순서로 놓인다", () => {
-    const data = createPixelDataset("omr"); const projection = createPixelProjection(data); const points = pixelFeatureCoordinates(data, projection, "omr", "position");
+    const data = createPixelDataset("omr"); const projection = createPixelFeatureProjection(data, "omr", "position"); const points = pixelFeatureCoordinates(data, projection, "omr", "position");
     const means = [0, 1, 2, 3, 4].map((label) => { const selected = points.filter((_, index) => data[index]?.label === label); return selected.reduce((sum, point) => sum + point.x, 0) / selected.length; });
     expect(means).toEqual([...means].sort((left, right) => left - right));
     expect(means[4]! - means[0]!).toBeGreaterThan(1);
   });
 
   it("OMR 특징을 바꾸면 실제 계산 축과 범례가 함께 바뀐다", () => {
-    expect(pixelAxisLegend("omr", "position")).toMatchObject({ horizontal: { title: "마킹 좌우 위치" }, vertical: { title: "마킹 위아래 위치" } });
-    expect(pixelAxisLegend("omr", "ink")).toMatchObject({ horizontal: { title: "칠한 양" }, vertical: { title: "마킹 자국 퍼짐" } });
+    expect(pixelAxisLegend("omr", "position")).toMatchObject({ horizontal: { title: "오른쪽−왼쪽 진하기" }, vertical: { title: "위−아래 진하기" } });
+    expect(pixelAxisLegend("omr", "ink")).toMatchObject({ horizontal: { title: "총 진하기" }, vertical: { title: "가장자리−가운데 진하기" } });
     expect(pixelAxisLegend("omr", "learned")).toMatchObject({ horizontal: { title: "그림 차이 1" }, vertical: { title: "그림 차이 2" } });
   });
 
@@ -57,9 +57,9 @@ describe("고정된 픽셀 그림 지도", () => {
     expect(pixelMapExampleAt(canvas, rect.left + 8, rect.top + 8, projection, data)).toBeNull();
   });
 
-  it("현재 OMR 자료에서는 위치 특징도 학습 특징만큼 잘 나눈다고 정직하게 보여 준다", () => {
-    const data = createPixelDataset("omr"); const learned = createPixelFeatureProjection(data, "omr", "learned"); const position = createPixelFeatureProjection(data, "omr", "position");
-    expect(pixelFeatureAccuracy(data, position, "omr", "position")).toBeGreaterThan(.95);
-    expect(pixelFeatureAccuracy(data, position, "omr", "position")).toBeGreaterThanOrEqual(pixelFeatureAccuracy(data, learned, "omr", "learned") - .03);
+  it("좌우·위아래 진하기 차이로는 일부 OMR 자료가 섞인다는 결과를 숨기지 않는다", () => {
+    const data = createPixelDataset("omr"); const position = createPixelFeatureProjection(data, "omr", "position");
+    // Frozen seed dataset: 73 of 90 are nearest their own class center. This is not ANN accuracy.
+    expect(pixelFeatureAccuracy(data, position, "omr", "position")).toBeCloseTo(73 / 90, 10);
   });
 });

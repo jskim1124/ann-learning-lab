@@ -27,7 +27,7 @@ export interface CustomProjection {
 
 export function featuresForInput(kind: CustomInputKind): string[] {
   if (kind === "text") return ["글자 수", "단어 수", "다른 글자 비율", "숫자 비율"];
-  if (kind === "drawing" || kind === "webcam") return ["진한 양", "가로 위치", "세로 위치", "퍼진 정도", "위쪽 갈라짐"];
+  if (kind === "drawing" || kind === "webcam") return []; // ImageWorkspace owns full-image input.
   return ["특징 1", "특징 2", "특징 3"];
 }
 
@@ -35,17 +35,6 @@ export function createCustomDraft(inputKind: CustomInputKind = "numbers"): Custo
   return { inputKind, classes: ["A 결과", "B 결과"], features: featuresForInput(inputKind), rows: [], xFeature: 0, yFeature: 1, nextId: 1 };
 }
 
-export function createWebcamDraft(): CustomDatasetDraft {
-  return {
-    inputKind: "webcam",
-    classes: ["가위", "바위", "보"],
-    features: ["손 모양이 차지한 양", "손의 가로 위치", "손의 세로 위치", "손 모양의 퍼짐", "위쪽 갈라짐"],
-    rows: [],
-    xFeature: 0,
-    yFeature: 4,
-    nextId: 1,
-  };
-}
 
 export function createCustomExample(): CustomDatasetDraft {
   return {
@@ -76,44 +65,6 @@ export function textFeatures(source: string): number[] {
   return [compact.length, words, compact.length ? unique / compact.length * 100 : 0, compact.length ? digits / compact.length * 100 : 0];
 }
 
-export function imageFeatures(rgba: Uint8ClampedArray, width: number, height: number): number[] {
-  let ink = 0; let weightedX = 0; let weightedY = 0;
-  const strengths: number[] = [];
-  for (let y = 0; y < height; y += 1) for (let x = 0; x < width; x += 1) {
-    const offset = (y * width + x) * 4; const alpha = (rgba[offset + 3] ?? 255) / 255;
-    const brightness = ((rgba[offset] ?? 255) + (rgba[offset + 1] ?? 255) + (rgba[offset + 2] ?? 255)) / (3 * 255);
-    const strength = Math.max(0, 1 - brightness) * alpha; strengths.push(strength); ink += strength; weightedX += x * strength; weightedY += y * strength;
-  }
-  if (ink < 1e-6) return [0, (width - 1) / 2, (height - 1) / 2, 0, 0];
-  const centerX = weightedX / ink; const centerY = weightedY / ink; let spread = 0;
-  strengths.forEach((strength, index) => { const x = index % width; const y = Math.floor(index / width); spread += ((x - centerX) ** 2 + (y - centerY) ** 2) * strength; });
-  const maxDistance = Math.hypot(width - 1, height - 1) || 1;
-  const upperRows = Math.max(1, Math.floor(height * .58)); let splitRows = 0; let visibleRows = 0;
-  for (let y = 0; y < upperRows; y += 1) {
-    let segments = 0; let inside = false; let rowInk = 0;
-    for (let x = 0; x < width; x += 1) {
-      const active = (strengths[y * width + x] ?? 0) >= .22; rowInk += strengths[y * width + x] ?? 0;
-      if (active && !inside) segments += 1; inside = active;
-    }
-    if (rowInk >= .5) { visibleRows += 1; if (segments >= 2) splitRows += 1; }
-  }
-  const split = visibleRows ? splitRows / visibleRows * 100 : 0;
-  return [ink / (width * height) * 100, centerX, centerY, Math.sqrt(spread / ink) / maxDistance * 100, split];
-}
-
-/** 배경과 달라진 밝기만 남겨, 고정된 교실 배경이 손의 위치 점수에 섞이지 않게 한다. */
-export function differenceFeatures(current: Uint8ClampedArray, background: Uint8ClampedArray, width: number, height: number): number[] {
-  if (current.length !== background.length || current.length !== width * height * 4) return [0, (width - 1) / 2, (height - 1) / 2, 0, 0];
-  const difference = new Uint8ClampedArray(current.length);
-  for (let index = 0; index < current.length; index += 4) {
-    const now = ((current[index] ?? 255) + (current[index + 1] ?? 255) + (current[index + 2] ?? 255)) / 3;
-    const before = ((background[index] ?? 255) + (background[index + 1] ?? 255) + (background[index + 2] ?? 255)) / 3;
-    const change = Math.abs(now - before);
-    const ink = change < 18 ? 255 : Math.max(0, 255 - change * 1.45);
-    difference[index] = ink; difference[index + 1] = ink; difference[index + 2] = ink; difference[index + 3] = 255;
-  }
-  return imageFeatures(difference, width, height);
-}
 
 function normalized(values: number[]): number[] {
   const low = Math.min(...values); const high = Math.max(...values);

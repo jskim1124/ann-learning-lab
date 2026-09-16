@@ -499,6 +499,10 @@ dialog { border-radius: 16px; }
 
 @media (max-width: 640px) {
   .topbar { grid-template-columns: auto 1fr; }
+  .topbar #openGuide { display: none; }
+  .topbar .lesson-progress { flex-wrap: nowrap; }
+  .topbar .lesson-progress button { white-space: nowrap; font-size: 0; gap: 0; }
+  .topbar .lesson-progress button span:not(:first-child) { display: none; }
   .help-link { display: none; }
   .lesson-progress { justify-self: end; }
   .scenario-card { grid-template-columns: 82px minmax(0, 1fr); }

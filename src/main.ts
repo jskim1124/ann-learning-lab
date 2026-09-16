@@ -1,16 +1,15 @@
 import "./styles.css";
 import { evaluate, forward } from "./core/neuralNetwork";
-import { forwardPixels, initializePixelModel, trainPixelModel, type PixelExample, type PixelModel } from "./core/pixelNetwork";
-import { constrainPixelModelToProjection, createPixelFeatureProjection, pixelAxisLegend, projectPixels, projectionAxisDetails, projectionExtremes } from "./core/pixelProjection";
+import { forwardPixels } from "./core/pixelNetwork";
 import { PRESETS } from "./data/presets";
-import { addCustomClass, centroidAccuracy, createCustomDraft, createCustomExample, createWebcamDraft, differenceFeatures, imageFeatures, projectCustomDataset, removeCustomClass, textFeatures, validateCustomDataset, type CustomDatasetDraft, type CustomInputKind } from "./data/customDataset";
+import { addCustomClass, centroidAccuracy, createCustomDraft, createCustomExample, projectCustomDataset, removeCustomClass, textFeatures, validateCustomDataset, type CustomDatasetDraft, type CustomInputKind } from "./data/customDataset";
 import type { PixelTaskName } from "./data/pixelDatasets";
 import { deserializeModel, downloadBlob, downloadText, serializeModel } from "./export/modelJson";
 import { generateScratchExtension } from "./export/scratchExtension";
 import { createScratchProject } from "./export/scratchProject";
 import { createPixelScratchProject } from "./export/pixelScratchProject";
 import { createInitialStore, type LabState, type LabStore } from "./state/labStore";
-import { PixelLabStore, type PixelLabState } from "./state/pixelLabStore";
+import { ImageWorkspace } from "./ui/imageWorkspace";
 import { FeatureLabStore, type FeatureLabState } from "./state/featureLabStore";
 import type { ActivationName, Label, PresetName } from "./types";
 import { drawDecisionSurface, HIDDEN_COLORS } from "./visualization/decisionSurface";
@@ -20,8 +19,6 @@ import { drawXorLesson, XOR_LESSON } from "./visualization/xorLesson";
 import { drawLossChart } from "./visualization/lossChart";
 import { drawMediaSample, mediaSampleText, playSoundSample, toggleMediaPixel } from "./visualization/mediaSample";
 import { networkGraphMarkup } from "./visualization/networkGraph";
-import { drawPixelCanvas, drawPixelConversionFrame, drawPixelInputCanvas, drawProjectionContribution, pixelIndexAt, pixelLineIndices } from "./visualization/pixelCanvas";
-import { drawPixelFeatureMap, drawPixelLatentMap, drawPixelNeuronMovement, pixelFeatureAccuracy, pixelHiddenLineValue, pixelMapExampleAt } from "./visualization/pixelLatentMap";
 import { pixelNetworkGraphMarkup } from "./visualization/pixelNetworkGraph";
 
 function element<T extends Element>(selector: string): T {
@@ -42,61 +39,14 @@ function signed(value: number): string { return `${value >= 0 ? "+" : "−"}${Ma
 function escapeHtml(value: string): string { return value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]!)); }
 function isPixelPreset(preset: PresetName): preset is PixelTaskName { return preset === "digits" || preset === "omr"; }
 type CustomPresetName = "custom" | "webcam";
-function isCustomPreset(preset: PresetName): preset is CustomPresetName { return preset === "custom" || preset === "webcam"; }
+function isCustomPreset(preset: PresetName): preset is CustomPresetName { return preset === "custom"; }
 
 let customDraft: CustomDatasetDraft = createCustomDraft();
-let customCameraStream: MediaStream | null = null;
-let webcamBackground: Uint8ClampedArray | null = null;
-let webcamFeatureFrame = 0;
-let activeCustomPreset: CustomPresetName = "custom";
 let featureUiStore: FeatureLabStore | null = null;
 let featureAutoTimer = 0;
-
-function cameraPixels(source: CanvasImageSource, mirror = false): Uint8ClampedArray {
-  const canvas = document.createElement("canvas"); canvas.width = 14; canvas.height = 14; const ctx = canvas.getContext("2d"); if (!ctx) return new Uint8ClampedArray(14 * 14 * 4);
-  ctx.fillStyle = "white"; ctx.fillRect(0, 0, 14, 14);
-  if (mirror) { ctx.translate(14, 0); ctx.scale(-1, 1); }
-  ctx.drawImage(source, 0, 0, 14, 14);
-  return ctx.getImageData(0, 0, 14, 14).data;
-}
-
-function webcamFeatures(video: HTMLVideoElement): number[] {
-  const current = cameraPixels(video, true);
-  return webcamBackground ? differenceFeatures(current, webcamBackground, 14, 14) : imageFeatures(current, 14, 14);
-}
-
-function renderWebcamMeter(values: number[] | null): void {
-  const meter = document.querySelector<HTMLElement>("#customWebcamMeter"); if (!meter) return;
-  const rps = activeCustomPreset === "webcam"; const primary = values?.[rps ? 4 : 1] ?? 0; const ink = values?.[0] ?? 0;
-  element<HTMLElement>("#customWebcamXBar").style.width = values ? `${Math.max(0, Math.min(100, rps ? primary : primary / 13 * 100))}%` : "0%";
-  element<HTMLElement>("#customWebcamInkBar").style.width = values ? `${Math.max(0, Math.min(100, ink * 2.5))}%` : "0%";
-  element<HTMLOutputElement>("#customWebcamXValue").value = values ? (rps ? `${primary.toFixed(0)}%` : primary.toFixed(1)) : "—";
-  element<HTMLOutputElement>("#customWebcamInkValue").value = values ? `${ink.toFixed(1)}` : "—";
-  const subject = rps ? "손" : "대상";
-  meter.querySelector(":scope > span")!.textContent = !webcamBackground ? `${subject}을 치운 장면을 배경으로 기억시켜 주세요.` : ink < 1 ? `배경과 달라진 부분이 거의 없습니다. ${subject}을 보여 주세요.` : `배경과 달라진 ${subject}의 모양만 재고 있습니다.`;
-}
-
-function startWebcamMeter(): void {
-  if (webcamFeatureFrame) window.cancelAnimationFrame(webcamFeatureFrame);
-  let last = 0;
-  const tick = (now: number) => {
-    const video = document.querySelector<HTMLVideoElement>("#customWebcamVideo");
-    if (!customCameraStream || !video) { webcamFeatureFrame = 0; return; }
-    if (video.readyState >= 2 && now - last > 120) { renderWebcamMeter(webcamFeatures(video)); last = now; }
-    webcamFeatureFrame = window.requestAnimationFrame(tick);
-  };
-  webcamFeatureFrame = window.requestAnimationFrame(tick);
-}
-
-function stopCustomCamera(): void {
-  if (webcamFeatureFrame) window.cancelAnimationFrame(webcamFeatureFrame); webcamFeatureFrame = 0;
-  customCameraStream?.getTracks().forEach((track) => track.stop()); customCameraStream = null;
-  webcamBackground = null;
-  const video = document.querySelector<HTMLVideoElement>("#customWebcamVideo"); if (video) video.srcObject = null;
-  const backgroundButton = document.querySelector<HTMLButtonElement>("#customWebcamSetBackground"); if (backgroundButton) backgroundButton.disabled = true;
-  const addButton = document.querySelector<HTMLButtonElement>("#customWebcamAdd"); if (addButton) addButton.disabled = true;
-  if (document.querySelector("#customWebcamMeter")) renderWebcamMeter(null);
-}
+let imageWorkspace: ImageWorkspace;
+function usesImages(preset: PresetName): boolean { return isPixelPreset(preset) || preset === "webcam" || preset === "custom" && (customDraft.inputKind === "drawing" || customDraft.inputKind === "webcam"); }
+function stopFeatureAuto(): void { if (featureAutoTimer) window.clearInterval(featureAutoTimer); featureAutoTimer = 0; }
 
 function syncCustomPreset(preset: CustomPresetName): void {
   const projection = projectCustomDataset(customDraft);
@@ -123,31 +73,21 @@ function fillClassSelect(select: HTMLSelectElement): void {
   if (customDraft.classes[Number(selected)] !== undefined) select.value = selected;
 }
 
-function featuresFromCanvas(source: CanvasImageSource): number[] {
-  return imageFeatures(cameraPixels(source), 14, 14);
-}
-
 function addCustomRow(store: LabStore, label: number, values: number[], name: string): void {
   customDraft.rows.push({ id: customDraft.nextId, name, label, values }); customDraft.nextId += 1; syncCustomStore(store); showToast("새 자료를 학습 자료에 추가했습니다.");
 }
 
 function renderCustomLab(state: LabState): void {
   const custom = isCustomPreset(state.preset);
-  const webcam = state.preset === "webcam";
-  activeCustomPreset = webcam ? "webcam" : "custom";
   element<HTMLElement>("#stepThreeLabel").textContent = custom ? "특징" : "이해";
-  if (!custom) { stopCustomCamera(); return; }
+  if (!custom) return;
   const projection = projectCustomDataset(customDraft);
-  const inputHelp = { numbers: "특징값을 숫자로 넣습니다.", drawing: "그림을 다섯 숫자로 바꾸고, 그중 두 특징을 고릅니다.", webcam: webcam ? "영상 원본 대신 손 모양을 다섯 숫자로 바꾸고, 그중 두 특징을 고릅니다." : "영상 원본 대신 배경과 달라진 대상을 다섯 숫자로 바꾸고, 그중 두 특징을 고릅니다.", text: "글을 네 숫자로 바꾸고, 그중 두 특징을 고릅니다." };
-  element<HTMLElement>(".custom-input-tabs").classList.toggle("webcam-only", webcam);
+  const inputHelp = { numbers: "특징값을 숫자로 넣습니다.", drawing: "그림 자체로 학습합니다.", webcam: "촬영한 사진 자체로 학습합니다.", text: "글의 길이와 구성을 셉니다. 문장의 뜻을 이해하는 모델은 아닙니다." };
+  element<HTMLElement>(".custom-input-tabs").classList.remove("webcam-only");
   document.querySelectorAll<HTMLButtonElement>("[data-custom-input]").forEach((button) => { const active = button.dataset.customInput === customDraft.inputKind; button.classList.toggle("active", active); button.setAttribute("aria-pressed", String(active)); });
   element<HTMLElement>("#customInputHelp").textContent = inputHelp[customDraft.inputKind];
-  element<HTMLElement>("#customWebcamCollectInstruction").textContent = webcam ? "가위·바위·보를 하나씩 보여 주고 사진을 모읍니다." : "분류할 대상을 보여 주고 클래스별 사진을 모읍니다.";
-  element<HTMLElement>("#customWebcamPrimaryName").textContent = webcam ? "위쪽 갈라짐" : "달라진 부분의 가로 위치";
-  element<HTMLElement>("#customWebcamAmountName").textContent = webcam ? "손 모양이 차지한 양" : "배경과 달라진 양";
   element<HTMLButtonElement>("#customLoadExample").hidden = customDraft.inputKind !== "numbers"; element<HTMLButtonElement>("#customAddFeature").hidden = customDraft.inputKind !== "numbers";
-  element<HTMLFormElement>("#customRowForm").hidden = customDraft.inputKind !== "numbers"; element<HTMLElement>("#customDrawingCapture").hidden = customDraft.inputKind !== "drawing"; element<HTMLElement>("#customWebcamCapture").hidden = customDraft.inputKind !== "webcam"; element<HTMLElement>("#customTextCapture").hidden = customDraft.inputKind !== "text";
-  if (customDraft.inputKind !== "webcam" || state.lessonStep !== 2) stopCustomCamera();
+  element<HTMLFormElement>("#customRowForm").hidden = customDraft.inputKind !== "numbers"; element<HTMLElement>("#customTextCapture").hidden = customDraft.inputKind !== "text";
   const classInputs = element<HTMLDivElement>("#customClassInputs"); classInputs.replaceChildren();
   customDraft.classes.forEach((name, index) => { const row = document.createElement("div"); row.style.setProperty("--class-color", CLASS_COLORS[index % CLASS_COLORS.length]!); const label = document.createElement("label"); const span = document.createElement("span"); const input = document.createElement("input"); span.textContent = `클래스 ${index + 1}`; input.type = "text"; input.maxLength = 18; input.value = name; input.dataset.customClass = String(index); label.append(span, input); row.append(label); if (customDraft.classes.length > 2) { const remove = document.createElement("button"); remove.type = "button"; remove.className = "delete-button"; remove.dataset.removeCustomClass = String(index); remove.textContent = "삭제"; row.append(remove); } classInputs.append(row); });
   const addClassButton = element<HTMLButtonElement>("#customAddClass"); addClassButton.disabled = customDraft.classes.length >= 6; addClassButton.textContent = customDraft.classes.length >= 6 ? "최대 6개" : "+ 클래스 추가";
@@ -162,7 +102,7 @@ function renderCustomLab(state: LabState): void {
   const rowClass = element<HTMLSelectElement>("#customRowClass"); const rowClassSelected = rowClass.value; rowClass.replaceChildren();
   customDraft.classes.forEach((name, label) => { const option = document.createElement("option"); option.value = String(label); option.textContent = name; rowClass.append(option); });
   if (customDraft.classes[Number(rowClassSelected)] !== undefined) rowClass.value = rowClassSelected;
-  fillClassSelect(element<HTMLSelectElement>("#customDrawingClass")); fillClassSelect(element<HTMLSelectElement>("#customWebcamClass")); fillClassSelect(element<HTMLSelectElement>("#customTextClass"));
+  fillClassSelect(element<HTMLSelectElement>("#customTextClass"));
   const rowValues = element<HTMLDivElement>("#customRowValues"); rowValues.replaceChildren();
   customDraft.features.forEach((name, index) => { const label = document.createElement("label"); const span = document.createElement("span"); const input = document.createElement("input"); span.textContent = name; input.type = "number"; input.step = "any"; input.required = true; input.dataset.customValue = String(index); input.placeholder = "숫자"; label.append(span, input); rowValues.append(label); });
   element<HTMLElement>("#customRowCount").textContent = `입력한 사례 ${customDraft.rows.length}개`;
@@ -181,22 +121,20 @@ let renderedLessonStep = 0;
 let renderedScenarioPreset: PresetName | null = null;
 let uiRerender = () => {};
 let explanationMotionFrame = 0; let explanationMotionProgress = 1;
-let pixelMotionFrame = 0; let pixelMotionProgress = 1;
 
-function startUnderstandingMotion(kind: "boundary" | "pixel", duration = 950): void {
+function startUnderstandingMotion(_kind: "boundary", duration = 950): void {
   const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-  if (kind === "boundary" && explanationMotionFrame) window.cancelAnimationFrame(explanationMotionFrame);
-  if (kind === "pixel" && pixelMotionFrame) window.cancelAnimationFrame(pixelMotionFrame);
-  if (reduced) { if (kind === "boundary") explanationMotionProgress = 1; else pixelMotionProgress = 1; uiRerender(); return; }
+  if (explanationMotionFrame) window.cancelAnimationFrame(explanationMotionFrame);
+  if (reduced) { explanationMotionProgress = 1; uiRerender(); return; }
   const start = performance.now();
   const tick = (now: number) => {
     const raw = Math.min(1, (now - start) / duration); const eased = raw < .5 ? 2 * raw * raw : 1 - ((-2 * raw + 2) ** 2) / 2;
-    if (kind === "boundary") explanationMotionProgress = eased; else pixelMotionProgress = eased;
+    explanationMotionProgress = eased;
     uiRerender();
-    if (raw < 1) { const frame = window.requestAnimationFrame(tick); if (kind === "boundary") explanationMotionFrame = frame; else pixelMotionFrame = frame; }
-    else if (kind === "boundary") explanationMotionFrame = 0; else pixelMotionFrame = 0;
+    if (raw < 1) explanationMotionFrame = window.requestAnimationFrame(tick);
+    else explanationMotionFrame = 0;
   };
-  const frame = window.requestAnimationFrame(tick); if (kind === "boundary") explanationMotionFrame = frame; else pixelMotionFrame = frame;
+  explanationMotionFrame = window.requestAnimationFrame(tick);
 }
 function renderLessonProgress(state: LabState): void {
   document.querySelectorAll<HTMLElement>("[data-app-page]").forEach((page) => { page.hidden = Number(page.dataset.appPage) !== state.lessonStep; });
@@ -289,7 +227,7 @@ function renderCausalExplanation(state: LabState, store: LabStore): void {
     const labels = state.preset === "xor" ? XOR_LESSON.map((lesson) => lesson.tab) : ["새 점", "뉴런 신호", "합치기", "최종 판단"];
     if (button.lastChild) button.lastChild.textContent = labels[step - 1] ?? "";
   });
-  if (state.preset === "xor") { const lesson = XOR_LESSON[state.explanationStep - 1]!; target.innerHTML = `<span class="scene-no">${state.explanationStep} / 4</span><h2>${lesson.title}</h2><p>${lesson.body}</p><div class="xor-rule"><b>${state.explanationStep === 1 ? "먼저 네 경우 읽기" : state.explanationStep === 2 ? "은닉 뉴런 1개" : state.explanationStep === 3 ? "은닉 뉴런 하나 추가" : "대표 선 고치기"}</b><span>${state.explanationStep === 1 ? "가로는 키커, 세로는 골키퍼의 방향이며 색은 결과입니다." : state.explanationStep === 2 ? "선 하나로는 골과 막힘이 섞입니다." : state.explanationStep === 3 ? "두 은닉 뉴런이 양끝의 막힘을 하나씩 맡습니다." : "놓친 골이 두 선 사이에 오도록 연결값과 대표 선이 움직입니다."}</span></div>`; return; }
+  if (state.preset === "xor") { const lesson = XOR_LESSON[state.explanationStep - 1]!; target.innerHTML = `<span class="scene-no">${state.explanationStep} / 4</span><h2>${lesson.title}</h2><p>${lesson.body}</p><div class="xor-rule"><b>${state.explanationStep === 1 ? "먼저 네 경우 읽기" : state.explanationStep === 2 ? "은닉 뉴런 1개" : state.explanationStep === 3 ? "은닉 뉴런 하나 추가" : "대표 선 고치기"}</b><span>${state.explanationStep === 1 ? "가로는 키커, 세로는 골키퍼의 방향이며 색은 결과입니다." : state.explanationStep === 2 ? "선 하나로는 골과 막힘이 섞입니다." : state.explanationStep === 3 ? "두 은닉 뉴런이 양끝의 막힘을 하나씩 맡습니다." : "뉴런의 값과 골 예상이 함께 바뀝니다. 선 하나가 최종 답은 아닙니다."}</span></div>`; return; }
   const x = state.testInput.x.toFixed(2); const y = state.testInput.y.toFixed(2);
   if (state.explanationStep === 1) {
     target.innerHTML = `<span class="scene-no">장면 1</span><h2>같은 높이에서 옆으로만 움직입니다</h2><p>주황 점과 보라색 십자는 세로 위치가 같습니다. 가로 방향의 힌트 하나만 바꾸면 무엇이 달라지는지 살펴봅니다.</p><div class="plain-rule">주황 점 = 바꾸기 전<br>보라색 십자 = 가로 힌트 하나만 바꾼 뒤</div>`;
@@ -298,7 +236,7 @@ function renderCausalExplanation(state: LabState, store: LabStore): void {
   const neuronButtons = result.z.map((value, index) => `<button type="button" class="neuron-choice ${index === state.selectedNeuron ? "active" : ""}" data-neuron="${index}" style="--neuron-color:${HIDDEN_COLORS[index % HIDDEN_COLORS.length]}"><span>은닉 뉴런 ${index + 1}</span><strong>중간 점수 ${signed(value)}</strong></button>`).join("");
   if (state.explanationStep === 2) {
     const index = state.selectedNeuron; const weights = state.model.parameters.inputHidden[index] ?? [0, 0]; const bias = state.model.parameters.hiddenBias[index] ?? 0;
-    target.innerHTML = `<span class="scene-no">장면 2</span><h2>은닉 뉴런은 작은 질문 하나를 맡습니다</h2><p>가로 힌트 하나를 바꾸어 색 선의 어느 쪽에 놓이는지 봅니다. 색 선 하나만으로 최종 답을 정하지는 않습니다.</p><div class="neuron-choices">${neuronButtons}</div><div class="plain-rule"><b>은닉 뉴런 ${index + 1}</b><br>색 선을 기준으로 양쪽을 다르게 봅니다.<br>지금 십자의 뉴런값: <b>${signed(result.z[index] ?? 0)}</b></div>`;
+    target.innerHTML = `<span class="scene-no">장면 2</span><h2>은닉 뉴런은 작은 질문 하나를 맡습니다</h2><p>가로 힌트 하나를 바꾸어 색 선의 어느 쪽에 놓이는지 봅니다. 색 선 하나만으로 최종 답을 정하지는 않습니다.</p><div class="neuron-choices">${neuronButtons}</div><div class="plain-rule"><b>은닉 뉴런 ${index + 1}</b><br>색 선을 기준으로 양쪽을 다르게 봅니다.<br>지금 십자의 뉴런 합: <b>${signed(result.z[index] ?? 0)}</b></div>`;
     target.querySelectorAll<HTMLButtonElement>("[data-neuron]").forEach((button) => button.addEventListener("click", () => store.setSelectedNeuron(Number(button.dataset.neuron))));
     return;
   }
@@ -365,155 +303,6 @@ function renderProbabilityBars(selector: string, state: { classes: string[] }, p
   });
 }
 
-interface RepresentativePixelUpdate { before: PixelModel; after: PixelModel; example: PixelExample; neuron: number; beforeValue: number; afterValue: number; }
-const representativePixelCache = new Map<string, RepresentativePixelUpdate>();
-function representativePixelUpdate(state: PixelLabState): RepresentativePixelUpdate {
-  const key = `${state.task}:${state.classes.length}:${state.data.length}:${state.model.hiddenUnits}:${state.model.activation}`; const cached = representativePixelCache.get(key); if (cached) return cached;
-  const before = constrainPixelModelToProjection(initializePixelModel(196, state.model.hiddenUnits, state.classes.length, 31, state.model.activation), state.projection); const candidates = state.data.filter((_, index) => index % 2 === 0);
-  let bestScore = Number.NEGATIVE_INFINITY; let bestUpdate: RepresentativePixelUpdate | undefined;
-  for (const example of candidates) {
-    let after = before; for (let epoch = 0; epoch < 60; epoch += 1) after = constrainPixelModelToProjection(trainPixelModel(after, [example], 1, Math.max(.18, state.learningRate)), state.projection);
-    const beforeResult = forwardPixels(before, example.pixels); const afterResult = forwardPixels(after, example.pixels); const beforePrediction = beforeResult.probabilities.indexOf(Math.max(...beforeResult.probabilities)); const afterPrediction = afterResult.probabilities.indexOf(Math.max(...afterResult.probabilities));
-    for (let neuron = 0; neuron < state.model.hiddenUnits; neuron += 1) {
-      const beforeValue = pixelHiddenLineValue(before, example.pixels, neuron); const afterValue = pixelHiddenLineValue(after, example.pixels, neuron); const crossed = beforeValue * afterValue < 0; const probabilityGain = (afterResult.probabilities[example.label] ?? 0) - (beforeResult.probabilities[example.label] ?? 0); const score = (beforePrediction !== example.label ? 3 : 0) + (afterPrediction === example.label ? 5 : 0) + (crossed ? 12 : 0) + Math.min(4, Math.abs(afterValue - beforeValue)) + probabilityGain * 4;
-      if (score > bestScore) { bestScore = score; bestUpdate = { before, after, example, neuron, beforeValue, afterValue }; }
-    }
-  }
-  const fallback = { before, after: before, example: state.data[0]!, neuron: 0, beforeValue: pixelHiddenLineValue(before, state.data[0]!.pixels, 0), afterValue: pixelHiddenLineValue(before, state.data[0]!.pixels, 0) }; const result = bestUpdate ?? fallback; representativePixelCache.set(key, result); return result;
-}
-
-function renderPixelUnderstanding(state: PixelLabState): void {
-  const classes = state.classes; const step = state.understandStep;
-  document.querySelectorAll<HTMLButtonElement>("[data-pixel-step]").forEach((button) => { const value = Number(button.dataset.pixelStep); button.classList.toggle("active", value === step); button.disabled = value > state.furthestUnderstandStep; });
-  const whyCanvas = element<HTMLCanvasElement>("#pixelWhyCanvas"); whyCanvas.classList.toggle("pixel-map-demo", step === 4 || (step === 3 && state.highlightRevealed));
-  whyCanvas.classList.toggle("understanding-motion", state.highlightRevealed && pixelMotionProgress < 1);
-  const changed = state.drawing.map((value, index) => value > 0 ? index : -1).filter((index) => index >= 0).slice(0, 1);
-  const explanation = element<HTMLDivElement>("#pixelExplanation");
-  const point = projectPixels(state.projection, state.drawing);
-  const horizontal = projectionAxisDetails(state.projection, state.drawing, "horizontal"); const positive = horizontal.contributions.filter((value) => value > 0).reduce((sum, value) => sum + value, 0); const negative = horizontal.contributions.filter((value) => value < 0).reduce((sum, value) => sum + value, 0);
-  const roundedPositive = Number(positive.toFixed(2)); const roundedNegative = Number(negative.toFixed(2)); const roundedSum = Number((roundedPositive + roundedNegative).toFixed(2)); const wrongSum = Number((roundedPositive - roundedNegative).toFixed(2));
-  const representative = horizontal.contributions.reduce((best, value, index) => Math.abs(value) > Math.abs(horizontal.contributions[best] ?? 0) ? index : best, 0); const brightness = state.drawing[representative] ?? 0; const average = state.projection.mean[representative] ?? 0; const difference = brightness - average; const axisWeight = state.projection.horizontal[representative] ?? 0; const contribution = horizontal.contributions[representative] ?? 0;
-  const scoreReady = step !== 2 || state.scoreCalcStep === 3; const featureReady = step !== 3 || state.exploredFeatures.length === 3; const quizReady = state.highlightRevealed && scoreReady && featureReady;
-  if (step < 4 && !(step === 3 && state.highlightRevealed)) drawPixelInputCanvas(whyCanvas, state.drawing, state.task, step === 1 && state.highlightRevealed ? changed : step === 2 && state.highlightRevealed ? [representative] : []);
-  element<HTMLElement>("#pixelWhyTitle").textContent = step === 4 ? "대표 분류선 한 개" : step === 3 && state.highlightRevealed ? "특징을 바꿔 보는 지도" : step === 2 && state.highlightRevealed ? "주황 테두리 칸부터 계산" : "14×14 그림";
-  if (step === 1) explanation.innerHTML = `<span class="scene-no">1 / 4</span><h2>그림 196칸이 그대로 들어갑니다</h2><p>검을수록 1, 흴수록 0에 가깝습니다. 모델은 ‘둥글다’ 같은 말을 미리 받지 않습니다.</p><div class="plain-rule"><b>14 × 14 = 196개 밝기</b>가 입력입니다.</div>`;
-  if (step === 2) {
-    const stages = ["먼저 그림에서 주황 테두리 칸 하나를 골라 봅니다.", `① 이 칸의 밝기 ${brightness.toFixed(2)} − 여러 그림의 평균 ${average.toFixed(2)} = <b>${signed(difference)}</b>`, `② 차이 ${signed(difference)} × 이 칸의 가로 방향값 ${signed(axisWeight)} = <b>${signed(contribution)}</b>`, `③ 나머지 195칸도 똑같이 계산해 더합니다.<div class="score-sum"><span>+쪽 합 <b>+${roundedPositive.toFixed(2)}</b></span><span>−쪽 합 <b>${roundedNegative.toFixed(2)}</b></span><strong>= ${roundedSum >= 0 ? "+" : ""}${roundedSum.toFixed(2)}</strong><small>전체 합 ${signed(horizontal.rawScore)} ÷ 지도 크기 ${state.projection.horizontalScale.toFixed(2)} = 가로 점수 <b>${signed(point.x)}</b></small></div>`];
-    explanation.innerHTML = `<span class="scene-no">2 / 4</span><h2>한 칸부터 가로 점수를 계산해 봅시다</h2><p>주황 테두리 칸이 평소보다 진한지 보고, 어느 쪽으로 미는 칸인지 곱합니다.</p><div class="score-walk">${stages[state.scoreCalcStep]}</div>${state.highlightRevealed && state.scoreCalcStep < 3 ? '<button id="scoreCalcNext" class="button secondary full" type="button">다음 계산 →</button>' : ''}${state.scoreCalcStep === 3 ? '<div class="plain-rule">세로 점수도 같은 방법입니다. 두 점수가 그림을 지도 위 한 점에 놓습니다.</div>' : ''}`;
-    explanation.querySelector<HTMLButtonElement>("#scoreCalcNext")?.addEventListener("click", () => { pixelMotionProgress = 0; pixelUiStore?.advanceScoreCalc(); startUnderstandingMotion("pixel", 650); });
-    if (state.scoreCalcStep === 3) drawProjectionContribution(whyCanvas, state.drawing, state.projection, "horizontal");
-  }
-  if (step === 3) {
-    const dots = classes.map((name, index) => `<span style="--dot:${["#f17605", "#df466f", "#7446f5", "#1f6bd6", "#1558b7"][index] ?? "#555"}">${escapeHtml(name)}</span>`).join("");
-    const thought = state.task === "omr" ? "다섯 답은 진한 양이 비슷하고, 칠한 위치가 다릅니다. 어떤 차이를 점수로 쓰면 답들이 가장 잘 떨어질까요?" : "숫자는 검은 칸 수가 같아도 모양이 다를 수 있습니다. 어떤 차이를 함께 보면 좋을까요?";
-    const modes = ["position", "ink", "learned"] as const; const scores = Object.fromEntries(modes.map((mode) => [mode, pixelFeatureAccuracy(state.data, createPixelFeatureProjection(state.data, state.task, mode), state.task, mode)])) as Record<PixelLabState["featureView"], number>; const visited = (feature: PixelLabState["featureView"]) => state.exploredFeatures.includes(feature) ? "✓ " : ""; const score = (feature: PixelLabState["featureView"]) => `${Math.round(scores[feature] * 100)}%`;
-    const honestNote = state.task === "omr" && scores.position >= scores.learned - .03 ? "이 OMR 자료에서는 칠한 위치가 곧 답이라 ‘진한 곳의 위치’만으로도 잘 나뉩니다. 196칸 비교는 표시가 더 흐리거나 찌그러졌을 때 살펴볼 수 있는 다른 방법입니다." : "좋은 특징은 같은 답을 모으고 다른 답을 떨어뜨립니다.";
-    explanation.innerHTML = `<span class="scene-no">3 / 4</span><h2>어떤 특징이 답을 잘 나눌까요?</h2><p>${thought}</p><div class="feature-choice-row" role="group" aria-label="비교할 그림 특징"><button data-feature-view="position" class="${state.featureView === "position" ? "active" : ""}" type="button">${visited("position")}진한 곳의 위치 <small>${score("position")}</small></button><button data-feature-view="ink" class="${state.featureView === "ink" ? "active" : ""}" type="button">${visited("ink")}진한 양·퍼짐 <small>${score("ink")}</small></button><button data-feature-view="learned" class="${state.featureView === "learned" ? "active" : ""}" type="button">${visited("learned")}196칸에서 찾은 차이 <small>${score("learned")}</small></button></div><div class="class-dot-key">${dots}</div><div class="plain-rule">${honestNote} (${state.exploredFeatures.length}/3 확인)</div>`;
-    explanation.querySelectorAll<HTMLButtonElement>("[data-feature-view]").forEach((button) => button.addEventListener("click", () => { pixelMotionProgress = 0; pixelUiStore?.setFeatureView(button.dataset.featureView as PixelLabState["featureView"]); startUnderstandingMotion("pixel", 700); }));
-    if (state.highlightRevealed) drawPixelFeatureMap(whyCanvas, state.data, state.drawing, createPixelFeatureProjection(state.data, state.task, state.featureView), state.task, state.featureView, pixelMotionProgress);
-  }
-  if (step === 4) {
-    const update = representativePixelUpdate(state); const beforeResult = forwardPixels(update.before, update.example.pixels); const afterResult = forwardPixels(update.after, update.example.pixels); const predicted = beforeResult.probabilities.indexOf(Math.max(...beforeResult.probabilities)); const afterPredicted = afterResult.probabilities.indexOf(Math.max(...afterResult.probabilities)); const exampleName = `정답 ${classes[update.example.label]}`; const crossed = update.beforeValue * update.afterValue < 0;
-    drawPixelNeuronMovement(whyCanvas, update.before, state.highlightRevealed ? update.after : update.before, state.data, update.example.pixels, state.projection, exampleName, update.neuron, pixelAxisLegend(state.task, state.trainingFeatureView), pixelMotionProgress);
-    explanation.innerHTML = `<span class="scene-no">4 / 4</span><h2>틀린 그림 한 장을 고친 전후</h2><p>정답 <b>${escapeHtml(classes[update.example.label] ?? "?")}</b>를 처음에는 <b>${escapeHtml(classes[predicted] ?? "?")}</b>로 골랐습니다.</p><div class="line-value-flow"><span>연습 전<b>정답 가능성 ${((beforeResult.probabilities[update.example.label] ?? 0) * 100).toFixed(0)}%</b><small>선 기준값 ${signed(update.beforeValue)}</small></span><i>→</i><span>연습 후<b>정답 가능성 ${((afterResult.probabilities[update.example.label] ?? 0) * 100).toFixed(0)}%</b><small>선 기준값 ${signed(update.afterValue)}</small></span></div><div class="plain-rule">${crossed ? "값이 0을 넘으며 이 점이 선 반대편으로 바뀌었습니다. 주황 화살표가 이 점 가까이에서 선이 옮겨진 거리입니다." : `정답 가능성이 커지고 최종 예상도 ${escapeHtml(classes[afterPredicted] ?? "?")}로 바뀌었습니다. 주황 화살표가 이 점 가까이에서 선이 옮겨진 거리입니다.`}</div>`;
-  }
-  element<HTMLElement>("#pixelHighlightInstruction").textContent = step === 1 ? "입력 한 칸을 확인합니다." : step === 2 ? "대표 칸 하나부터 계산합니다." : step === 3 ? "세 가지 특징을 직접 바꿔 비교합니다." : "대표 분류선 하나의 방향을 봅니다.";
-  const reveal = element<HTMLButtonElement>("#pixelRevealHighlight"); reveal.disabled = state.highlightRevealed;
-  element<HTMLElement>("#pixelWhyView .guided-highlight").hidden = step === 4 && state.highlightRevealed;
-  reveal.textContent = state.highlightRevealed ? "확인했습니다" : step === 1 ? "입력 한 칸 보기" : step === 2 ? "첫 계산 시작" : step === 3 ? "특징 지도 열기" : "대표 선 움직이기";
-  const featureResult = state.featureView === "position" ? (state.task === "omr" ? "칠한 위치를 쓰면 ①~⑤가 좌우로 잘 떨어집니다." : "진한 부분의 중심만으로는 일부 숫자가 아직 겹칩니다.") : state.featureView === "ink" ? "진한 양과 퍼진 정도가 비슷한 그림은 같은 곳에 겹칩니다." : "수업 도구가 정답이 붙은 학습 그림의 196칸을 비교해, 지도를 그릴 두 기준을 만들었습니다. 이 두 축이 은닉 뉴런이라는 뜻은 아닙니다.";
-  element<HTMLElement>("#pixelHighlightResult").textContent = state.highlightRevealed ? (step === 1 ? "표시된 한 칸도 196개 입력 중 하나입니다." : step === 2 ? state.scoreCalcStep < 3 ? "위의 ‘다음 계산’을 눌러 한 칸에서 전체 합까지 따라가세요." : `196칸의 힘을 더해 가로 점수 ${signed(point.x)}를 만들었습니다.` : step === 3 ? featureResult : "회색 점선에서 보라 선으로 이동했습니다. 다음 화면에서는 모든 선에 같은 원리가 적용됩니다.") : "버튼을 누르면 한 가지 변화만 나타납니다.";
-  const quiz = element<HTMLElement>("#pixelQuiz"); quiz.hidden = !quizReady;
-  element<HTMLElement>("#pixelQuizQuestion").textContent = step === 1 ? "14×14 그림에서 들어가는 밝기는 몇 개일까요?" : step === 2 ? `+${roundedPositive.toFixed(2)}와 ${roundedNegative.toFixed(2)}를 더하면 얼마일까요?` : step === 3 ? "분류에 좋은 두 특징은 점들을 어떻게 놓을까요?" : "대표선이 움직인 직접 이유는 무엇일까요?";
-  const choices = element<HTMLDivElement>("#pixelQuizChoices"); choices.replaceChildren();
-  const options: ReadonlyArray<readonly [string, boolean]> = step === 1 ? [["196개", true], ["2개", false]] : step === 2 ? [[`${roundedSum >= 0 ? "+" : ""}${roundedSum.toFixed(2)}`, true], [`+${wrongSum.toFixed(2)}`, false]] : step === 3 ? [["같은 답은 모으고 다른 답은 떨어뜨린다", true], ["모든 답을 같은 곳에 겹친다", false]] : [["틀린 그림이 정답 쪽에 놓이도록 연결값을 고쳤기 때문", true], ["선은 그림과 상관없이 늘 같은 방향으로 움직이기 때문", false]];
-  options.forEach(([label, correct]) => { const button = document.createElement("button"); button.type = "button"; button.className = "quiz-choice"; button.textContent = label; button.disabled = state.quizPassed; button.addEventListener("click", () => { if (correct) pixelUiStore?.passQuiz(); else showToast("강조된 그림과 설명을 한 번 더 살펴보세요."); }); choices.append(button); });
-  const feedback = element<HTMLElement>("#pixelQuizFeedback"); feedback.hidden = !state.quizPassed; feedback.className = "quiz-feedback correct"; feedback.textContent = state.quizPassed ? "맞았습니다! 방금 본 변화와 이어집니다." : "";
-  const next = element<HTMLButtonElement>("#pixelQuizNext"); next.hidden = !state.quizPassed; next.textContent = step === 4 ? "직접 연습시키기 →" : "다음 장면 →";
-}
-
-let pixelUiStore: PixelLabStore | null = null;
-let pixelAutoTimer = 0;
-let pixelConversionFrame = 0; let pixelConversionProgress = 0; let pixelConversionSignature = "";
-function stopPixelAuto(): void { if (pixelAutoTimer) window.clearInterval(pixelAutoTimer); pixelAutoTimer = 0; }
-function stopFeatureAuto(): void { if (featureAutoTimer) window.clearInterval(featureAutoTimer); featureAutoTimer = 0; }
-function resetPixelConversion(): void { if (pixelConversionFrame) window.cancelAnimationFrame(pixelConversionFrame); pixelConversionFrame = 0; pixelConversionProgress = 0; document.querySelector(".pixel-convert-strip")?.classList.remove("is-converting"); const button = document.querySelector<HTMLButtonElement>("#pixelConvertStart"); if (button) { button.disabled = false; button.textContent = "크게 변환해 보기 →"; } }
-
-function renderPixelProjectionStory(state: PixelLabState): { pixels: number[]; label: string } {
-  const selected = state.mapExampleIndex === null ? undefined : state.data[state.mapExampleIndex]; const pixels = selected?.pixels ?? state.drawing; const label = selected ? `정답 ${state.classes[selected.label] ?? "?"}` : "내 그림"; const point = projectPixels(state.projection, pixels);
-  const horizontal = projectionExtremes(state.projection, state.data, "horizontal"); const vertical = projectionExtremes(state.projection, state.data, "vertical");
-  const legend = pixelAxisLegend(state.task, state.trainingFeatureView); const horizontalNegativeCanvas = element<HTMLCanvasElement>("#pixelHorizontalNegative"); const horizontalPositiveCanvas = element<HTMLCanvasElement>("#pixelHorizontalPositive"); const verticalNegativeCanvas = element<HTMLCanvasElement>("#pixelVerticalNegative"); const verticalPositiveCanvas = element<HTMLCanvasElement>("#pixelVerticalPositive");
-  drawPixelInputCanvas(element<HTMLCanvasElement>("#pixelProjectionSource"), pixels, state.task); drawPixelInputCanvas(horizontalNegativeCanvas, horizontal.negative.pixels, state.task); drawPixelInputCanvas(horizontalPositiveCanvas, horizontal.positive.pixels, state.task); drawPixelInputCanvas(verticalNegativeCanvas, vertical.negative.pixels, state.task); drawPixelInputCanvas(verticalPositiveCanvas, vertical.positive.pixels, state.task);
-  element<HTMLElement>("#pixelHorizontalAxisName").textContent = legend.horizontal.title; element<HTMLElement>("#pixelVerticalAxisName").textContent = legend.vertical.title; element<HTMLElement>("#pixelHorizontalNegativeLabel").textContent = legend.horizontal.negative; element<HTMLElement>("#pixelHorizontalPositiveLabel").textContent = legend.horizontal.positive; element<HTMLElement>("#pixelVerticalNegativeLabel").textContent = legend.vertical.negative; element<HTMLElement>("#pixelVerticalPositiveLabel").textContent = legend.vertical.positive;
-  horizontalNegativeCanvas.ariaLabel = `${legend.horizontal.title}: ${legend.horizontal.negative} 기준 그림`; horizontalPositiveCanvas.ariaLabel = `${legend.horizontal.title}: ${legend.horizontal.positive} 기준 그림`; verticalNegativeCanvas.ariaLabel = `${legend.vertical.title}: ${legend.vertical.negative} 기준 그림`; verticalPositiveCanvas.ariaLabel = `${legend.vertical.title}: ${legend.vertical.positive} 기준 그림`;
-  element<HTMLElement>("#pixelProjectionSourceName").textContent = label; element<HTMLOutputElement>("#pixelProjectionXScore").value = signed(point.x); element<HTMLOutputElement>("#pixelProjectionYScore").value = signed(point.y); element<HTMLElement>("#pixelHorizontalMarker").style.left = `${((point.x + 1) / 2 * 100).toFixed(1)}%`; element<HTMLElement>("#pixelVerticalMarker").style.left = `${((point.y + 1) / 2 * 100).toFixed(1)}%`;
-  const layers = [state.showNeuronBoundaries ? "모든 색 분류선" : "", state.showDecisionBoundary ? "검은 최종 경계선" : ""].filter(Boolean);
-  element<HTMLElement>("#pixelMapInstruction").textContent = layers.length === 2 ? "모든 색 분류선과 검은 선을 함께 봅니다." : layers.length === 1 ? `${layers[0]}만 봅니다.` : "학습 그림과 판단 영역만 봅니다.";
-  const featureName = `${legend.horizontal.title}·${legend.vertical.title}`;
-  element<HTMLElement>("#pixelGraphNote").textContent = selected ? `${label} 그림입니다. ${featureName} 점수를 계산해 이 자리에 놓았습니다.` : `지금은 가로에 ${legend.horizontal.title}, 세로에 ${legend.vertical.title}를 놓은 지도입니다.`;
-  return { pixels, label };
-}
-
-function renderPixelLab(lab: LabState, state: PixelLabState): void {
-  const pixel = isPixelPreset(lab.preset);
-  const custom = isCustomPreset(lab.preset);
-  const webcam = lab.preset === "webcam";
-  element<HTMLElement>("#boundaryDataView").hidden = pixel || custom; element<HTMLElement>("#pixelDataView").hidden = !pixel; element<HTMLElement>("#customDataView").hidden = !custom;
-  element<HTMLElement>("#boundaryWhyView").hidden = pixel || custom; element<HTMLElement>("#pixelWhyView").hidden = !pixel; element<HTMLElement>("#customFeatureView").hidden = !custom;
-  element<HTMLElement>("#boundaryTrainingView").hidden = pixel || custom; element<HTMLElement>("#pixelTrainingView").hidden = !pixel; element<HTMLElement>("#customTrainingView").hidden = !custom;
-  element<HTMLElement>("#boundaryUseView").hidden = pixel || custom; element<HTMLElement>("#pixelUseView").hidden = !pixel; element<HTMLElement>("#customUseView").hidden = !custom;
-  element<HTMLButtonElement>("#customFeatureNext").hidden = !custom;
-  element<HTMLElement>("#whyFooterNote").hidden = custom;
-  if (!pixel) {
-    stopPixelAuto();
-    const xor = lab.preset === "xor";
-    element<HTMLElement>("#dataTitle").textContent = webcam ? "웹캠으로 가위·바위·보 자료를 모아 봅시다" : custom ? "클래스와 측정 자료를 직접 만들어 봅시다" : "모델이 배울 사례를 먼저 읽어 봅시다";
-    element<HTMLElement>("#whyTitle").textContent = webcam ? "가위·바위·보를 잘 나누는 특징은 무엇일까요?" : custom ? "어떤 특징을 가로와 세로에 놓을까요?" : xor ? "왜 은닉 뉴런 두 개가 필요할까요?" : "왜 구분선이 저기에 생겼을까요?";
-    element<HTMLElement>("#whySubtitle").textContent = webcam ? "손 모양에서 잰 값을 두 특징으로 펼쳐 보고 세 클래스가 떨어지는지 확인합니다." : custom ? "같은 자료를 여러 특징 조합으로 펼쳐 보고, 클래스가 잘 나뉘는지 비교합니다." : xor ? "은닉 뉴런 하나로 실패하는 이유부터, 뉴런을 더하고 대표 선을 고치는 과정까지 직접 움직여 봅니다." : "한 가지만 바꿔 강조해 본 뒤, 짧은 확인 문제를 풉니다.";
-    element<HTMLElement>("#whyFooterNote").textContent = xor ? "네 경우 → 뉴런 1개 → 뉴런 2개 → 대표 선 연습" : "주황 점에서 보라색 십자로, 가로 한 가지만 바꿉니다.";
-    element<HTMLElement>("#trainTitle").textContent = webcam ? "모은 가위·바위·보 자료로 모델을 연습시켜 봅시다" : custom ? "내 자료로 모델을 연습시켜 봅시다" : "이제 모델이 스스로 고치게 해 봅시다"; element<HTMLElement>("#useTitle").textContent = "새 값을 넣어 보고, 만든 모델을 가져가세요";
-    element<HTMLElement>("#trainTitle").nextElementSibling!.textContent = webcam ? "고른 두 특징으로 손 모양 점들을 놓고 세 답의 경계를 찾습니다." : custom ? "고른 두 특징과 직접 입력한 클래스 자료로 경계를 찾습니다." : "완성된 예시를 이해했으니, 처음 상태에서 직접 연습시켜 보세요.";
-    element<HTMLButtonElement>("#dataNext").textContent = custom ? "특징 골라서 분포 보기 →" : "먼저 원리 이해하기 →";
-    return;
-  }
-  element<HTMLElement>("#whyFooterNote").hidden = false;
-  const classes = state.classes;
-  if (lab.lessonStep !== 4) stopPixelAuto();
-  element<HTMLElement>("#dataTitle").textContent = "그림이 입력값이 되는 모습을 먼저 봅시다";
-  element<HTMLElement>("#whyTitle").textContent = "그림을 그대로 넣으면 어떻게 답을 고를까요?";
-  element<HTMLElement>("#whySubtitle").textContent = "한 그림의 점수를 직접 더해 보고, 어떤 특징이 분류에 좋은지 지도에서 확인합니다.";
-  element<HTMLElement>("#whyFooterNote").textContent = "그림 196칸 → 점수 더하기 → 좋은 특징 찾기 → 경계 움직임 순서로 살펴봅니다.";
-  element<HTMLElement>("#trainTitle").textContent = "이제 모델이 스스로 고치게 해 봅시다";
-  element<HTMLElement>("#useTitle").textContent = "처음 보는 그림으로 확인해 봅시다";
-  ["#pixelDataCanvas", "#pixelUseCanvas", "#pixelCurrentPreview"].forEach((selector) => drawPixelInputCanvas(element<HTMLCanvasElement>(selector), state.drawing, state.task));
-  const conversionSignature = `${state.task}:${state.drawing.map((value) => value.toFixed(2)).join(",")}`; if (conversionSignature !== pixelConversionSignature) { resetPixelConversion(); pixelConversionSignature = conversionSignature; }
-  drawPixelConversionFrame(element<HTMLCanvasElement>("#pixelConvertTarget"), state.drawing, state.task, pixelConversionProgress); element<HTMLElement>("#pixelConvertLabel").textContent = pixelConversionProgress >= 1 ? "완료: 밝기 숫자 196개" : pixelConversionProgress > 0 ? "14×14칸으로 읽는 중" : "변환 전";
-  element<HTMLElement>("#pixelDrawTitle").textContent = state.task === "digits" ? "14×14칸에 분류할 숫자를 그려 보세요" : "답 칸 위에 연필로 칠하듯 직접 그려 보세요";
-  element<HTMLElement>("#pixelDataView .think-box p").textContent = "왼쪽 선을 14×14칸에 맞춰 줄이면 각 칸의 밝기 196개가 됩니다. 오른쪽 학습 그림은 바로 이 픽셀값입니다.";
-  element<HTMLElement>("#pixelDataCount").textContent = `학습 그림 ${state.data.length}장`;
-  element<HTMLElement>("#pixelCurrentLabel").textContent = `${classes[state.selectedLabel]} 정답으로 추가할 그림`;
-  const picker = element<HTMLDivElement>("#pixelClassPicker"); picker.replaceChildren();
-  classes.forEach((name, label) => { const choice = document.createElement("span"); choice.className = `pixel-class-choice${label === state.selectedLabel ? " active" : ""}`; choice.style.setProperty("--class-color", CLASS_COLORS[label % CLASS_COLORS.length]!); const button = document.createElement("button"); button.type = "button"; button.className = "pixel-class-select"; button.textContent = name; button.setAttribute("aria-label", `${name} 정답 선택`); button.addEventListener("click", () => pixelUiStore?.selectLabel(label)); choice.append(button); if (classes.length > 2) { const remove = document.createElement("button"); remove.type = "button"; remove.className = "pixel-class-remove"; remove.dataset.removePixelClass = String(label); remove.setAttribute("aria-label", `${name} 클래스 삭제`); remove.textContent = "×"; choice.append(remove); } picker.append(choice); });
-  const addClass = element<HTMLButtonElement>("#pixelAddClass"); addClass.disabled = classes.length >= 10; addClass.textContent = classes.length >= 10 ? "최대 10개" : "+ 클래스 추가"; element<HTMLInputElement>("#pixelNewClassName").placeholder = state.task === "digits" ? "예: 3" : "예: 미표기";
-  if (lab.lessonStep === 2) {
-    const samples = element<HTMLDivElement>("#pixelSamples"); samples.replaceChildren();
-    const stride = Math.max(1, Math.floor(state.data.length / 15)); const shown = state.latestAddedIndex === 0 ? [state.data[0]!, ...state.data.filter((_, index) => index > 0 && index % stride === 0)].slice(0, 15) : state.data.filter((_, index) => index % stride === 0).slice(0, 15);
-    shown.forEach((example, index) => { const button = document.createElement("button"); button.type = "button"; button.className = state.latestAddedIndex === 0 && index === 0 ? "newest" : ""; const canvas = document.createElement("canvas"); canvas.width = 140; canvas.height = 140; drawPixelInputCanvas(canvas, example.pixels, state.task); const caption = document.createElement("span"); caption.textContent = state.latestAddedIndex === 0 && index === 0 ? `방금 추가 · 정답 ${classes[example.label] ?? "?"}` : `정답 ${classes[example.label] ?? "?"}`; button.append(canvas, caption); button.addEventListener("click", () => pixelUiStore?.loadDrawing(example.pixels, example.label)); samples.append(button); });
-  }
-  if (lab.lessonStep === 3) renderPixelUnderstanding(state);
-  const probabilities = pixelUiStore?.probabilities() ?? [];
-  if (lab.lessonStep === 4) {
-    const metrics = pixelUiStore?.metrics();
-    element<HTMLElement>("#pixelEpoch").textContent = String(state.model.epoch); element<HTMLElement>("#pixelEpochNow").textContent = String(state.model.epoch); element<HTMLElement>("#pixelProgressBar").style.width = `${Math.min(100, state.model.epoch / 10)}%`;
-    const focus = renderPixelProjectionStory(state); const focusForward = forwardPixels(state.model, focus.pixels); renderProbabilityBars("#pixelTrainBars", state, focusForward.probabilities); element<HTMLSelectElement>("#pixelTrainingFeature").value = state.trainingFeatureView; const trainingScore = Math.round(pixelFeatureAccuracy(state.data, state.projection, state.task, state.trainingFeatureView) * 100); element<HTMLElement>("#pixelTrainingFeatureNote").textContent = `이 특징 지도에서 가까운 무리로 읽으면 ${trainingScore}%입니다. 바꾸면 같은 자료로 다시 시작합니다.`; element<HTMLInputElement>("#pixelHiddenUnits").value = String(state.model.hiddenUnits); element<HTMLOutputElement>("#pixelHiddenOut").value = `${state.model.hiddenUnits}개`; element<HTMLSelectElement>("#pixelActivation").value = state.model.activation; element<HTMLInputElement>("#pixelLearningRate").value = String(state.learningRate); element<HTMLOutputElement>("#pixelLearningRateOut").value = state.learningRate.toFixed(2); drawPixelLatentMap(element<HTMLCanvasElement>("#pixelLatentCanvas"), state.model, state.data, focus.pixels, state.projection, { view: "decision", focusLabel: focus.label, showNeuronBoundaries: state.showNeuronBoundaries, showDecisionBoundary: state.showDecisionBoundary, axisLegend: pixelAxisLegend(state.task, state.trainingFeatureView) });
-    element<HTMLInputElement>("#pixelNeuronLayer").checked = state.showNeuronBoundaries; element<HTMLInputElement>("#pixelDecisionLayer").checked = state.showDecisionBoundary;
-    drawPixelInputCanvas(element<HTMLCanvasElement>("#pixelNetworkFocusCanvas"), focus.pixels, state.task); element<HTMLElement>("#pixelNetworkFocusLabel").textContent = focus.label; element<SVGSVGElement>("#pixelNetworkSvg").innerHTML = pixelNetworkGraphMarkup(state.model, classes, focusForward.hidden, focusForward.probabilities);
-    element<HTMLButtonElement>("#pixelAutoTrain").textContent = pixelAutoTimer ? "잠시 멈추기" : "계속 연습";
-    element<HTMLElement>("#pixelLoss").textContent = metrics?.loss.toFixed(4) ?? "—"; element<HTMLElement>("#pixelAccuracy").textContent = metrics ? `${(metrics.accuracy * 100).toFixed(1)}%` : "—"; element<HTMLElement>("#pixelTrainCount").textContent = `${state.data.length}장`; drawLossChart(element<HTMLCanvasElement>("#pixelLossCanvas"), state.history);
-  }
-  if (lab.lessonStep === 5) { renderProbabilityBars("#pixelUseBars", state, probabilities); const best = probabilities.indexOf(Math.max(...probabilities)); element<HTMLElement>("#pixelPredictionAnswer").textContent = state.model.epoch ? `모델의 답: ${classes[best] ?? "?"}` : "먼저 모델을 연습시켜 주세요"; element<HTMLElement>("#pixelUseView .think-box p").textContent = "파일에는 지금 그린 196칸이 이미 들어 있습니다. Scratch에서 ‘픽셀 그림 예측하기’ 나의 블록을 실행하면 됩니다."; }
-}
-
 function renderFeatureLab(lab: LabState, state: FeatureLabState): void {
   if (!isCustomPreset(lab.preset)) { stopFeatureAuto(); return; }
   if (lab.lessonStep !== 4) stopFeatureAuto();
@@ -526,8 +315,25 @@ function renderFeatureLab(lab: LabState, state: FeatureLabState): void {
   if (lab.lessonStep === 5) { renderProbabilityBars("#featureUseBars", state, probabilities); element<HTMLElement>("#featurePredictionAnswer").textContent = state.model.epoch ? `모델의 답: ${state.classes[best] ?? "?"}` : "먼저 모델을 연습시켜 주세요"; }
 }
 
-function render(state: LabState, store: LabStore, pixelStore: PixelLabStore): void {
+function render(state: LabState, store: LabStore): void {
   renderLessonProgress(state); renderScenario(state);
+  const images = usesImages(state.preset); const custom = isCustomPreset(state.preset) && !images;
+  const skipUnderstanding = images && (state.preset === "custom" || state.preset === "webcam");
+  element<HTMLElement>('.lesson-progress [data-go-step="3"]').hidden = skipUnderstanding;
+  element<HTMLButtonElement>('[data-app-page="4"] [data-back]').textContent = skipUnderstanding ? "← 자료 다시 보기" : "← 원리 다시 보기";
+  ["boundaryDataView", "boundaryWhyView", "boundaryTrainingView", "boundaryUseView"].forEach((id) => { element<HTMLElement>(`#${id}`).hidden = images || custom; });
+  ["customDataView", "customFeatureView", "customTrainingView", "customUseView"].forEach((id) => { element<HTMLElement>(`#${id}`).hidden = !custom; });
+  element<HTMLElement>("#customFeatureNext").hidden = !custom;
+  element<HTMLElement>("#whyFooterNote").hidden = images || custom;
+  element<HTMLElement>("#whyFooterNote").textContent = state.preset === "xor" ? "실제 경기 예측이 아니라, 방향 두 가지만 남긴 연습 규칙입니다." : "주황 점에서 보라색 십자로, 가로 한 가지만 바꿉니다.";
+  imageWorkspace.show(images, state.lessonStep);
+  element<HTMLElement>("#stepThreeLabel").textContent = custom ? "특징" : "이해";
+  element<HTMLButtonElement>("#dataNext").textContent = images && (state.preset === "webcam" || state.preset === "custom") ? "모델 학습하기 →" : custom ? "특징 골라서 분포 보기 →" : "원리 살펴보기 →";
+  element<HTMLElement>("#dataTitle").textContent = images ? "클래스를 고르고 그림을 모아요" : custom ? "자료를 직접 모아요" : "네 가지 경우를 살펴봐요";
+  element<HTMLElement>("#whyTitle").textContent = images ? "그림에서 예상까지, 한 단계씩" : custom ? "어떤 특징으로 나눌까요?" : "은닉 뉴런이 왜 두 개 필요할까요?";
+  element<HTMLElement>("#trainTitle").textContent = images ? "모은 그림으로 학습해요" : "모델을 직접 학습시켜요";
+  element<HTMLElement>("#trainTitle").nextElementSibling!.textContent = images ? "그림을 선택해 예상과 정답을 비교해 보세요." : "은닉 뉴런 수를 바꾸고 선의 변화를 관찰해 보세요.";
+  if (images) { stopFeatureAuto(); return; }
   const metrics = evaluate(state.model, state.data); const prediction = forward(state.model, state.testInput.x, state.testInput.y); const preset = PRESETS[state.preset];
   element<HTMLInputElement>("#hiddenUnits").value = String(state.model.config.hiddenUnits);
   element<HTMLOutputElement>("#hiddenUnitsOut").value = `${state.model.config.hiddenUnits}개`;
@@ -578,7 +384,7 @@ function render(state: LabState, store: LabStore, pixelStore: PixelLabStore): vo
   const xorSubtitles = ["가로는 키커, 세로는 골키퍼의 방향이며 색은 결과입니다.", "어느 선 하나로도 골과 막힘을 완전히 나눌 수 없습니다.", "두 선 사이에 방향이 다른 두 골만 남습니다.", "주황색 대표 골을 안쪽에 넣는 선의 이동을 봅니다."];
   element<HTMLElement>("#plotSubtitle").textContent = state.preset === "xor" ? xorSubtitles[state.explanationStep - 1]! : subtitles[state.explanationStep - 1]!;
   if (state.lessonStep === 5) renderExperiments(state, store);
-  renderPixelLab(state, pixelStore.snapshot); renderCustomLab(state); if (featureUiStore) renderFeatureLab(state, featureUiStore.snapshot);
+  renderCustomLab(state); if (featureUiStore) renderFeatureLab(state, featureUiStore.snapshot);
 }
 
 function addPointFromCanvas(event: MouseEvent, store: LabStore): void {
@@ -588,19 +394,39 @@ function addPointFromCanvas(event: MouseEvent, store: LabStore): void {
 }
 
 export function mountApp(store = createInitialStore()): LabStore {
-  const pixelStore = new PixelLabStore(isPixelPreset(store.snapshot.preset) ? store.snapshot.preset : "digits"); pixelUiStore = pixelStore;
+  const goImageStep = (step: 1 | 2 | 3 | 4 | 5) => {
+    if (step >= 3) { const error = imageWorkspace.ready(); if (error) return showToast(error); }
+    if (step === 5 && !imageWorkspace.store.snapshot.model.epoch) return showToast("먼저 학습해 주세요.");
+    store.setLessonStep(step);
+  };
+  imageWorkspace = new ImageWorkspace(showToast, goImageStep, (kind) => { customDraft = createCustomDraft(kind); syncCustomStore(store); store.setLessonStep(2); });
+  imageWorkspace.configure(isPixelPreset(store.snapshot.preset) ? store.snapshot.preset : store.snapshot.preset === "webcam" ? "webcam" : "custom");
   const featureStore = new FeatureLabStore(); featureUiStore = featureStore;
-  if (store.snapshot.preset === "webcam") { customDraft = createWebcamDraft(); syncCustomPreset("webcam"); }
   if (isCustomPreset(store.snapshot.preset)) { const projection = projectCustomDataset(customDraft); featureStore.setDataset(projection.points, projection.classes); }
-  const rerender = () => render(store.snapshot, store, pixelStore);
+  const rerender = () => render(store.snapshot, store);
   uiRerender = rerender;
-  store.subscribe(rerender); pixelStore.subscribe(rerender); featureStore.subscribe(rerender);
-  document.querySelectorAll<HTMLButtonElement>("[data-preset]").forEach((card) => card.addEventListener("click", () => { const preset = card.dataset.preset as PresetName; stopCustomCamera(); if (isPixelPreset(preset)) pixelStore.setTask(preset); if (isCustomPreset(preset)) { customDraft = preset === "webcam" ? createWebcamDraft() : createCustomDraft(); syncCustomPreset(preset); } store.setPreset(preset); if (isCustomPreset(preset)) syncCustomStore(store); }));
-  document.querySelectorAll<HTMLButtonElement>("[data-go-step]").forEach((button) => button.addEventListener("click", () => { const step = Number(button.dataset.goStep) as LabState["lessonStep"]; if (step <= store.snapshot.furthestLessonStep) store.setLessonStep(step); }));
-  document.querySelectorAll<HTMLButtonElement>("[data-back]").forEach((button) => button.addEventListener("click", () => store.previousLesson()));
+  store.subscribe(rerender); featureStore.subscribe(rerender);
+  document.querySelectorAll<HTMLButtonElement>("[data-preset]").forEach((card) => card.addEventListener("click", () => {
+    const preset = card.dataset.preset as PresetName;
+    if (preset === "custom") { customDraft = createCustomDraft(); syncCustomPreset("custom"); imageWorkspace.configure("custom"); }
+    else if (isPixelPreset(preset) || preset === "webcam") imageWorkspace.configure(preset);
+    store.setPreset(preset); if (preset === "custom") syncCustomStore(store);
+  }));
+  document.querySelectorAll<HTMLButtonElement>("[data-go-step]").forEach((button) => button.addEventListener("click", () => { const step = Number(button.dataset.goStep) as LabState["lessonStep"]; if (step <= store.snapshot.furthestLessonStep) { if (usesImages(store.snapshot.preset)) goImageStep(step); else store.setLessonStep(step); } }));
+  document.querySelectorAll<HTMLButtonElement>("[data-back]").forEach((button) => button.addEventListener("click", () => {
+    if (usesImages(store.snapshot.preset) && (store.snapshot.preset === "custom" || store.snapshot.preset === "webcam") && store.snapshot.lessonStep === 4) store.setLessonStep(2);
+    else store.previousLesson();
+  }));
   element<HTMLButtonElement>("#scenarioNext").addEventListener("click", () => store.setLessonStep(2));
-  element<HTMLButtonElement>("#dataNext").addEventListener("click", () => { if (isPixelPreset(store.snapshot.preset)) { const error = pixelStore.classCoverageError(); if (error) return showToast(error); pixelStore.resetUnderstanding(); store.setLessonStep(3); return; } if (isCustomPreset(store.snapshot.preset)) { const error = validateCustomDataset(customDraft); if (error) return showToast(error); syncCustomStore(store); store.setLessonStep(3); return; } if (store.snapshot.data.length < 2) return showToast("서로 다른 결과의 사례를 먼저 두 개 이상 만들어 주세요."); const error = store.prepareExplanationModel(); if (error) return showToast(error); store.setLessonStep(3); });
-  element<HTMLButtonElement>("#modelNext").addEventListener("click", () => { if (isPixelPreset(store.snapshot.preset)) { if (pixelStore.snapshot.model.epoch === 0) return showToast("모델을 적어도 한 번 연습시켜 주세요."); store.setLessonStep(5); return; } if (isCustomPreset(store.snapshot.preset)) { if (featureStore.snapshot.model.epoch === 0) return showToast("모델을 적어도 한 번 연습시켜 주세요."); store.setLessonStep(5); return; } if (store.snapshot.model.epoch === 0) return showToast("모델을 적어도 한 번 연습시켜 주세요."); store.setLessonStep(5); });
+  element<HTMLButtonElement>("#dataNext").addEventListener("click", () => {
+    if (usesImages(store.snapshot.preset)) { const error = imageWorkspace.ready(); if (error) return showToast(error); store.setLessonStep(store.snapshot.preset === "webcam" || store.snapshot.preset === "custom" ? 4 : 3); return; }
+    if (isCustomPreset(store.snapshot.preset)) { const error = validateCustomDataset(customDraft); if (error) return showToast(error); syncCustomStore(store); store.setLessonStep(3); return; }
+    const error = store.prepareExplanationModel(); if (error) return showToast(error); store.setLessonStep(3);
+  });
+  element<HTMLButtonElement>("#modelNext").addEventListener("click", () => {
+    const epochs = usesImages(store.snapshot.preset) ? imageWorkspace.store.snapshot.model.epoch : isCustomPreset(store.snapshot.preset) ? featureStore.snapshot.model.epoch : store.snapshot.model.epoch;
+    if (!epochs) return showToast("모델을 적어도 한 번 학습시켜 주세요."); store.setLessonStep(5);
+  });
   element<HTMLButtonElement>("#restoreData").addEventListener("click", () => { store.setPreset(store.snapshot.preset); showToast("처음 자료로 되돌렸습니다."); });
   element<HTMLButtonElement>("#undoPoint").addEventListener("click", () => store.undoDataPoint());
   document.querySelectorAll<HTMLButtonElement>("#classPicker button").forEach((button) => button.addEventListener("click", () => store.setPointClass(Number(button.dataset.class) as Label)));
@@ -613,7 +439,12 @@ export function mountApp(store = createInitialStore()): LabStore {
   ([["#trainOne", 1], ["#trainTen", 10], ["#trainHundred", 100]] as const).forEach(([selector, count]) => element<HTMLButtonElement>(selector).addEventListener("click", () => { const error = store.trainEpochs(count); if (error) showToast(error); }));
   element<HTMLButtonElement>("#autoTrain").addEventListener("click", () => { const error = store.toggleAuto(); if (error) showToast(error); });
   element<HTMLCanvasElement>("#dataCanvas").addEventListener("click", (event) => addPointFromCanvas(event, store));
-  document.querySelectorAll<HTMLButtonElement>("[data-custom-input]").forEach((button) => button.addEventListener("click", () => { const kind = button.dataset.customInput as CustomInputKind; if (kind === customDraft.inputKind) return; const classes = [...customDraft.classes]; stopCustomCamera(); customDraft = createCustomDraft(kind); customDraft.classes = classes; syncCustomStore(store); showToast("입력 형식을 바꾸어 사례를 새로 모읍니다."); }));
+  document.querySelectorAll<HTMLButtonElement>("[data-custom-input]").forEach((button) => button.addEventListener("click", () => {
+    const kind = button.dataset.customInput as CustomInputKind; if (kind === customDraft.inputKind) return;
+    const classes = [...customDraft.classes]; customDraft = createCustomDraft(kind); customDraft.classes = classes;
+    if (kind === "drawing" || kind === "webcam") imageWorkspace.configure("custom", kind, classes);
+    syncCustomStore(store);
+  }));
   element<HTMLDivElement>("#customClassInputs").addEventListener("change", (event) => { const input = (event.target as HTMLElement).closest<HTMLInputElement>("[data-custom-class]"); if (!input) return; const index = Number(input.dataset.customClass); customDraft.classes[index] = input.value.trim() || `클래스 ${index + 1}`; syncCustomStore(store); });
   element<HTMLDivElement>("#customClassInputs").addEventListener("click", (event) => { const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-remove-custom-class]"); if (!button) return; const name = customDraft.classes[Number(button.dataset.removeCustomClass)] ?? "클래스"; const error = removeCustomClass(customDraft, Number(button.dataset.removeCustomClass)); if (error) return showToast(error); syncCustomStore(store); showToast(`${name} 클래스와 그 자료를 함께 지웠습니다.`); });
   const addClass = () => { const input = element<HTMLInputElement>("#customNewClassName"); const error = addCustomClass(customDraft, input.value); if (error) return showToast(error); const name = input.value.trim(); input.value = ""; syncCustomStore(store); showToast(`${name} 클래스를 추가했습니다.`); };
@@ -627,14 +458,6 @@ export function mountApp(store = createInitialStore()): LabStore {
   element<HTMLSelectElement>("#customXAxis").addEventListener("change", (event) => { customDraft.xFeature = Number((event.currentTarget as HTMLSelectElement).value); syncCustomStore(store); });
   element<HTMLSelectElement>("#customYAxis").addEventListener("change", (event) => { customDraft.yFeature = Number((event.currentTarget as HTMLSelectElement).value); syncCustomStore(store); });
   element<HTMLButtonElement>("#customFeatureNext").addEventListener("click", () => { const error = validateCustomDataset(customDraft); if (error) return showToast(error); syncCustomStore(store); store.setLessonStep(4); });
-  const customDrawingCanvas = element<HTMLCanvasElement>("#customDrawingCanvas"); let customDrawing = false; let customDrawingPrevious: [number, number] | null = null;
-  const drawCustomStroke = (event: PointerEvent) => { if (!customDrawing) return; const rect = customDrawingCanvas.getBoundingClientRect(); const point: [number, number] = [(event.clientX - rect.left) / rect.width * customDrawingCanvas.width, (event.clientY - rect.top) / rect.height * customDrawingCanvas.height]; const ctx = customDrawingCanvas.getContext("2d"); if (!ctx) return; ctx.strokeStyle = "#18212d"; ctx.lineWidth = 18; ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.beginPath(); ctx.moveTo(...(customDrawingPrevious ?? point)); ctx.lineTo(...point); ctx.stroke(); customDrawingPrevious = point; };
-  customDrawingCanvas.addEventListener("pointerdown", (event) => { customDrawing = true; customDrawingPrevious = null; customDrawingCanvas.setPointerCapture(event.pointerId); drawCustomStroke(event); }); customDrawingCanvas.addEventListener("pointermove", drawCustomStroke); customDrawingCanvas.addEventListener("pointerup", () => { customDrawing = false; customDrawingPrevious = null; }); customDrawingCanvas.addEventListener("pointercancel", () => { customDrawing = false; customDrawingPrevious = null; });
-  element<HTMLButtonElement>("#customDrawingClear").addEventListener("click", () => customDrawingCanvas.getContext("2d")?.clearRect(0, 0, customDrawingCanvas.width, customDrawingCanvas.height));
-  element<HTMLButtonElement>("#customDrawingAdd").addEventListener("click", () => { const values = featuresFromCanvas(customDrawingCanvas); if ((values[0] ?? 0) < .3) return showToast("그림을 먼저 그려 주세요."); addCustomRow(store, Number(element<HTMLSelectElement>("#customDrawingClass").value) as Label, values, `그림 ${customDraft.nextId}`); });
-  element<HTMLButtonElement>("#customWebcamStart").addEventListener("click", async () => { try { stopCustomCamera(); customCameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } }, audio: false }); const video = element<HTMLVideoElement>("#customWebcamVideo"); video.srcObject = customCameraStream; await video.play(); element<HTMLButtonElement>("#customWebcamStart").textContent = "카메라 다시 켜기"; element<HTMLButtonElement>("#customWebcamSetBackground").disabled = false; startWebcamMeter(); } catch { showToast("카메라를 열지 못했습니다. 브라우저의 카메라 허용을 확인해 주세요."); } });
-  element<HTMLButtonElement>("#customWebcamSetBackground").addEventListener("click", () => { const video = element<HTMLVideoElement>("#customWebcamVideo"); if (!customCameraStream || video.readyState < 2) return showToast("카메라를 먼저 켜 주세요."); webcamBackground = cameraPixels(video, true); element<HTMLButtonElement>("#customWebcamAdd").disabled = false; renderWebcamMeter(webcamFeatures(video)); const subject = activeCustomPreset === "webcam" ? "손" : "대상"; showToast(`${subject}을 치운 장면을 배경으로 기억했습니다. 이제 ${subject}을 보여 주세요.`); });
-  element<HTMLButtonElement>("#customWebcamAdd").addEventListener("click", () => { const video = element<HTMLVideoElement>("#customWebcamVideo"); if (!customCameraStream || video.readyState < 2) return showToast("카메라를 먼저 켜 주세요."); const subject = activeCustomPreset === "webcam" ? "손" : "대상"; if (!webcamBackground) return showToast(`${subject}을 치우고 배경부터 기억시켜 주세요.`); const values = webcamFeatures(video); if ((values[0] ?? 0) < .8) return showToast(`배경과 달라진 부분이 너무 적습니다. ${subject}을 네모 안에 크게 보여 주세요.`); const preview = element<HTMLCanvasElement>("#customWebcamPreview"); const ctx = preview.getContext("2d"); if (!ctx) return; ctx.save(); ctx.clearRect(0, 0, preview.width, preview.height); ctx.translate(preview.width, 0); ctx.scale(-1, 1); ctx.drawImage(video, 0, 0, preview.width, preview.height); ctx.restore(); addCustomRow(store, Number(element<HTMLSelectElement>("#customWebcamClass").value) as Label, values, `웹캠 ${customDraft.nextId}`); });
   element<HTMLButtonElement>("#customTextAdd").addEventListener("click", () => { const input = element<HTMLTextAreaElement>("#customTextValue"); const source = input.value.trim(); if (!source) return showToast("글을 먼저 입력해 주세요."); addCustomRow(store, Number(element<HTMLSelectElement>("#customTextClass").value) as Label, textFeatures(source), source.length > 12 ? `${source.slice(0, 12)}…` : source); input.value = ""; });
   element<HTMLButtonElement>("#nextMediaSample").addEventListener("click", () => store.nextMediaSample());
   element<HTMLButtonElement>("#toggleMediaHighlight").addEventListener("click", () => store.toggleMediaHighlight());
@@ -654,38 +477,6 @@ export function mountApp(store = createInitialStore()): LabStore {
   element<HTMLButtonElement>("#exportScratch").addEventListener("click", () => downloadText("neural-lab-turbowarp.js", generateScratchExtension(store.snapshot.model), "text/javascript"));
   element<HTMLButtonElement>("#exportScratchProject").addEventListener("click", () => { downloadBlob("neural-lab-scratch.sb3", createScratchProject(store.snapshot.model)); showToast("Scratch에서 열 수 있는 블록 파일을 만들었습니다."); });
   element<HTMLInputElement>("#importJson").addEventListener("change", async (event) => { const input = event.currentTarget as HTMLInputElement; const file = input.files?.[0]; if (!file) return; try { store.importModel(deserializeModel(await file.text())); store.setLessonStep(5); showToast("보관한 모델을 열었습니다."); } catch (error) { showToast(error instanceof Error ? error.message : "파일을 열지 못했습니다."); } finally { input.value = ""; } });
-  let drawing = false;
-  ["#pixelDataCanvas", "#pixelUseCanvas"].forEach((selector) => {
-    const canvas = element<HTMLCanvasElement>(selector);
-    let previousPixel: number | null = null;
-    const paint = (event: PointerEvent) => { if (!drawing) return; const current = pixelIndexAt(canvas, event.clientX, event.clientY); pixelStore.paintMany(previousPixel === null ? [current] : pixelLineIndices(previousPixel, current), 1); previousPixel = current; };
-    canvas.addEventListener("pointerdown", (event) => { drawing = true; previousPixel = null; canvas.setPointerCapture(event.pointerId); paint(event); });
-    canvas.addEventListener("pointermove", paint);
-    canvas.addEventListener("pointerup", () => { drawing = false; previousPixel = null; }); canvas.addEventListener("pointercancel", () => { drawing = false; previousPixel = null; });
-  });
-  ["#pixelClear", "#pixelUseClear"].forEach((selector) => element<HTMLButtonElement>(selector).addEventListener("click", () => pixelStore.clear()));
-  element<HTMLButtonElement>("#pixelAdd").addEventListener("click", () => { pixelStore.addDrawing(); window.requestAnimationFrame(() => { element<HTMLElement>("#pixelSamples").scrollTop = 0; }); showToast(`${pixelStore.snapshot.classes[pixelStore.snapshot.selectedLabel]} 자료를 맨 앞에 추가했습니다.`); });
-  const addPixelClass = () => { const input = element<HTMLInputElement>("#pixelNewClassName"); const error = pixelStore.addClass(input.value); if (error) return showToast(error); const added = pixelStore.snapshot.classes[pixelStore.snapshot.selectedLabel]; input.value = ""; showToast(`${added} 클래스를 추가했습니다. 이 클래스의 그림을 그려 자료에 넣어 주세요.`); };
-  element<HTMLButtonElement>("#pixelAddClass").addEventListener("click", addPixelClass); element<HTMLInputElement>("#pixelNewClassName").addEventListener("keydown", (event) => { if (event.key === "Enter") { event.preventDefault(); addPixelClass(); } });
-  element<HTMLDivElement>("#pixelClassPicker").addEventListener("click", (event) => { const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-remove-pixel-class]"); if (!button) return; const name = pixelStore.snapshot.classes[Number(button.dataset.removePixelClass)] ?? "클래스"; const error = pixelStore.removeClass(Number(button.dataset.removePixelClass)); if (error) return showToast(error); showToast(`${name} 클래스와 그 그림을 함께 지웠습니다.`); });
-  let sampleIndex = 1;
-  element<HTMLButtonElement>("#pixelUseSample").addEventListener("click", () => { const data = pixelStore.snapshot.data; const example = data[sampleIndex % data.length]; if (example) pixelStore.loadDrawing(example.pixels, example.label); sampleIndex += 1; });
-  element<HTMLButtonElement>("#pixelRevealHighlight").addEventListener("click", () => { pixelMotionProgress = 0; pixelStore.revealHighlight(); startUnderstandingMotion("pixel"); });
-  document.querySelectorAll<HTMLButtonElement>("[data-pixel-step]").forEach((button) => button.addEventListener("click", () => { pixelMotionProgress = 1; pixelStore.setUnderstandStep(Number(button.dataset.pixelStep) as 1 | 2 | 3 | 4); }));
-  element<HTMLButtonElement>("#pixelQuizNext").addEventListener("click", () => { pixelMotionProgress = 1; if (pixelStore.snapshot.understandStep === 4) { pixelStore.resetModel(); store.setLessonStep(4); } else pixelStore.nextUnderstand(); });
-  ([ ["#pixelTrainOne", 1], ["#pixelTrainTen", 10], ["#pixelTrainHundred", 100] ] as const).forEach(([selector, epochs]) => element<HTMLButtonElement>(selector).addEventListener("click", () => pixelStore.train(epochs)));
-  element<HTMLButtonElement>("#pixelResetModel").addEventListener("click", () => { pixelStore.resetModel(); showToast("픽셀 모델을 연습 전 상태로 되돌렸습니다."); });
-  element<HTMLInputElement>("#pixelHiddenUnits").addEventListener("input", (event) => { pixelStore.setHiddenUnits(Number((event.currentTarget as HTMLInputElement).value)); showToast("은닉 뉴런 수를 바꾸어 분류선을 처음부터 다시 만들었습니다."); });
-  element<HTMLSelectElement>("#pixelActivation").addEventListener("change", (event) => { pixelStore.setActivation((event.currentTarget as HTMLSelectElement).value as ActivationName); showToast("중간값을 바꾸는 방법을 적용해 처음부터 다시 시작했습니다."); });
-  element<HTMLInputElement>("#pixelLearningRate").addEventListener("change", (event) => pixelStore.setLearningRate(Number((event.currentTarget as HTMLInputElement).value)));
-  element<HTMLSelectElement>("#pixelTrainingFeature").addEventListener("change", (event) => { stopPixelAuto(); const feature = (event.currentTarget as HTMLSelectElement).value as PixelLabState["trainingFeatureView"]; pixelStore.setTrainingFeature(feature); showToast("고른 특징으로 그림 지도를 다시 만들고 연습 전 상태로 돌아갔습니다."); });
-  element<HTMLInputElement>("#pixelNeuronLayer").addEventListener("change", (event) => pixelStore.setLayers({ showNeuronBoundaries: (event.currentTarget as HTMLInputElement).checked }));
-  element<HTMLInputElement>("#pixelDecisionLayer").addEventListener("change", (event) => pixelStore.setLayers({ showDecisionBoundary: (event.currentTarget as HTMLInputElement).checked }));
-  element<HTMLCanvasElement>("#pixelLatentCanvas").addEventListener("click", (event) => { const state = pixelStore.snapshot; const index = pixelMapExampleAt(event.currentTarget as HTMLCanvasElement, event.clientX, event.clientY, state.projection, state.data); pixelStore.selectMapExample(index); if (index === null) showToast("점을 누르면 그 그림의 좌표 계산을 볼 수 있습니다."); });
-  element<HTMLButtonElement>("#pixelAutoTrain").addEventListener("click", () => { if (pixelAutoTimer) { stopPixelAuto(); rerender(); return; } pixelAutoTimer = window.setInterval(() => { if (!isPixelPreset(store.snapshot.preset) || store.snapshot.lessonStep !== 4 || pixelStore.snapshot.model.epoch >= 1000) { stopPixelAuto(); rerender(); return; } pixelStore.train(5); }, 100); pixelStore.train(1); });
-  element<HTMLButtonElement>("#pixelConvertStart").addEventListener("click", () => { const strip = element<HTMLElement>(".pixel-convert-strip"); if (strip.classList.contains("is-converting") && pixelConversionProgress >= 1) { strip.classList.remove("is-converting"); const closeButton = element<HTMLButtonElement>("#pixelConvertStart"); closeButton.textContent = "크게 변환해 보기 →"; return; } resetPixelConversion(); strip.classList.add("is-converting"); const button = element<HTMLButtonElement>("#pixelConvertStart"); button.disabled = true; const start = performance.now(); const animate = (now: number) => { pixelConversionProgress = Math.min(1, (now - start) / 1300); drawPixelConversionFrame(element<HTMLCanvasElement>("#pixelConvertTarget"), pixelStore.snapshot.drawing, pixelStore.snapshot.task, pixelConversionProgress); element<HTMLElement>("#pixelConvertLabel").textContent = pixelConversionProgress < .45 ? "왼쪽부터 14×14칸으로 읽는 중" : pixelConversionProgress < 1 ? "각 칸을 밝기 숫자로 바꾸는 중" : "완료: 밝기 숫자 196개"; if (pixelConversionProgress < 1) pixelConversionFrame = window.requestAnimationFrame(animate); else { pixelConversionFrame = 0; button.disabled = false; button.textContent = "확인하고 닫기"; } }; pixelConversionFrame = window.requestAnimationFrame(animate); });
-  element<HTMLButtonElement>("#pixelExportScratch").addEventListener("click", () => { const state = pixelStore.snapshot; downloadBlob("neural-lab-pixel-scratch.sb3", createPixelScratchProject(state.model, state.classes, state.drawing)); showToast("Scratch의 나의 블록과 지금 그린 196칸을 함께 만들었습니다."); });
-  element<HTMLButtonElement>("#pixelExportJson").addEventListener("click", () => downloadText("neural-lab-pixel-model.json", JSON.stringify({ format: "neural-lab/pixel-model-v1", task: pixelStore.snapshot.task, size: 14, classes: pixelStore.snapshot.classes, model: pixelStore.snapshot.model }, null, 2), "application/json"));
   ([ ["#featureTrainOne", 1], ["#featureTrainTen", 10], ["#featureTrainHundred", 100] ] as const).forEach(([selector, epochs]) => element<HTMLButtonElement>(selector).addEventListener("click", () => featureStore.train(epochs)));
   element<HTMLButtonElement>("#featureResetModel").addEventListener("click", () => { featureStore.resetModel(); showToast("연습 전 상태로 되돌렸습니다."); });
   element<HTMLInputElement>("#featureHiddenUnits").addEventListener("input", (event) => featureStore.setHiddenUnits(Number((event.currentTarget as HTMLInputElement).value)));
@@ -697,7 +488,7 @@ export function mountApp(store = createInitialStore()): LabStore {
   const updateFeatureUse = () => featureStore.setTestInput(Number(element<HTMLInputElement>("#featureUseX").value), Number(element<HTMLInputElement>("#featureUseY").value)); element<HTMLInputElement>("#featureUseX").addEventListener("input", updateFeatureUse); element<HTMLInputElement>("#featureUseY").addEventListener("input", updateFeatureUse);
   element<HTMLButtonElement>("#featureAutoTrain").addEventListener("click", () => { if (featureAutoTimer) { stopFeatureAuto(); rerender(); return; } featureAutoTimer = window.setInterval(() => { if (!isCustomPreset(store.snapshot.preset) || store.snapshot.lessonStep !== 4 || featureStore.snapshot.model.epoch >= 1000) { stopFeatureAuto(); rerender(); return; } featureStore.train(5); }, 100); featureStore.train(1); });
   element<HTMLButtonElement>("#featureExportScratch").addEventListener("click", () => { const state = featureStore.snapshot; downloadBlob("neural-lab-feature-scratch.sb3", createPixelScratchProject(state.model, state.classes, [state.testInput.x, state.testInput.y], { blockName: "특징 두 개로 예측하기", inputListName: "특징 값", stageTitle: "Neural Lab 특징 모델", inputSummary: "특징 2개" })); showToast("Scratch에서 여는 특징 모델 블록을 만들었습니다."); });
-  element<HTMLButtonElement>("#featureExportJson").addEventListener("click", () => { const state = featureStore.snapshot; downloadText("neural-lab-feature-model.json", JSON.stringify({ format: "neural-lab/feature-model-v1", axes: projectCustomDataset(customDraft).axes, classes: state.classes, model: state.model }, null, 2), "application/json"); });
+  element<HTMLButtonElement>("#featureExportJson").addEventListener("click", () => { const state = featureStore.snapshot; downloadText("neural-lab-feature-model.json", JSON.stringify({ format: "neural-lab/feature-model-v1", axes: projectCustomDataset(customDraft).axes, inputSpace: "normalized-map", normalization: [customDraft.xFeature, customDraft.yFeature].map((index) => ({ minimum: Math.min(...customDraft.rows.map((row) => row.values[index]!)), maximum: Math.max(...customDraft.rows.map((row) => row.values[index]!)), range: [-.9, .9] })), classes: state.classes, model: state.model }, null, 2), "application/json"); });
   const dialog = element<HTMLDialogElement>("#guideDialog"); element<HTMLButtonElement>("#openGuide").addEventListener("click", () => dialog.showModal());
   return store;
 }

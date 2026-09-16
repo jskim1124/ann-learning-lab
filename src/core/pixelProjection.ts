@@ -10,15 +10,15 @@ export interface PixelAxisLegend { horizontal: PixelAxisLabel; vertical: PixelAx
 /** The words shown beside the map must describe the exact axes used by the projection. */
 export function pixelAxisLegend(task: PixelTaskName, mode: PixelProjectionMode): PixelAxisLegend {
   if (mode === "position") return task === "omr" ? {
-    horizontal: { title: "마킹 좌우 위치", negative: "왼쪽 −1", positive: "오른쪽 +1" },
-    vertical: { title: "마킹 위아래 위치", negative: "아래 −1", positive: "위 +1" },
+    horizontal: { title: "오른쪽−왼쪽 진하기", negative: "왼쪽이 진함", positive: "오른쪽이 진함" },
+    vertical: { title: "위−아래 진하기", negative: "아래가 진함", positive: "위가 진함" },
   } : {
-    horizontal: { title: "획 좌우 위치", negative: "왼쪽 −1", positive: "오른쪽 +1" },
-    vertical: { title: "획 위아래 위치", negative: "아래 −1", positive: "위 +1" },
+    horizontal: { title: "오른쪽−왼쪽 진하기", negative: "왼쪽이 진함", positive: "오른쪽이 진함" },
+    vertical: { title: "위−아래 진하기", negative: "아래가 진함", positive: "위가 진함" },
   };
   if (mode === "ink") return {
-    horizontal: { title: "칠한 양", negative: "적음 −1", positive: "많음 +1" },
-    vertical: { title: task === "omr" ? "마킹 자국 퍼짐" : "획 퍼짐", negative: "모임 −1", positive: "퍼짐 +1" },
+    horizontal: { title: "총 진하기", negative: "적음", positive: "많음" },
+    vertical: { title: "가장자리−가운데 진하기", negative: "가운데가 진함", positive: "가장자리가 진함" },
   };
   return {
     horizontal: { title: "그림 차이 1", negative: "−1 쪽", positive: "+1 쪽" },
@@ -36,14 +36,27 @@ function projectionFromAxes(data: PixelExample[], horizontalSeed: number[], vert
 }
 
 export function createPixelProjection(data: PixelExample[]): PixelProjection {
-  const inputSize = data[0]?.pixels.length ?? 196; const labels = [...new Set(data.map((example) => example.label))];
+  const inputSize = data[0]?.pixels.length ?? 196;
   const mean = Array.from({ length: inputSize }, (_, index) => data.reduce((sum, example) => sum + (example.pixels[index] ?? 0), 0) / Math.max(1, data.length));
-  const classDirections = labels.map((label) => { const examples = data.filter((example) => example.label === label); return Array.from({ length: inputSize }, (_, index) => examples.reduce((sum, example) => sum + (example.pixels[index] ?? 0), 0) / Math.max(1, examples.length) - (mean[index] ?? 0)); });
-  const middle = (labels.length - 1) / 2; const squaredMean = labels.reduce((sum, _, index) => sum + (index - middle) ** 2, 0) / Math.max(1, labels.length);
-  const horizontal = normalize(Array.from({ length: inputSize }, (_, pixel) => classDirections.reduce((sum, direction, index) => sum + (direction[pixel] ?? 0) * (index - middle), 0)));
-  const verticalSeed = Array.from({ length: inputSize }, (_, pixel) => classDirections.reduce((sum, direction, index) => sum + (direction[pixel] ?? 0) * ((index - middle) ** 2 - squaredMean), 0)); const overlap = dot(verticalSeed, horizontal); const vertical = normalize(verticalSeed.map((value, index) => value - overlap * (horizontal[index] ?? 0)));
-  const centered = data.map((example) => example.pixels.map((value, index) => value - (mean[index] ?? 0))); const horizontalScale = Math.max(.001, ...centered.map((row) => Math.abs(dot(row, horizontal)))); const verticalScale = Math.max(.001, ...centered.map((row) => Math.abs(dot(row, vertical))));
-  return { mean, horizontal, vertical, horizontalScale, verticalScale };
+  const centered = data.map((example) => example.pixels.map((value, index) => value - mean[index]!));
+  // Two principal directions, fitted on training images only. Class labels are never consulted.
+  const direction = (seed: number, prior?: number[]) => {
+    let vector = normalize(Array.from({ length: inputSize }, (_, i) => Math.sin((i + 1) * seed)));
+    for (let iteration = 0; iteration < 60; iteration++) {
+      const next = Array<number>(inputSize).fill(0);
+      centered.forEach((row) => { const amount = dot(row, vector); row.forEach((value, i) => { next[i]! += amount * value; }); });
+      if (prior) { const overlap = dot(next, prior); next.forEach((_, i) => { next[i]! -= overlap * prior[i]!; }); }
+      if (dot(next, next) < 1e-18) {
+        if (prior) { const overlap = dot(vector, prior); vector = normalize(vector.map((value, i) => value - overlap * prior[i]!)); }
+        break;
+      }
+      vector = normalize(next);
+    }
+    const largest = vector.reduce((best, value, i) => Math.abs(value) > Math.abs(vector[best]!) ? i : best, 0);
+    return vector[largest]! < 0 ? vector.map((value) => -value) : vector;
+  };
+  const horizontal = direction(1.7); const vertical = direction(2.3, horizontal);
+  return projectionFromAxes(data, horizontal, vertical);
 }
 
 export function createPixelFeatureProjection(data: PixelExample[], task: PixelTaskName, mode: PixelProjectionMode): PixelProjection {
@@ -59,7 +72,7 @@ export function createPixelFeatureProjection(data: PixelExample[], task: PixelTa
 
 export function projectionAxisDetails(projection: PixelProjection, pixels: number[], axis: "horizontal" | "vertical"): ProjectionAxisDetails {
   const direction = projection[axis]; const scale = axis === "horizontal" ? projection.horizontalScale : projection.verticalScale; const contributions = pixels.map((value, index) => (value - (projection.mean[index] ?? 0)) * (direction[index] ?? 0)); const rawScore = contributions.reduce((sum, value) => sum + value, 0);
-  return { contributions, rawScore, mapScore: Math.max(-1, Math.min(1, rawScore / scale)) };
+  return { contributions, rawScore, mapScore: rawScore / scale };
 }
 
 export function projectPixels(projection: PixelProjection, pixels: number[]): { x: number; y: number } { return { x: projectionAxisDetails(projection, pixels, "horizontal").mapScore, y: projectionAxisDetails(projection, pixels, "vertical").mapScore }; }
