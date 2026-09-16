@@ -4,6 +4,8 @@ import { ImageWorkspace } from "./imageWorkspace";
 
 const { capture } = vi.hoisted(() => ({ capture: vi.fn(() => ({ pixels: Array<number>(196).fill(.3), image: "data:image/jpeg;base64,test" })) }));
 vi.mock("../core/imageInput", async (original) => ({ ...await original<typeof import("../core/imageInput")>(), captureImage: capture, drawImagePixels: vi.fn() }));
+vi.mock("../visualization/pixelLatentMap", async original => ({...await original<typeof import("../visualization/pixelLatentMap")>(), drawPixelLatentMap:vi.fn()}));
+vi.mock("../visualization/lossChart", () => ({drawLossChart:vi.fn()}));
 
 describe("공통 이미지 UI 연결", () => {
   let workspace: ImageWorkspace;
@@ -72,5 +74,26 @@ describe("공통 이미지 UI 연결", () => {
     expect(workspace.store.snapshot.model.classCount).toBe(4);
     expect(button("imageCaptureAdd").textContent).toBe("3에 추가");
     expect(workspace.ready()).toContain("3");
+  });
+  it("연습 안에서 특징·좌표를 바꾸고 뉴런 수를 늘려도 연결 지도는 항상 보인다",()=>{
+    workspace.configure("omr"); workspace.show(true,4);
+    const network=document.getElementById("imageNetwork")!,old=workspace.store.snapshot.projection;
+    expect(network.closest("details")!.hidden).toBe(false);expect(network.closest("details")!.open).toBe(true);
+    const x=document.getElementById("imagePracticeX") as HTMLSelectElement;x.value="lr";x.dispatchEvent(new Event("change"));
+    expect(workspace.store.snapshot.xFeature).toBe("lr");expect(workspace.store.snapshot.projection).not.toBe(old);
+    const hidden=document.getElementById("imageHidden") as HTMLInputElement;hidden.value="16";hidden.dispatchEvent(new Event("input"));
+    expect(network.querySelectorAll('[data-kind="hidden"]')).toHaveLength(16);
+    expect(network.closest("details")!.hidden).toBe(false);
+    expect(document.querySelector<HTMLElement>('.image-workspace:has(#imageMap)')!.hidden).toBe(false);
+  });
+  it("자유 드로잉은 진한 검정 붓으로 그리고 실제 픽셀을 미리보기·학습에 같이 사용한다",()=>{
+    const ctx={fillRect:vi.fn(),strokeRect:vi.fn(),beginPath:vi.fn(),moveTo:vi.fn(),lineTo:vi.fn(),stroke:vi.fn(),strokeStyle:"",lineWidth:0};
+    vi.spyOn(HTMLCanvasElement.prototype,"getContext").mockReturnValue(ctx as unknown as CanvasRenderingContext2D);
+    workspace.configure("digits");workspace.show(true,2);
+    const canvas=document.getElementById("imageDraw") as HTMLCanvasElement;canvas.setPointerCapture=vi.fn();
+    vi.spyOn(canvas,"getBoundingClientRect").mockReturnValue({x:0,y:0,left:0,top:0,right:420,bottom:420,width:420,height:420,toJSON:()=>({})});
+    canvas.dispatchEvent(new MouseEvent("pointerdown",{clientX:100,clientY:100}));
+    expect(ctx.strokeStyle).toBe("#000000");expect(ctx.lineWidth).toBe(24);
+    expect(workspace.store.snapshot.input).toEqual(capture.mock.results.at(-1)!.value.pixels);
   });
 });

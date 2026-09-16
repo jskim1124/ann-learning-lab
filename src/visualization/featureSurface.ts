@@ -18,7 +18,7 @@ function softColor(hex: string, confidence: number): string {
 
 export function drawFeatureSurface(canvas: HTMLCanvasElement, model: PixelModel, data: PixelExample[], testInput: { x: number; y: number }, options: { showNeuronBoundaries?: boolean; showDecisionBoundary?: boolean; showProbe?: boolean; selectedPoint?: number | null } = {}): void {
   const context = canvas.getContext("2d"); if (!context) return;
-  const grid = 64; const cellWidth = canvas.width / grid; const cellHeight = canvas.height / grid;
+  const grid = 120; const cellWidth = canvas.width / grid; const cellHeight = canvas.height / grid;
   context.clearRect(0, 0, canvas.width, canvas.height);
   for (let row = 0; row < grid; row += 1) {
     for (let column = 0; column < grid; column += 1) {
@@ -36,7 +36,7 @@ export function drawFeatureSurface(canvas: HTMLCanvasElement, model: PixelModel,
     context.beginPath(); context.moveTo(middleX, middleY); context.lineTo(middleX + dx, middleY + dy); context.stroke(); context.beginPath(); context.moveTo(middleX+dx,middleY+dy); context.lineTo(middleX+dx*.65-dy*.22,middleY+dy*.65+dx*.22); context.lineTo(middleX+dx*.65+dy*.22,middleY+dy*.65-dx*.22); context.closePath(); context.fill(); context.restore();
   });
   if (options.showDecisionBoundary !== false) {
-    context.strokeStyle = "#111827"; context.lineWidth = 3.2; context.beginPath();
+    context.strokeStyle = "#111827"; context.lineWidth = 2.8; context.lineCap = "round"; context.lineJoin = "round"; context.beginPath();
     const vertices:ScorePoint[][]=Array.from({length:grid+1},(_,r)=>Array.from({length:grid+1},(_,c)=>({x:c*cellWidth,y:r*cellHeight,scores:forwardPixels(model,[-1+c/grid*2,1-r/grid*2]).logits})));
     for(let r=0;r<grid;r++)for(let c=0;c<grid;c++)for(const [a,b] of classContours([vertices[r]![c]!,vertices[r]![c+1]!,vertices[r+1]![c+1]!,vertices[r+1]![c]!])){context.moveTo(a.x,a.y);context.lineTo(b.x,b.y);}
     context.stroke();

@@ -2,7 +2,8 @@ import { forward } from "../core/neuralNetwork";
 import type { DataPoint, NetworkModel } from "../types";
 import { canvasPoint, PALETTE, probabilityColor } from "./canvasUtils";
 
-export const HIDDEN_COLORS = ["#7446f5", "#df466f", "#f17605", "#1f6bd6", "#a93658", "#1558b7"];
+export { NEURON_COLORS as HIDDEN_COLORS } from "./neuronColors";
+import { NEURON_COLORS as HIDDEN_COLORS } from "./neuronColors";
 
 export interface SurfaceOptions {
   explanationStep?: 1 | 2 | 3 | 4;
@@ -79,7 +80,7 @@ function drawHiddenBoundaries(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasE
 export function drawDecisionSurface(canvas: HTMLCanvasElement, model: NetworkModel, data: DataPoint[], testInput: { x: number; y: number }, options: SurfaceOptions = {}): void {
   const ctx = canvas.getContext("2d"); if (!ctx) return;
   const step = options.explanationStep ?? 4; const selectedNeuron = options.selectedNeuron ?? 0;
-  const grid = 70; const cellW = canvas.width / grid; const cellH = canvas.height / grid;
+  const grid = 140; const cellW = canvas.width / grid; const cellH = canvas.height / grid;
   const probabilities = Array.from({ length: grid + 1 }, () => Array(grid + 1).fill(0) as number[]);
   ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.fillStyle = "#f5f7fa"; ctx.fillRect(0, 0, canvas.width, canvas.height);
   for (let row = 0; row <= grid; row += 1) for (let col = 0; col <= grid; col += 1) {
@@ -90,7 +91,7 @@ export function drawDecisionSurface(canvas: HTMLCanvasElement, model: NetworkMod
   drawGrid(ctx, canvas);
   if (step >= 2 && options.showNeuronBoundaries !== false) drawHiddenBoundaries(ctx, canvas, model, selectedNeuron, step !== 4);
   if (step === 4 && options.showDecisionBoundary !== false) {
-    ctx.strokeStyle = "#111827"; ctx.lineWidth = 4; ctx.setLineDash([]); ctx.beginPath();
+    ctx.strokeStyle = "#111827"; ctx.lineWidth = 3; ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.setLineDash([]); ctx.beginPath();
     for (let row = 0; row < grid; row += 1) for (let col = 0; col < grid; col += 1) {
       const corners = [
         [col * cellW, row * cellH, probabilities[row]![col]!], [(col + 1) * cellW, row * cellH, probabilities[row]![col + 1]!],

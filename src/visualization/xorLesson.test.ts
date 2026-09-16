@@ -1,8 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { XOR_LESSON, createXorLearningTrace, XOR_FOCUS } from "./xorLesson";
+import { XOR_LESSON, createXorLearningTrace, XOR_FOCUS, XOR_TWO_NEURON_MODEL } from "./xorLesson";
 import { forward, trainOne } from "../core/neuralNetwork";
 
 describe("승부차기 XOR 이해 흐름", () => {
+  it("두 뉴런 예제의 배경과 최종 경계는 실제 모델의 예측을 사용한다", () => {
+    for (const [x,y,label] of [[-.65,-.65,0],[-.65,.65,1],[.65,-.65,1],[.65,.65,0]]) {
+      expect(Number(forward(XOR_TWO_NEURON_MODEL,x!,y!).probability >= .5)).toBe(label);
+    }
+    // A hidden neuron's zero line is not generally the final output's 50% line.
+    expect(forward(XOR_TWO_NEURON_MODEL,-.35,0).probability).not.toBeCloseTo(.5,2);
+  });
   it("네 경우에서 두 선의 결론까지 한 단계씩 진행한다", () => {
     expect(XOR_LESSON.map((step) => step.tab)).toEqual(["네 경우", "뉴런 1개", "뉴런 2개", "선 연습"]);
     expect(XOR_LESSON.map((step) => step.correct)).toEqual(["different", "no", "goal", "correct"]);

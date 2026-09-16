@@ -1,5 +1,6 @@
 import type { NetworkModel } from "../types";
 import { PALETTE } from "./canvasUtils";
+import { NEURON_COLORS } from "./neuronColors";
 
 export function networkGraphMarkup(model: NetworkModel, activations: number[]): string {
   const inputX = 38; const hiddenX = 165; const outputX = 292;
@@ -15,7 +16,8 @@ export function networkGraphMarkup(model: NetworkModel, activations: number[]): 
     lines.push(weightLine(hiddenX, y, outputX, 115, model.parameters.hiddenOutput[h] ?? 0, `은닉 뉴런 ${h + 1} → 결과`));
     const activation = activations[h] ?? 0;
     const intensity = Math.min(1, Math.abs(activation));
-    nodes.push(`<g class="network-node" data-kind="hidden"><circle cx="${hiddenX}" cy="${y}" r="15" style="fill:rgba(35,103,213,${0.12 + intensity * 0.55})"/><text x="${hiddenX}" y="${y + 4}">${activation.toFixed(2)}</text><title>은닉 뉴런 ${h + 1}: ${activation.toFixed(5)}</title></g>`);
+    const color = NEURON_COLORS[h % NEURON_COLORS.length];
+    nodes.push(`<g class="network-node" data-kind="hidden"><circle cx="${hiddenX}" cy="${y}" r="15" style="fill:${color};fill-opacity:${0.12 + intensity * .45};stroke:${color};stroke-width:2"/><text x="${hiddenX}" y="${y + 4}">${h + 1}</text><title>은닉 뉴런 ${h + 1}: ${activation.toFixed(5)}</title></g>`);
   });
   nodes.unshift(`<g class="network-node"><circle cx="${inputX}" cy="76" r="16"/><text x="${inputX}" y="80">A</text></g><g class="network-node"><circle cx="${inputX}" cy="154" r="16"/><text x="${inputX}" y="158">B</text></g>`);
   nodes.push(`<g class="network-node"><circle cx="${outputX}" cy="115" r="18"/><text x="${outputX}" y="119">답</text></g>`);

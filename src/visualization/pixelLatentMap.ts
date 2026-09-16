@@ -2,9 +2,9 @@ import { forwardPixels, type PixelExample, type PixelModel } from "../core/pixel
 import { pixelAxisLegend, projectPixels, projectionBasis, type PixelAxisLegend, type PixelProjection, type PixelProjectionMode } from "../core/pixelProjection";
 import type { PixelTaskName } from "../data/pixelDatasets";
 import { classContours } from "./classContours";
+import { NEURON_COLORS as HIDDEN } from "./neuronColors";
 
 const STRONG = ["#f17605", "#df466f", "#7446f5", "#1f6bd6", "#1558b7", "#a93658"];
-const HIDDEN = ["#7446f5", "#df466f", "#f17605", "#1f6bd6", "#a93658", "#1558b7"];
 export type PixelMapView = "placement" | "decision";
 export type PixelFeatureView = PixelProjectionMode;
 const MAP_MARGIN = { left: 50, right: 14, top: 13, bottom: 39 } as const;
@@ -48,7 +48,7 @@ export function drawPixelLatentMap(canvas: HTMLCanvasElement, model: PixelModel,
   const ratio = window.devicePixelRatio || 1; const { width, height, plotW, plotH } = mapGeometry(canvas);
   if (canvas.width !== width * ratio || canvas.height !== height * ratio) { canvas.width = width * ratio; canvas.height = height * ratio; }
   context.setTransform(ratio, 0, 0, ratio, 0, 0); context.clearRect(0, 0, width, height);
-  const margin = MAP_MARGIN; const cells = 62; const classes: number[][] = []; const previousClasses: number[][] = [];
+  const margin = MAP_MARGIN; const cells = 100; const classes: number[][] = []; const previousClasses: number[][] = [];
   const planeModel=projectedPixelModel(model,projection);
   const oldPlaneModel=options.previousModel?projectedPixelModel(options.previousModel,projection):null;
   for (let gy = 0; gy < cells; gy += 1) {
@@ -97,7 +97,7 @@ export function drawPixelLatentMap(canvas: HTMLCanvasElement, model: PixelModel,
     if (options.showNeuronBoundaries !== false) model.inputHidden.forEach((_, neuron) => { if (options.onlyNeuron === undefined || options.onlyNeuron === neuron) drawLine(model, neuron, HIDDEN[neuron % HIDDEN.length]!, false, 2.6); });
     if (options.showDecisionBoundary !== false) {
       const grid=Array.from({length:cells+1},(_,y)=>Array.from({length:cells+1},(_,x)=>({x:margin.left+x*plotW/cells,y:margin.top+y*plotH/cells,scores:forwardPixels(planeModel,[-1+2*x/cells,1-2*y/cells]).probabilities})));
-      context.strokeStyle="#202633";context.lineWidth=2.6;context.beginPath();
+      context.strokeStyle="#202633";context.lineWidth=2.6;context.lineCap="round";context.lineJoin="round";context.beginPath();
       for(let y=0;y<cells;y++)for(let x=0;x<cells;x++)classContours([grid[y]![x]!,grid[y]![x+1]!,grid[y+1]![x+1]!,grid[y+1]![x]!]).forEach(([a,b])=>{context.moveTo(a.x,a.y);context.lineTo(b.x,b.y);});
       context.stroke();
     }
@@ -124,7 +124,7 @@ export function drawPixelNeuronMovement(canvas: HTMLCanvasElement, before: Pixel
   const start = toCanvas(nearest(oldPlane)); const end = toCanvas(nearest(currentPlane)); context.strokeStyle = "#f17605"; context.fillStyle = "#f17605"; context.lineWidth = 4; context.beginPath(); context.moveTo(start.x, start.y); context.lineTo(end.x, end.y); context.stroke(); const angle = Math.atan2(end.y - start.y, end.x - start.x); context.beginPath(); context.moveTo(end.x, end.y); context.lineTo(end.x - 12 * Math.cos(angle - .48), end.y - 12 * Math.sin(angle - .48)); context.lineTo(end.x - 12 * Math.cos(angle + .48), end.y - 12 * Math.sin(angle + .48)); context.closePath(); context.fill();
   context.font = "800 11px sans-serif"; context.textAlign = "center"; context.fillStyle = "#5b6470"; context.fillText("전", start.x, start.y - 9); context.fillStyle = lineColor; context.fillText("후", end.x, end.y - 9);
   const focus = toCanvas(focusPoint); context.beginPath(); context.arc(focus.x, focus.y, 10, 0, Math.PI * 2); context.fillStyle = "rgba(255,255,255,.94)"; context.fill(); context.strokeStyle = "#111722"; context.lineWidth = 3.5; context.stroke(); context.fillStyle = "#111722"; context.font = "800 12px sans-serif"; context.textAlign = focus.x > margin.left + plotW * .72 ? "right" : "left"; context.fillText(focusLabel, focus.x + (context.textAlign === "right" ? -13 : 13), Math.max(margin.top + 15, focus.y - 11));
-  const oldValue = pixelHiddenLineValue(before, focusPixels, neuron); const newValue = pixelHiddenLineValue(after, focusPixels, neuron); context.fillStyle = "rgba(255,255,255,.94)"; context.fillRect(margin.left + 8, margin.top + 8, 178, 50); context.strokeStyle = "#c6ccd3"; context.lineWidth = 1; context.strokeRect(margin.left + 8, margin.top + 8, 178, 50); context.textAlign = "left"; context.font = "700 11px sans-serif"; context.fillStyle = "#626b77"; context.fillText(`연습 전  선 기준값 ${oldValue >= 0 ? "+" : ""}${oldValue.toFixed(2)}`, margin.left + 17, margin.top + 28); context.fillStyle = lineColor; context.fillText(`연습 후  선 기준값 ${newValue >= 0 ? "+" : ""}${newValue.toFixed(2)}`, margin.left + 17, margin.top + 48);
+  const oldValue = pixelHiddenLineValue(before, focusPixels, neuron); const newValue = pixelHiddenLineValue(after, focusPixels, neuron); context.fillStyle = "rgba(255,255,255,.94)"; context.fillRect(margin.left + 8, margin.top + 8, 178, 50); context.strokeStyle = "#c6ccd3"; context.lineWidth = 1; context.strokeRect(margin.left + 8, margin.top + 8, 178, 50); context.textAlign = "left"; context.font = "700 11px sans-serif"; context.fillStyle = "#626b77"; context.fillText(`학습 전  뉴런의 합 ${oldValue >= 0 ? "+" : ""}${oldValue.toFixed(2)}`, margin.left + 17, margin.top + 28); context.fillStyle = lineColor; context.fillText(`학습 후  뉴런의 합 ${newValue >= 0 ? "+" : ""}${newValue.toFixed(2)}`, margin.left + 17, margin.top + 48);
   context.fillStyle = lineColor; context.font = "700 12px sans-serif"; context.textAlign = "left"; context.fillText(`대표 뉴런 기준선 ${neuron + 1}`, Math.min(width - 145, end.x + 10), Math.max(28, end.y - 10)); context.strokeStyle = "#7b8491"; context.lineWidth = 1.1; context.strokeRect(margin.left, margin.top, plotW, plotH); context.fillStyle = "#535e6d"; context.font = "12px sans-serif"; context.textAlign = "center"; context.fillText(axisLegend?.horizontal.title ?? "가로 점수", margin.left + plotW / 2, height - 9); context.save(); context.translate(15, margin.top + plotH / 2); context.rotate(-Math.PI / 2); context.fillText(axisLegend?.vertical.title ?? "세로 점수", 0, 0); context.restore();
 }
 

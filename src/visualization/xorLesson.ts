@@ -1,4 +1,5 @@
 import { canvasPoint, PALETTE, probabilityColor } from "./canvasUtils";
+import { NEURON_COLORS } from "./neuronColors";
 import { forward, trainOne } from "../core/neuralNetwork";
 import type { NetworkModel } from "../types";
 import { contourCell, hiddenBoundarySegment } from "./decisionSurface";
@@ -41,9 +42,9 @@ export const XOR_LESSON: XorLessonStep[] = [
   {
     tab: "뉴런 2개",
     title: "은닉 뉴런 두 개의 기준을 함께 사용합니다",
-    body: "가능한 배치의 예입니다. 선 두 개로 양 끝의 막힘을 나누면, 그 사이에 골 두 개를 모을 수 있습니다. 실제 모델은 두 뉴런의 값을 합쳐 답을 고릅니다.",
+    body: "계산을 살펴보기 위한 예제 모델입니다. 색 선은 뉴런 각각의 기준이고, 검은 선은 두 신호를 합친 출력이 골·막힘 사이에서 바뀌는 경계입니다.",
     reveal: "두 뉴런이 맡은 선 함께 보기",
-    result: "은닉 뉴런 두 개가 양쪽의 막힘을 하나씩 나누어 맡았습니다.",
+    result: "보라·분홍 기준선과 검은 최종 경계는 서로 다릅니다. 출력은 두 신호를 함께 사용합니다.",
     question: "두 선 사이에 남은 두 경우의 결과는 무엇일까요?",
     choices: [["goal", "골"], ["blocked", "막힘"]],
     correct: "goal",
@@ -54,13 +55,18 @@ export const XOR_LESSON: XorLessonStep[] = [
     title: "놓친 골을 보고 선을 옮깁니다",
     body: "모델이 표시한 골 한 점을 ‘막힘’으로 틀렸습니다. 이 한 점으로 실제 학습하면서 뉴런 2의 값과 골 예상이 함께 바뀌는지 봅시다.",
     reveal: "대표 골 한 점과 선의 이동 보기",
-    result: "회색은 처음 선, 보라는 학습한 선입니다. 다른 연결값도 함께 고쳤습니다. 여기서는 대표선 하나만 표시합니다.",
-    question: "대표 선이 보라색 위치로 움직인 직접 이유는 무엇일까요?",
+    result: "회색은 처음 선, 분홍은 학습한 뉴런 2의 선입니다. 다른 연결값도 함께 고쳤습니다. 여기서는 대표선 하나만 표시합니다.",
+    question: "대표 선이 분홍색 위치로 움직인 직접 이유는 무엇일까요?",
     choices: [["correct", "놓친 골을 골 영역에 넣으려고"], ["random", "선은 언제나 같은 방향으로 움직여서"]],
     correct: "correct",
     explanation: "선의 방향은 미리 정해져 있지 않습니다. 지금 틀린 사례를 줄이는 쪽으로 연결값이 바뀝니다.",
   },
 ];
+
+export const XOR_TWO_NEURON_MODEL: NetworkModel = {
+  config: {hiddenUnits:2,activation:"tanh",learningRate:.08,seed:31}, epoch:0,
+  parameters: {inputHidden:[[3,3],[3,3]],hiddenBias:[1.05,-1.05],hiddenOutput:[4,-4],outputBias:-3},
+};
 
 function lineSegment(sum: number): [[number, number], [number, number]] {
   return sum < 0 ? [[-1, sum + 1], [sum + 1, -1]] : [[sum - 1, 1], [1, sum - 1]];
@@ -141,7 +147,7 @@ function drawActualLearning(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasEle
     const segment = hiddenBoundarySegment(weights[0], weights[1], m.parameters.hiddenBias[1]!);
     if (!segment) return;
     const a = canvasPoint(canvas, ...segment[0]), b = canvasPoint(canvas, ...segment[1]);
-    ctx.strokeStyle = dashed ? "#7b8491" : "#7446f5"; ctx.lineWidth = dashed ? 3 : 5; ctx.setLineDash(dashed ? [10,7] : []);
+    ctx.strokeStyle = dashed ? "#7b8491" : NEURON_COLORS[1]!; ctx.lineWidth = dashed ? 3 : 5; ctx.setLineDash(dashed ? [10,7] : []);
     ctx.beginPath(); ctx.moveTo(...a); ctx.lineTo(...b); ctx.stroke(); ctx.setLineDash([]);
   };
   line(initial, true); line(model, false);
@@ -153,8 +159,8 @@ function drawActualLearning(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasEle
   if (progress > 0) drawArrow(ctx, nearest(initial), nearest(model));
   const before = forward(initial,XOR_FOCUS.x,XOR_FOCUS.y);
   const current = forward(model,XOR_FOCUS.x,XOR_FOCUS.y);
-  drawNodeBadge(ctx, 16, 14, "보라: 뉴런 2의 선 · 검정: 최종 경계", "#7446f5");
-  drawNodeBadge(ctx, 16, canvas.height*.44, `표시한 골의 뉴런 2 값: ${before.hidden[1]!.toFixed(2)} → ${current.hidden[1]!.toFixed(2)}`, "#7446f5");
+  drawNodeBadge(ctx, 16, 14, "분홍: 뉴런 2의 선 · 검정: 최종 경계", NEURON_COLORS[1]!);
+  drawNodeBadge(ctx, 16, canvas.height*.44, `표시한 골의 뉴런 2 신호: ${before.hidden[1]!.toFixed(2)} → ${current.hidden[1]!.toFixed(2)}`, NEURON_COLORS[1]!);
   drawNodeBadge(ctx, 16, canvas.height*.44+35, `골 예상: ${(before.probability*100).toFixed(0)}% → ${(current.probability*100).toFixed(0)}% · ${model.epoch}번 학습`, "#253247");
 }
 
@@ -167,13 +173,13 @@ export function drawXorLesson(canvas: HTMLCanvasElement, step: 1 | 2 | 3 | 4, re
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   if (step === 4) drawActualLearning(ctx, canvas, revealProgress);
   if (step === 3 && revealed) {
-    const polygon = [[-1, .65], [-.65, 1], [1, -.65], [.65, -1]].map(([x, y]) => canvasPoint(canvas, x!, y!));
-    ctx.fillStyle = `rgba(241,118,5,${.20 * revealProgress})`;
-    ctx.beginPath();
-    ctx.moveTo(...polygon[0]!);
-    polygon.slice(1).forEach((point) => ctx.lineTo(...point));
-    ctx.closePath();
-    ctx.fill();
+    const grid=120, cw=canvas.width/grid, ch=canvas.height/grid;
+    const values=Array.from({length:grid+1},(_,r)=>Array.from({length:grid+1},(_,c)=>forward(XOR_TWO_NEURON_MODEL,-1+2*c/grid,1-2*r/grid).probability));
+    ctx.save();ctx.globalAlpha=revealProgress;
+    for(let r=0;r<grid;r++)for(let c=0;c<grid;c++){ctx.fillStyle=probabilityColor(values[r]![c]!);ctx.fillRect(c*cw,r*ch,cw+1,ch+1);}
+    ctx.strokeStyle="#202633";ctx.lineWidth=3;ctx.lineCap="round";ctx.beginPath();
+    for(let r=0;r<grid;r++)for(let c=0;c<grid;c++)for(const [a,b] of contourCell([[c*cw,r*ch,values[r]![c]!],[(c+1)*cw,r*ch,values[r]![c+1]!],[(c+1)*cw,(r+1)*ch,values[r+1]![c+1]!],[c*cw,(r+1)*ch,values[r+1]![c]!]],.5)){ctx.moveTo(...a);ctx.lineTo(...b);}
+    ctx.stroke();ctx.restore();
   }
   ctx.strokeStyle = "rgba(55,67,84,.15)";
   ctx.lineWidth = 1;
