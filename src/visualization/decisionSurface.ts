@@ -10,6 +10,8 @@ export interface SurfaceOptions {
   highlightRevealed?: boolean;
   showNeuronBoundaries?: boolean;
   showDecisionBoundary?: boolean;
+  showProbe?: boolean;
+  selectedPoint?: number | null;
 }
 
 export type Segment = [[number, number], [number, number]];
@@ -99,6 +101,11 @@ export function drawDecisionSurface(canvas: HTMLCanvasElement, model: NetworkMod
     ctx.stroke();
   }
   for (const point of data) drawDataPoint(ctx, canvas, point);
+  if (options.selectedPoint !== undefined && options.selectedPoint !== null && data[options.selectedPoint]) {
+    const p = data[options.selectedPoint]!; const [x,y] = canvasPoint(canvas,p.x,p.y);
+    ctx.strokeStyle="#202633";ctx.lineWidth=3;ctx.beginPath();ctx.arc(x,y,12,0,Math.PI*2);ctx.stroke();
+  }
+  if (options.showProbe === false) return;
   const [tx, ty] = canvasPoint(canvas, testInput.x, testInput.y);
   if (options.highlightRevealed) {
     const previousX = Math.max(-.9, testInput.x - .65); const [px, py] = canvasPoint(canvas, previousX, testInput.y);

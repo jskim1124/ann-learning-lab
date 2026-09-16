@@ -1,4 +1,5 @@
 import { forwardPixels, type PixelExample, type PixelModel } from "../core/pixelNetwork";
+import { classContours, type ScorePoint } from "./classContours";
 import { canvasPoint } from "./canvasUtils";
 import { hiddenBoundarySegment, HIDDEN_COLORS } from "./decisionSurface";
 
@@ -15,14 +16,13 @@ function softColor(hex: string, confidence: number): string {
   return `rgb(${Math.round(255 + (red - 255) * amount)},${Math.round(255 + (green - 255) * amount)},${Math.round(255 + (blue - 255) * amount)})`;
 }
 
-export function drawFeatureSurface(canvas: HTMLCanvasElement, model: PixelModel, data: PixelExample[], testInput: { x: number; y: number }, options: { showNeuronBoundaries?: boolean; showDecisionBoundary?: boolean } = {}): void {
+export function drawFeatureSurface(canvas: HTMLCanvasElement, model: PixelModel, data: PixelExample[], testInput: { x: number; y: number }, options: { showNeuronBoundaries?: boolean; showDecisionBoundary?: boolean; showProbe?: boolean; selectedPoint?: number | null } = {}): void {
   const context = canvas.getContext("2d"); if (!context) return;
-  const grid = 64; const cellWidth = canvas.width / grid; const cellHeight = canvas.height / grid; const winners: number[][] = [];
+  const grid = 64; const cellWidth = canvas.width / grid; const cellHeight = canvas.height / grid;
   context.clearRect(0, 0, canvas.width, canvas.height);
   for (let row = 0; row < grid; row += 1) {
-    const labels: number[] = []; winners.push(labels);
     for (let column = 0; column < grid; column += 1) {
-      const x = -1 + (column + .5) / grid * 2; const y = 1 - (row + .5) / grid * 2; const winner = winningClass(model, x, y); labels.push(winner.label);
+      const x = -1 + (column + .5) / grid * 2; const y = 1 - (row + .5) / grid * 2; const winner = winningClass(model, x, y);
       context.fillStyle = softColor(CLASS_COLORS[winner.label % CLASS_COLORS.length]!, winner.confidence); context.fillRect(column * cellWidth, row * cellHeight, Math.ceil(cellWidth) + 1, Math.ceil(cellHeight) + 1);
     }
   }
@@ -33,20 +33,21 @@ export function drawFeatureSurface(canvas: HTMLCanvasElement, model: PixelModel,
     const start = canvasPoint(canvas, ...segment[0]); const end = canvasPoint(canvas, ...segment[1]); const color = HIDDEN_COLORS[neuron % HIDDEN_COLORS.length]!;
     context.save(); context.strokeStyle = color; context.fillStyle = color; context.lineWidth = 2.5; context.globalAlpha = .82; context.beginPath(); context.moveTo(...start); context.lineTo(...end); context.stroke();
     const middleX = (start[0] + end[0]) / 2; const middleY = (start[1] + end[1]) / 2; const length = Math.hypot(weights[0] ?? 0, weights[1] ?? 0) || 1; const dx = (weights[0] ?? 0) / length * 22; const dy = -(weights[1] ?? 0) / length * 22;
-    context.beginPath(); context.moveTo(middleX, middleY); context.lineTo(middleX + dx, middleY + dy); context.stroke(); context.beginPath(); context.arc(middleX + dx, middleY + dy, 3.5, 0, Math.PI * 2); context.fill(); context.restore();
+    context.beginPath(); context.moveTo(middleX, middleY); context.lineTo(middleX + dx, middleY + dy); context.stroke(); context.beginPath(); context.moveTo(middleX+dx,middleY+dy); context.lineTo(middleX+dx*.65-dy*.22,middleY+dy*.65+dx*.22); context.lineTo(middleX+dx*.65+dy*.22,middleY+dy*.65-dx*.22); context.closePath(); context.fill(); context.restore();
   });
   if (options.showDecisionBoundary !== false) {
     context.strokeStyle = "#111827"; context.lineWidth = 3.2; context.beginPath();
-    for (let row = 0; row < grid; row += 1) for (let column = 0; column < grid; column += 1) {
-      const here = winners[row]![column]!;
-      if (column < grid - 1 && winners[row]![column + 1] !== here) { const x = (column + 1) * cellWidth; context.moveTo(x, row * cellHeight); context.lineTo(x, (row + 1) * cellHeight); }
-      if (row < grid - 1 && winners[row + 1]![column] !== here) { const y = (row + 1) * cellHeight; context.moveTo(column * cellWidth, y); context.lineTo((column + 1) * cellWidth, y); }
-    }
+    const vertices:ScorePoint[][]=Array.from({length:grid+1},(_,r)=>Array.from({length:grid+1},(_,c)=>({x:c*cellWidth,y:r*cellHeight,scores:forwardPixels(model,[-1+c/grid*2,1-r/grid*2]).logits})));
+    for(let r=0;r<grid;r++)for(let c=0;c<grid;c++)for(const [a,b] of classContours([vertices[r]![c]!,vertices[r]![c+1]!,vertices[r+1]![c+1]!,vertices[r+1]![c]!])){context.moveTo(a.x,a.y);context.lineTo(b.x,b.y);}
     context.stroke();
   }
   data.forEach((example, index) => {
     const [x, y] = canvasPoint(canvas, example.pixels[0] ?? 0, example.pixels[1] ?? 0); const color = CLASS_COLORS[example.label % CLASS_COLORS.length]!;
     context.beginPath(); context.arc(x, y, 8, 0, Math.PI * 2); context.fillStyle = color; context.fill(); context.strokeStyle = "white"; context.lineWidth = 2.5; context.stroke(); context.fillStyle = "#303b4a"; context.font = "700 11px system-ui"; context.fillText(String(index + 1), x + 10, y - 9);
   });
-  const [testX, testY] = canvasPoint(canvas, testInput.x, testInput.y); context.strokeStyle = "#111827"; context.lineWidth = 3; context.beginPath(); context.arc(testX, testY, 8, 0, Math.PI * 2); context.stroke(); context.beginPath(); context.moveTo(testX - 12, testY); context.lineTo(testX + 12, testY); context.moveTo(testX, testY - 12); context.lineTo(testX, testY + 12); context.stroke();
+  if (options.selectedPoint !== undefined && options.selectedPoint !== null && data[options.selectedPoint]) {
+    const p=data[options.selectedPoint]!.pixels;const [x,y]=canvasPoint(canvas,p[0]!,p[1]!);context.strokeStyle="#202633";context.lineWidth=3;context.beginPath();context.arc(x,y,12,0,Math.PI*2);context.stroke();
+  }
+  if(options.showProbe===false)return;
+  const [testX, testY] = canvasPoint(canvas, testInput.x, testInput.y); context.strokeStyle = "#111827"; context.lineWidth = 3; context.beginPath(); context.arc(testX, testY, 8, 0, Math.PI * 2); context.stroke();
 }

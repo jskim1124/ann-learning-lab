@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ImageLabStore } from "./imageLabStore";
-import { createPixelProjection, projectPixels, reconstructProjectedPixels } from "../core/pixelProjection";
+import { constrainPixelModelToProjection, createPixelProjection, projectPixels, reconstructProjectedPixels } from "../core/pixelProjection";
 import { forwardPixels } from "../core/pixelNetwork";
 
 describe("공통 이미지 학습 상태", () => {
@@ -21,15 +21,14 @@ describe("공통 이미지 학습 상태", () => {
     pixels[0] = .8; store.setInput(Array(196).fill(0));
     expect(sample.pixels[0]).toBe(0);
   });
-  it.each(["digits", "omr"] as const)("%s 기본 모델은 실제로 그림 전체를 학습한다", (task) => {
-    const store = new ImageLabStore(task), before = store.metrics().loss;
+  it.each(["digits", "omr"] as const)("%s 그림 전체 모드는 실제로 모든 픽셀을 학습한다", (task) => {
+    const store = new ImageLabStore(task); store.setMode("pixels"); const before = store.metrics().loss;
     expect(store.train(250)).toBeNull();
     expect(store.metrics().loss).toBeLessThan(before * .35);
     expect(store.metrics().accuracy).toBeGreaterThan(.9);
     const s = store.snapshot, weights = s.model.inputHidden[0]!;
-    const horizontal = weights.reduce((sum, w, i) => sum + w * s.projection.horizontal[i]!, 0);
-    const vertical = weights.reduce((sum, w, i) => sum + w * s.projection.vertical[i]!, 0);
-    const residual = weights.reduce((sum, w, i) => sum + (w - horizontal * s.projection.horizontal[i]! - vertical * s.projection.vertical[i]!) ** 2, 0);
+    const projected = constrainPixelModelToProjection(s.model,s.projection).inputHidden[0]!;
+    const residual = weights.reduce((sum, w, i) => sum + (w - projected[i]!) ** 2, 0);
     expect(residual).toBeGreaterThan(.01); // Full model is not secretly restricted to two directions.
   });
   it("별도 지도 실험에서만 점의 예상과 배경의 예상이 수치까지 일치한다", () => {

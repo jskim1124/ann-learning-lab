@@ -1,6 +1,7 @@
 import { forwardPixels, type PixelExample, type PixelModel } from "../core/pixelNetwork";
-import { pixelAxisLegend, projectPixels, reconstructProjectedPixels, type PixelAxisLegend, type PixelProjection, type PixelProjectionMode } from "../core/pixelProjection";
+import { pixelAxisLegend, projectPixels, projectionBasis, type PixelAxisLegend, type PixelProjection, type PixelProjectionMode } from "../core/pixelProjection";
 import type { PixelTaskName } from "../data/pixelDatasets";
+import { classContours } from "./classContours";
 
 const STRONG = ["#f17605", "#df466f", "#7446f5", "#1f6bd6", "#1558b7", "#a93658"];
 const HIDDEN = ["#7446f5", "#df466f", "#f17605", "#1f6bd6", "#a93658", "#1558b7"];
@@ -22,11 +23,16 @@ function mixWithWhite(hex: string, strength: number): string {
   const rgb = [1, 3, 5].map((start) => Number.parseInt(hex.slice(start, start + 2), 16)); const amount = Math.max(0, Math.min(1, strength));
   return `rgb(${rgb.map((value) => Math.round(255 + (value - 255) * amount)).join(",")})`;
 }
-function hiddenPlane(model: PixelModel, projection: PixelProjection, neuron: number): { constant: number; horizontal: number; vertical: number } {
+export function hiddenPlane(model: PixelModel, projection: PixelProjection, neuron: number): { constant: number; horizontal: number; vertical: number } {
   const weights = model.inputHidden[neuron] ?? [];
-  return { constant: (model.hiddenBias[neuron] ?? 0) + dot(weights, projection.mean), horizontal: projection.horizontalScale * dot(weights, projection.horizontal), vertical: projection.verticalScale * dot(weights, projection.vertical) };
+  const basis = projectionBasis(projection);
+  return { constant: (model.hiddenBias[neuron] ?? 0) + dot(weights, projection.mean), horizontal: projection.horizontalScale * dot(weights, basis.horizontal), vertical: projection.verticalScale * dot(weights, basis.vertical) };
 }
 export function pixelHiddenLineValue(model: PixelModel, pixels: number[], neuron: number): number { return (model.inputHidden[neuron] ?? []).reduce((sum, weight, index) => sum + weight * (pixels[index] ?? 0), model.hiddenBias[neuron] ?? 0); }
+export function projectedPixelModel(model: PixelModel, projection: PixelProjection): PixelModel {
+  const planes=model.inputHidden.map((_,i)=>hiddenPlane(model,projection,i));
+  return {...model,inputSize:2,inputHidden:planes.map(p=>[p.horizontal,p.vertical]),hiddenBias:planes.map(p=>p.constant)};
+}
 function lineEndpoints(plane: { constant: number; horizontal: number; vertical: number }): Array<{ x: number; y: number }> {
   const { constant, horizontal: a, vertical: b } = plane; const points: Array<{ x: number; y: number }> = [];
   if (Math.abs(b) > 1e-9) [-1, 1].forEach((x) => { const y = (-constant - a * x) / b; if (y >= -1 && y <= 1) points.push({ x, y }); });
@@ -34,7 +40,7 @@ function lineEndpoints(plane: { constant: number; horizontal: number; vertical: 
   return points.slice(0, 2);
 }
 
-export interface PixelMapOptions { view?: PixelMapView; focusLabel?: string; previousModel?: PixelModel; highlightAxis?: "horizontal" | "vertical"; showNeuronBoundaries?: boolean; showDecisionBoundary?: boolean; axisLegend?: PixelAxisLegend; }
+export interface PixelMapOptions { view?: PixelMapView; focusLabel?: string; previousModel?: PixelModel; highlightAxis?: "horizontal" | "vertical"; showNeuronBoundaries?: boolean; showDecisionBoundary?: boolean; axisLegend?: PixelAxisLegend; onlyNeuron?: number; }
 
 export function drawPixelLatentMap(canvas: HTMLCanvasElement, model: PixelModel, data: PixelExample[], focusPixels: number[], projection: PixelProjection, options: PixelMapOptions = {}): void {
   const context = canvas.getContext("2d"); if (!context) return;
@@ -43,15 +49,22 @@ export function drawPixelLatentMap(canvas: HTMLCanvasElement, model: PixelModel,
   if (canvas.width !== width * ratio || canvas.height !== height * ratio) { canvas.width = width * ratio; canvas.height = height * ratio; }
   context.setTransform(ratio, 0, 0, ratio, 0, 0); context.clearRect(0, 0, width, height);
   const margin = MAP_MARGIN; const cells = 62; const classes: number[][] = []; const previousClasses: number[][] = [];
+  const planeModel=projectedPixelModel(model,projection);
+  const oldPlaneModel=options.previousModel?projectedPixelModel(options.previousModel,projection):null;
   for (let gy = 0; gy < cells; gy += 1) {
     const row: number[] = []; classes.push(row); const previousRow: number[] = []; previousClasses.push(previousRow);
     for (let gx = 0; gx < cells; gx += 1) {
       const x = (gx + .5) / cells * 2 - 1; const y = 1 - (gy + .5) / cells * 2;
       if (view === "placement") {
         context.fillStyle = "#fafafa";
+      } else if (options.onlyNeuron !== undefined && options.showDecisionBoundary === false) {
+        // A neuron lesson shows its signed sum, not a misleading final-class background.
+        const n = options.onlyNeuron, weights = planeModel.inputHidden[n]!;
+        const sum = weights[0]! * x + weights[1]! * y + planeModel.hiddenBias[n]!;
+        context.fillStyle = mixWithWhite(sum >= 0 ? HIDDEN[0]! : STRONG[0]!, .04 + Math.abs(Math.tanh(sum)) * .34);
       } else {
-        const probabilities = forwardPixels(model, reconstructProjectedPixels(projection, x, y)).probabilities; const winner = probabilities.indexOf(Math.max(...probabilities)); row.push(winner);
-        if (options.previousModel) { const oldProbabilities = forwardPixels(options.previousModel, reconstructProjectedPixels(projection, x, y)).probabilities; previousRow.push(oldProbabilities.indexOf(Math.max(...oldProbabilities))); }
+        const probabilities = forwardPixels(planeModel, [x,y]).probabilities; const winner = probabilities.indexOf(Math.max(...probabilities)); row.push(winner);
+        if (oldPlaneModel) { const oldProbabilities = forwardPixels(oldPlaneModel, [x,y]).probabilities; previousRow.push(oldProbabilities.indexOf(Math.max(...oldProbabilities))); }
         const confidence = probabilities[winner] ?? 0; const base = 1 / Math.max(2, probabilities.length); const certainty = Math.max(0, Math.min(1, (confidence - base) / (1 - base)));
         context.fillStyle = mixWithWhite(STRONG[winner % STRONG.length]!, .08 + certainty * .48);
       }
@@ -81,9 +94,12 @@ export function drawPixelLatentMap(canvas: HTMLCanvasElement, model: PixelModel,
       for (let gy = 0; gy < cells - 1; gy += 1) for (let gx = 0; gx < cells - 1; gx += 1) { const here = previousClasses[gy]![gx]; const x = margin.left + (gx + 1) * plotW / cells; const y = margin.top + (gy + 1) * plotH / cells; if (previousClasses[gy]![gx + 1] !== here) { context.beginPath(); context.moveTo(x, y - plotH / cells); context.lineTo(x, y); context.stroke(); } if (previousClasses[gy + 1]![gx] !== here) { context.beginPath(); context.moveTo(x - plotW / cells, y); context.lineTo(x, y); context.stroke(); } }
       context.setLineDash([]);
     }
-    if (options.showNeuronBoundaries !== false) model.inputHidden.forEach((_, neuron) => drawLine(model, neuron, HIDDEN[neuron % HIDDEN.length]!, false, 2.6));
-    if (options.showDecisionBoundary !== false) { context.strokeStyle = "#202633"; context.lineWidth = 2.2;
-      for (let gy = 0; gy < cells - 1; gy += 1) for (let gx = 0; gx < cells - 1; gx += 1) { const here = classes[gy]![gx]; const x = margin.left + (gx + 1) * plotW / cells; const y = margin.top + (gy + 1) * plotH / cells; if (classes[gy]![gx + 1] !== here) { context.beginPath(); context.moveTo(x, y - plotH / cells); context.lineTo(x, y); context.stroke(); } if (classes[gy + 1]![gx] !== here) { context.beginPath(); context.moveTo(x - plotW / cells, y); context.lineTo(x, y); context.stroke(); } }
+    if (options.showNeuronBoundaries !== false) model.inputHidden.forEach((_, neuron) => { if (options.onlyNeuron === undefined || options.onlyNeuron === neuron) drawLine(model, neuron, HIDDEN[neuron % HIDDEN.length]!, false, 2.6); });
+    if (options.showDecisionBoundary !== false) {
+      const grid=Array.from({length:cells+1},(_,y)=>Array.from({length:cells+1},(_,x)=>({x:margin.left+x*plotW/cells,y:margin.top+y*plotH/cells,scores:forwardPixels(planeModel,[-1+2*x/cells,1-2*y/cells]).probabilities})));
+      context.strokeStyle="#202633";context.lineWidth=2.6;context.beginPath();
+      for(let y=0;y<cells;y++)for(let x=0;x<cells;x++)classContours([grid[y]![x]!,grid[y]![x+1]!,grid[y+1]![x+1]!,grid[y+1]![x]!]).forEach(([a,b])=>{context.moveTo(a.x,a.y);context.lineTo(b.x,b.y);});
+      context.stroke();
     }
   }
   data.forEach((example) => { const point = projectPixels(projection, example.pixels); const x = margin.left + (point.x + 1) / 2 * plotW; const y = margin.top + (1 - (point.y + 1) / 2) * plotH; context.beginPath(); context.arc(x, y, 4.7, 0, Math.PI * 2); context.fillStyle = STRONG[example.label % STRONG.length]!; context.globalAlpha = view === "placement" ? .65 : 1; context.fill(); context.globalAlpha = 1; context.strokeStyle = "#fff"; context.lineWidth = 1.2; context.stroke(); });
@@ -109,7 +125,7 @@ export function drawPixelNeuronMovement(canvas: HTMLCanvasElement, before: Pixel
   context.font = "800 11px sans-serif"; context.textAlign = "center"; context.fillStyle = "#5b6470"; context.fillText("전", start.x, start.y - 9); context.fillStyle = lineColor; context.fillText("후", end.x, end.y - 9);
   const focus = toCanvas(focusPoint); context.beginPath(); context.arc(focus.x, focus.y, 10, 0, Math.PI * 2); context.fillStyle = "rgba(255,255,255,.94)"; context.fill(); context.strokeStyle = "#111722"; context.lineWidth = 3.5; context.stroke(); context.fillStyle = "#111722"; context.font = "800 12px sans-serif"; context.textAlign = focus.x > margin.left + plotW * .72 ? "right" : "left"; context.fillText(focusLabel, focus.x + (context.textAlign === "right" ? -13 : 13), Math.max(margin.top + 15, focus.y - 11));
   const oldValue = pixelHiddenLineValue(before, focusPixels, neuron); const newValue = pixelHiddenLineValue(after, focusPixels, neuron); context.fillStyle = "rgba(255,255,255,.94)"; context.fillRect(margin.left + 8, margin.top + 8, 178, 50); context.strokeStyle = "#c6ccd3"; context.lineWidth = 1; context.strokeRect(margin.left + 8, margin.top + 8, 178, 50); context.textAlign = "left"; context.font = "700 11px sans-serif"; context.fillStyle = "#626b77"; context.fillText(`연습 전  선 기준값 ${oldValue >= 0 ? "+" : ""}${oldValue.toFixed(2)}`, margin.left + 17, margin.top + 28); context.fillStyle = lineColor; context.fillText(`연습 후  선 기준값 ${newValue >= 0 ? "+" : ""}${newValue.toFixed(2)}`, margin.left + 17, margin.top + 48);
-  context.fillStyle = lineColor; context.font = "700 12px sans-serif"; context.textAlign = "left"; context.fillText(`대표 분류선 ${neuron + 1}`, Math.min(width - 125, end.x + 10), Math.max(28, end.y - 10)); context.strokeStyle = "#7b8491"; context.lineWidth = 1.1; context.strokeRect(margin.left, margin.top, plotW, plotH); context.fillStyle = "#535e6d"; context.font = "12px sans-serif"; context.textAlign = "center"; context.fillText(axisLegend?.horizontal.title ?? "가로 점수", margin.left + plotW / 2, height - 9); context.save(); context.translate(15, margin.top + plotH / 2); context.rotate(-Math.PI / 2); context.fillText(axisLegend?.vertical.title ?? "세로 점수", 0, 0); context.restore();
+  context.fillStyle = lineColor; context.font = "700 12px sans-serif"; context.textAlign = "left"; context.fillText(`대표 뉴런 기준선 ${neuron + 1}`, Math.min(width - 145, end.x + 10), Math.max(28, end.y - 10)); context.strokeStyle = "#7b8491"; context.lineWidth = 1.1; context.strokeRect(margin.left, margin.top, plotW, plotH); context.fillStyle = "#535e6d"; context.font = "12px sans-serif"; context.textAlign = "center"; context.fillText(axisLegend?.horizontal.title ?? "가로 점수", margin.left + plotW / 2, height - 9); context.save(); context.translate(15, margin.top + plotH / 2); context.rotate(-Math.PI / 2); context.fillText(axisLegend?.vertical.title ?? "세로 점수", 0, 0); context.restore();
 }
 
 

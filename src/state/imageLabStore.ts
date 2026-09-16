@@ -1,6 +1,7 @@
 import { evaluatePixelModel, forwardPixels, initializePixelModel, trainPixelModel, type PixelExample, type PixelModel } from "../core/pixelNetwork";
-import { constrainPixelModelToProjection, createPixelFeatureProjection, type PixelProjection, type PixelProjectionMode } from "../core/pixelProjection";
+import { constrainPixelModelToProjection, type PixelProjection, type PixelProjectionMode } from "../core/pixelProjection";
 import { IMAGE_INPUTS } from "../core/imageInput";
+import { imageFeatures, selectedImageProjection, type ImageFeature } from "../core/imageFeatures";
 import { createPixelDataset, PIXEL_TASKS, type PixelTaskName } from "../data/pixelDatasets";
 
 export type ImageTask = PixelTaskName | "webcam" | "custom";
@@ -9,6 +10,7 @@ export interface ImageSample extends PixelExample { id: number; image?: string; 
 export interface ImageState {
   task: ImageTask; classes: string[]; data: ImageSample[]; model: PixelModel; mode: ImageMode;
   projection: PixelProjection; feature: PixelProjectionMode; rate: number;
+  features: ImageFeature[]; xFeature: string; yFeature: string;
   history: Array<{ epoch: number; loss: number }>; selectedClass: number; selectedSample: number | null;
   input: number[]; inputImage?: string; inputSource: "drawing" | "webcam";
   testCount: number; testCorrect: number; revision: number;
@@ -25,8 +27,12 @@ export class ImageLabStore {
     const builtin = task === "digits" || task === "omr";
     const names = classes ?? (builtin ? [...PIXEL_TASKS[task].classes] : task === "webcam" ? ["가위", "바위", "보"] : ["클래스 1", "클래스 2"]);
     const data: ImageSample[] = builtin ? createPixelDataset(task).map((example) => ({ ...example, id: this.nextId++, source: "example" })) : [];
-    const model = initializePixelModel(IMAGE_INPUTS, 8, names.length, 31);
-    return { task, classes: names, data, model, mode: "pixels", projection: createPixelFeatureProjection(data, builtin ? task : "digits", "learned"), feature: "learned", rate: .12,
+    const features = imageFeatures(data), xFeature = task === "omr" ? "position" : builtin ? "ink" : "auto1", yFeature = task === "omr" ? "ink" : builtin ? "center" : "auto2";
+    const projection = selectedImageProjection(data, features, xFeature, yFeature);
+    const mode: ImageMode = task === "webcam" ? "pixels" : "map";
+    let model = initializePixelModel(IMAGE_INPUTS, 8, names.length, 31);
+    if (mode === "map") model = constrainPixelModelToProjection(model, projection);
+    return { task, classes: names, data, model, mode, projection, feature: "learned", features, xFeature, yFeature, rate: .12,
       history: [{ epoch: 0, loss: evaluatePixelModel(model, data).loss }], selectedClass: 0, selectedSample: null,
       input: Array<number>(IMAGE_INPUTS).fill(0), inputSource: task === "webcam" ? "webcam" : "drawing", testCount: 0, testCorrect: 0, revision: 0 };
   }
@@ -37,14 +43,29 @@ export class ImageLabStore {
   private reset(rebuildMap = false): void {
     this.testedInputs.clear();
     const s = this.state;
-    const projection = rebuildMap ? createPixelFeatureProjection(s.data, s.task === "omr" ? "omr" : "digits", s.feature) : s.projection;
+    const features = rebuildMap ? [...imageFeatures(s.data), ...s.features.filter(f => f.id.startsWith("custom-"))] : s.features;
+    const projection = rebuildMap ? selectedImageProjection(s.data, features, s.xFeature, s.yFeature) : s.projection;
     let model = initializePixelModel(IMAGE_INPUTS, s.model.hiddenUnits, s.classes.length, 31, s.model.activation);
     if (s.mode === "map") model = constrainPixelModelToProjection(model, projection);
-    this.state = { ...s, model, projection, selectedSample: null, history: [{ epoch: 0, loss: evaluatePixelModel(model, s.data).loss }], testCount: 0, testCorrect: 0, revision: s.revision + 1 };
+    this.state = { ...s, model, projection, features, selectedSample: null, history: [{ epoch: 0, loss: evaluatePixelModel(model, s.data).loss }], testCount: 0, testCorrect: 0, revision: s.revision + 1 };
   }
   resetModel(): void { this.reset(); this.emit(); }
   setMode(mode: ImageMode): void { if (mode === this.state.mode) return; this.state = { ...this.state, mode }; this.reset(true); this.emit(); }
-  setFeature(feature: PixelProjectionMode): void { this.state = { ...this.state, feature }; this.reset(true); this.emit(); }
+  setFeature(feature: PixelProjectionMode): void { this.state.feature = feature; this.setAxes(...(feature === "learned" ? ["auto1", "auto2"] : feature === "position" ? ["lr", "tb"] : ["ink", "center"]) as [string, string]); }
+  setAxes(xFeature: string, yFeature: string): string | null {
+    const s = this.state;
+    if (!s.features.some(f => f.id === xFeature) || !s.features.some(f => f.id === yFeature)) return "특징을 선택해 주세요.";
+    try { selectedImageProjection(s.data, s.features, xFeature, yFeature); } catch { return "두 축에는 서로 다른 정보를 세는 특징을 골라 주세요."; }
+    if (s.xFeature === xFeature && s.yFeature === yFeature) return null;
+    this.state = { ...s, xFeature, yFeature }; this.reset(true); this.emit(); return null;
+  }
+  addFeature(name: string, weights: number[]): string | null {
+    const s = this.state;
+    if (!name.trim() || s.features.some(f => f.name === name.trim())) return "겹치지 않는 특징 이름을 적어 주세요.";
+    if (s.features.length >= 12) return "새 특징은 최대 5개까지 추가할 수 있습니다.";
+    if (weights.length !== IMAGE_INPUTS || weights.some(w => ![-1, 0, 1].includes(w)) || weights.every(w => w === 0)) return "더하거나 뺄 칸을 한 칸 이상 골라 주세요.";
+    s.features = [...s.features, { id: `custom-${s.features.length}`, name: name.trim(), description: "주황 칸은 더하고 보라 칸은 뺍니다. 빈 칸은 세지 않습니다.", weights: [...weights] }]; this.emit(); return null;
+  }
   setHiddenUnits(value: number): void { this.state.model = { ...this.state.model, hiddenUnits: Math.max(1, Math.min(16, Math.round(value))) }; this.reset(); this.emit(); }
   setRate(rate: number): void { this.state.rate = Math.max(.01, Math.min(.3, rate)); this.emit(); }
   selectClass(label: number): void { if (this.state.classes[label] !== undefined) { this.state.selectedClass = label; this.emit(); } }

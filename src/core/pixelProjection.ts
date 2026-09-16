@@ -28,6 +28,22 @@ export function pixelAxisLegend(task: PixelTaskName, mode: PixelProjectionMode):
 
 function normalize(vector: number[]): number[] { const length = Math.sqrt(vector.reduce((sum, value) => sum + value * value, 0)) || 1; return vector.map((value) => value / length); }
 function dot(left: number[], right: number[]): number { return left.reduce((sum, value, index) => sum + value * (right[index] ?? 0), 0); }
+
+/** Preserve the chosen formulas, even when their regions overlap. Never silently rotate an axis. */
+export function projectionFromFeatures(data: PixelExample[], horizontal: number[], vertical: number[]): PixelProjection {
+  const aa = dot(horizontal, horizontal), bb = dot(vertical, vertical), ab = dot(horizontal, vertical);
+  if (aa * bb - ab * ab < 1e-10) throw new Error("서로 다른 정보를 세는 특징 두 개를 골라 주세요.");
+  const mean = horizontal.map((_, i) => data.reduce((sum, row) => sum + (row.pixels[i] ?? 0), 0) / Math.max(1, data.length));
+  const scale = (axis: number[]) => Math.max(.001, ...data.map(row => Math.abs(dot(row.pixels.map((v, i) => v - mean[i]!), axis)))) / .9;
+  return { mean, horizontal: [...horizontal], vertical: [...vertical], horizontalScale: scale(horizontal), verticalScale: scale(vertical) };
+}
+
+export function projectionBasis(projection: PixelProjection): { horizontal: number[]; vertical: number[] } {
+  const a = projection.horizontal, b = projection.vertical;
+  const aa = dot(a, a), bb = dot(b, b), ab = dot(a, b), determinant = aa * bb - ab * ab;
+  if (determinant < 1e-14) throw new Error("두 축이 같은 방향입니다.");
+  return { horizontal: a.map((v, i) => (bb * v - ab * b[i]!) / determinant), vertical: b.map((v, i) => (aa * v - ab * a[i]!) / determinant) };
+}
 function projectionFromAxes(data: PixelExample[], horizontalSeed: number[], verticalSeed: number[]): PixelProjection {
   const inputSize = data[0]?.pixels.length ?? 196; const mean = Array.from({ length: inputSize }, (_, index) => data.reduce((sum, example) => sum + (example.pixels[index] ?? 0), 0) / Math.max(1, data.length));
   const horizontal = normalize(horizontalSeed); const overlap = dot(verticalSeed, horizontal); const vertical = normalize(verticalSeed.map((value, index) => value - overlap * (horizontal[index] ?? 0)));
@@ -78,11 +94,13 @@ export function projectionAxisDetails(projection: PixelProjection, pixels: numbe
 export function projectPixels(projection: PixelProjection, pixels: number[]): { x: number; y: number } { return { x: projectionAxisDetails(projection, pixels, "horizontal").mapScore, y: projectionAxisDetails(projection, pixels, "vertical").mapScore }; }
 
 export function reconstructProjectedPixels(projection: PixelProjection, x: number, y: number): number[] {
-  return projection.mean.map((mean, index) => mean + x * projection.horizontalScale * (projection.horizontal[index] ?? 0) + y * projection.verticalScale * (projection.vertical[index] ?? 0));
+  const basis = projectionBasis(projection);
+  return projection.mean.map((mean, index) => mean + x * projection.horizontalScale * basis.horizontal[index]! + y * projection.verticalScale * basis.vertical[index]!);
 }
 
 export function constrainPixelModelToProjection(model: PixelModel, projection: PixelProjection): PixelModel {
-  const inputHidden = model.inputHidden.map((weights) => { const horizontalAmount = projection.horizontalScale * dot(weights, projection.horizontal); const verticalAmount = projection.verticalScale * dot(weights, projection.vertical); return weights.map((_, index) => horizontalAmount * (projection.horizontal[index] ?? 0) / projection.horizontalScale + verticalAmount * (projection.vertical[index] ?? 0) / projection.verticalScale); });
+  const basis = projectionBasis(projection);
+  const inputHidden = model.inputHidden.map(weights => { const a = dot(weights, basis.horizontal), b = dot(weights, basis.vertical); return weights.map((_, i) => a * projection.horizontal[i]! + b * projection.vertical[i]!); });
   return { ...model, inputHidden };
 }
 
