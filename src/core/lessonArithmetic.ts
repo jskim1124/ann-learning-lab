@@ -15,7 +15,7 @@ export function smallFeatureExample(id: string) {
 }
 export function outputTeachingModel(hiddenUnits = 2): PixelModel {
   const count = hiddenUnits === 1 ? 1 : 2;
-  return { inputSize: 2, hiddenUnits: count, classCount: 3, epoch: 0, activation: "relu", inputHidden: [[1, .5], [-.6, 1]].slice(0,count), hiddenBias: [0, .1].slice(0,count), hiddenOutput: [[-1, .8], [1, -.4], [.2, 1.3]].map(w=>w.slice(0,count)), outputBias: [1, 0, .15] };
+  return { inputSize: 2, hiddenUnits: count, classCount: 3, epoch: 0, activation: "relu", inputHidden: [[1, .5], [0, 1]].slice(0,count), hiddenBias: [0, 0].slice(0,count), hiddenOutput: [[-1, 0], [1, 0], [.5, 1]].map(w=>w.slice(0,count)), outputBias: [1, 0, .3] };
 }
 /** Finite-search learning: hold all weights fixed, compare only three bias candidates. */
 export function biasDirectionExample() {

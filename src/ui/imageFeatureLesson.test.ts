@@ -39,7 +39,9 @@ describe("네 단계 특징 탐구",()=>{
     expect((root.querySelector("#flText") as HTMLElement).hidden).toBe(true);
     expect((root.querySelector("#flPredict") as HTMLElement).hidden).toBe(false);
     click("flBiasCheck");click("flNext");
-    for(let i=0;i<4;i++)click("flAction");
+    for(let i=0;i<3;i++)click("flAction");
+    root.querySelector<HTMLButtonElement>('[data-output-answer="0"]')!.click();
+    for(let i=0;i<3;i++)click("flAction");
     expect(root.querySelector("#flCalculation")!.textContent).toContain("은닉 1개 → 출력 3개");
     (root.querySelector('[data-output-neurons="2"]') as HTMLButtonElement).click();
     expect(root.querySelector("#flCalculation")!.textContent).toContain("은닉 2개 → 출력 3개");

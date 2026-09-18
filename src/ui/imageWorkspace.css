@@ -41,6 +41,30 @@
 .movement-scores { display:flex; gap:12px; align-items:center; padding:8px; border-radius:8px; background:#f5f6f8; }
 .movement-scores > span { color:#f17605; flex:1; }
 .movement-scores > span:nth-child(2) { color:#df466f; }
+.movement-scores > span:nth-child(3) { color:#7446f5; }
+.point-truth { width:100%; flex:0 0 100%; font-size:15px; font-weight:700; margin:4px 0; }
+#flSelected:has(.point-truth) { flex-wrap:wrap; gap:0; }
+#flGraphTools { display:flex; justify-content:flex-end; width:100%; margin:6px 0; }
+#flGraphTools button { padding:6px 12px; min-height:34px; border-radius:9px; }
+#flGraphTools button[aria-pressed=true] { background:#eee8ff; color:#5324be; border-color:#7446f5; }
+.output-network { display:flex; align-items:center; gap:12px; width:100%; font-size:15px; }
+.output-signals { display:grid; gap:8px; }
+.output-signals > span { display:grid; gap:4px; padding:9px; border:2px solid var(--signal-color); border-radius:13px; text-align:center; min-width:78px; }
+.output-signals b { font-size:21px; color:var(--signal-color); }
+.output-signals small { font-size:14px; }
+.output-routes { display:grid; gap:7px; flex:1; min-width:0; }
+.output-route { display:flex; align-items:center; justify-content:space-between; gap:7px; border:1px solid #d5dbe3; border-radius:10px; padding:7px 9px; }
+.output-route > span { font-size:14px; color:#596574; }
+.output-route strong { color:var(--output-color); min-width:65px; white-space:nowrap; }
+.output-route.is-current { background:#f6f1ff; animation:calculation-pulse .8s; }
+.output-equation { font-size:20px; line-height:1.8; }
+.output-equation mark { background:#fff0df; color:#8d4200; padding:3px 8px; border-radius:5px; }
+.lesson-percent { width:min(620px,94vw); max-height:90dvh; border:1px solid #cbd2dd; border-radius:18px; padding:22px; font-size:16px; line-height:1.65; }
+.lesson-percent::backdrop { background:#20263366; }
+.lesson-percent h2 { font-size:21px; }
+.lesson-percent .score-conversion { display:flex; flex-wrap:wrap; }
+.plain-help { align-self:start; border:0; padding:5px 0; background:none; color:#1769d2; text-decoration:underline; }
+@media (prefers-reduced-motion:reduce) { .output-route.is-current { animation:none; } }
 .neuron-diagram { display:flex; align-items:center; gap:7px; width:100%; padding:9px 0; font-size:14px; line-height:1.5; }
 .neuron-inputs, .neuron-links, .neuron-output-links, .neuron-outputs { display:grid; gap:9px; flex:none; }
 .neuron-box { border:2px solid #7446f5; border-radius:14px; padding:9px; display:grid; gap:3px; flex:1; min-width:0; }
@@ -158,6 +182,15 @@
 .feature-lesson .image-calculation b { font-size: 17px; }
 .feature-lesson .image-lesson-copy > h2 { font-size: 20px; }
 .feature-lesson #flMap { width: 100%; flex: 1; min-height: 0; aspect-ratio: auto; cursor: pointer; }
+.output-lesson #flMap { min-height:180px; }
+.output-lesson #flSourceNote { margin:0 0 6px; }
+.output-lesson #flVisualNote { margin:5px 0; }
+.output-lesson .output-signals > span { padding:6px; gap:2px; }
+.output-lesson .output-signals b { font-size:18px; }
+@media (max-width:600px) {
+  .output-lesson .output-network { gap:7px; }
+  .output-lesson .output-route { padding:6px; }
+}
 .feature-lesson #flPicture { width: min(100%, 40dvh); }
 #flVisualNote { color: #626b76; font-size: 14px; margin: 10px 0; }
 #flSelected { display: flex; align-items: center; gap: 12px; font-size: 14px; width: 100%; }

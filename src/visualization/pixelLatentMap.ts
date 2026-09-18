@@ -49,7 +49,7 @@ function lineEndpoints(plane: { constant: number; horizontal: number; vertical: 
   return points.slice(0, 2);
 }
 
-export interface PixelMapOptions { view?: PixelMapView; focusLabel?: string; previousModel?: PixelModel; highlightAxis?: "horizontal" | "vertical"; showNeuronBoundaries?: boolean; showDecisionBoundary?: boolean; axisLegend?: PixelAxisLegend; onlyNeuron?: number; resolution?: number; classLabels?: string[]; neutralBackground?: boolean; markerColor?: string; }
+export interface PixelMapOptions { view?: PixelMapView; focusLabel?: string; previousModel?: PixelModel; highlightAxis?: "horizontal" | "vertical"; showNeuronBoundaries?: boolean; showDecisionBoundary?: boolean; showDataLabels?: boolean; axisLegend?: PixelAxisLegend; onlyNeuron?: number; resolution?: number; classLabels?: string[]; neutralBackground?: boolean; markerColor?: string; }
 
 export function drawPixelLatentMap(canvas: HTMLCanvasElement, model: PixelModel, data: PixelExample[], focusPixels: number[], projection: PixelProjection, options: PixelMapOptions = {}): void {
   const context = canvas.getContext("2d"); if (!context) return;
@@ -114,8 +114,27 @@ export function drawPixelLatentMap(canvas: HTMLCanvasElement, model: PixelModel,
       context.stroke();
     }
   }
-  data.forEach((example) => { const point = projectPixels(projection, example.pixels); const x = margin.left + (point.x + 1) / 2 * plotW; const y = margin.top + (1 - (point.y + 1) / 2) * plotH; context.beginPath(); context.arc(x, y, 4.7, 0, Math.PI * 2); context.fillStyle = options.markerColor ?? STRONG[example.label % STRONG.length]!; context.globalAlpha = view === "placement" ? .65 : 1; context.fill(); context.globalAlpha = 1; context.strokeStyle = "#fff"; context.lineWidth = 1.2; context.stroke(); });
-  if (focusPixels.length) { const point = projectPixels(projection, focusPixels); const x = margin.left + (point.x + 1) / 2 * plotW; const y = margin.top + (1 - (point.y + 1) / 2) * plotH; context.beginPath(); context.arc(x, y, 9, 0, Math.PI * 2); context.fillStyle = "rgba(255,255,255,.9)"; context.fill(); context.strokeStyle = "#111722"; context.lineWidth = 3; context.stroke(); context.fillStyle = "#111722"; context.font = "700 11px sans-serif"; context.textAlign = x > margin.left + plotW * .76 ? "right" : "left"; context.fillText(options.focusLabel ?? "이 그림", x + (context.textAlign === "right" ? -12 : 12), y - 10); }
+  const pointLabel=(text:string,x:number,y:number,color:string)=>{
+    context.font="700 14px sans-serif";context.textAlign="left";
+    if(context.measureText(text).width>plotW-12){while(text.length>1&&context.measureText(text+'…').width>plotW-12)text=text.slice(0,-1);text+='…';}
+    const textWidth=context.measureText(text).width;
+    const left=Math.max(margin.left+3,Math.min(width-margin.right-textWidth-5,x-textWidth/2));
+    const top=Math.max(margin.top+16,y-13);
+    context.fillStyle="rgba(255,255,255,.94)";context.fillRect(left-3,top-14,textWidth+6,19);
+    context.fillStyle=color;context.fillText(text,left,top);
+  };
+  data.forEach((example) => {
+    const point=projectPixels(projection,example.pixels),p=mapCanvasPoint(point,plotW,plotH);
+    context.beginPath();context.arc(p.x,p.y,4.7,0,Math.PI*2);context.fillStyle=options.markerColor??STRONG[example.label%STRONG.length]!;
+    context.globalAlpha=view==="placement"?.65:1;context.fill();context.globalAlpha=1;context.strokeStyle="#fff";context.lineWidth=1.2;context.stroke();
+    const focused=focusPixels.length===example.pixels.length&&example.pixels.every((v,i)=>Math.abs(v-focusPixels[i]!)<1e-8);
+    if(options.showDataLabels&&!focused)pointLabel(`정답 ${options.classLabels?.[example.label]??example.label}`,p.x,p.y,STRONG[example.label%STRONG.length]!);
+  });
+  if(focusPixels.length){
+    const point=projectPixels(projection,focusPixels),p=mapCanvasPoint(point,plotW,plotH);
+    context.beginPath();context.arc(p.x,p.y,9,0,Math.PI*2);context.fillStyle="rgba(255,255,255,.9)";context.fill();context.strokeStyle="#111722";context.lineWidth=3;context.stroke();
+    pointLabel(options.focusLabel??"이 그림",p.x,p.y,"#111722");
+  }
   regionLabels.forEach((p,c)=>{const x=margin.left+(p.x+1)/2*plotW,y=margin.top+(1-p.y)/2*plotH;context.font="bold 14px sans-serif";context.textAlign="center";context.fillStyle="rgba(255,255,255,.92)";context.fillRect(x-42,y-17,84,24);context.fillStyle=STRONG[c%STRONG.length]!;context.fillText(`${options.classLabels![c]}로 예상`,x,y);});
   const legend = options.axisLegend; const horizontalLabel = legend?.horizontal.title ?? "가로 점수"; const verticalLabel = legend?.vertical.title ?? "세로 점수";
   context.strokeStyle = "#7b8491"; context.lineWidth = 1.1; context.strokeRect(margin.left, margin.top, plotW, plotH); context.fillStyle = "#535e6d"; context.font = "12px sans-serif"; context.textAlign = "center"; context.fillText(horizontalLabel, margin.left + plotW / 2, height - 8); context.save(); context.translate(15, margin.top + plotH / 2); context.rotate(-Math.PI / 2); context.fillText(verticalLabel, 0, 0); context.restore();

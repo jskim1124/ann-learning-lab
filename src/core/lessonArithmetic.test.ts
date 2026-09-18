@@ -27,7 +27,8 @@ describe("한눈에 따라 계산하는 작은 예제", () => {
   it("출력값은 변환된 뉴런 신호에 연결값을 곱한 합이다",()=>{
     const model=outputTeachingModel(), values=forwardPixels(model,[.4,.2]);
     expect(values.hidden[0]).toBeCloseTo(.4+.2*.5);
-    expect(values.logits[0]).toBeCloseTo(-values.hidden[0]!+values.hidden[1]!*.8+1);
+    expect(values.logits[0]).toBeCloseTo(-values.hidden[0]!+1);
+    expect(values.logits[2]).toBeCloseTo(values.hidden[0]!*.5+values.hidden[1]!+.3);
   });
   it("애니메이션 중간 계산과 경계 위치도 실제 모델과 일치한다",()=>{
     const {frames,point}=biasDirectionExample(), original=JSON.stringify(frames);

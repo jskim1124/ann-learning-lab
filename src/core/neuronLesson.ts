@@ -1,7 +1,16 @@
 import { biasDirectionExample } from "./lessonArithmetic";
-import { forwardPixels, type PixelModel } from "./pixelNetwork";
+import { forwardPixels, type PixelExample, type PixelModel } from "./pixelNetwork";
 
 export const NEURON_INTRO_STEPS = 5;
+export const LESSON_PROJECTION = { mean:[0,0], horizontal:[1,0], vertical:[0,1], horizontalScale:1, verticalScale:1 };
+// Teacher-labelled fictional examples, independent of the current model's predictions.
+export const NEURON_EXAMPLES: PixelExample[] = [
+  {pixels:[-.7,.65],label:0}, {pixels:[-.6,-.55],label:0},
+  {pixels:[.2,.2],label:1}, {pixels:[.75,.65],label:1}, {pixels:[.8,-.65],label:1},
+];
+export function lessonTruth(point:number[], examples:PixelExample[]=NEURON_EXAMPLES):number|null {
+  return examples.find(e=>e.pixels.every((v,i)=>Math.abs(v-point[i]!)<1e-8))?.label??null;
+}
 export const NEURON_PROBES: Record<string, { title: string; point: [number, number] }> = {
   input: { title: "처음 점 (0.2, 0.2)", point: [.2, .2] },
   purple1: { title: "(−0.5, 1)", point: [-.5, 1] },
