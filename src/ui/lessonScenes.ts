@@ -36,16 +36,16 @@ export function renderOutputScene(root:HTMLElement,focus:number[],stage:number,h
 
 export function renderMovementScene(root:HTMLElement,s:ImageState,toy:boolean,frame:number,bias:ReturnType<typeof biasDirectionExample>,movement:ReturnType<typeof featureMovementExample>):SceneQuiz {
   const frames=toy?bias.frames:movement.frames,lo=Math.floor(frame),hi=Math.min(frames.length-1,lo+1);
-  const before=frames[0]!,after=interpolatePixelModel(frames[lo]!,frames[hi]!,frame-lo),point=toy?bias.point:movement.example.pixels,projection=toy?identity:s.projection;
+  const before=frames[0]!,after=toy?{...before,hiddenBias:[frame/10]}:interpolatePixelModel(frames[lo]!,frames[hi]!,frame-lo),point=toy?bias.point:movement.example.pixels,projection=toy?identity:s.projection;
   const r=forwardPixels(after,point),old=forwardPixels(before,point),p=projectPixels(projection,point),label=toy?1:movement.example.label;
-  el(root,"flTitle").textContent=toy?"선을 왼쪽으로 옮기면 이 점은?":"같은 원리를 내 자료에 적용해요";
+  el(root,"flTitle").textContent=toy?"마지막에 더하는 수만 바꿔 볼까요?":"같은 원리를 내 자료에 적용해요";
   el(root,"flVisualTitle").textContent="점은 고정 · 계산값과 경계가 함께 이동";
-  el(root,"flText").textContent=toy?"점의 위치는 (0.2, 0.2), 정답은 B입니다. 다른 값은 고정하고 더해주는 값만 0.1씩 늘려 봅니다. 퍼센트가 아닌 ‘출력 점수’로 비교합니다.":"실제 학습은 오차가 줄어드는 방향을 계산해 여러 연결값을 함께 고칩니다. 이 예제에서는 한 그림을 반복 학습하고 대표선 하나를 봅니다.";
+  el(root,"flText").textContent=toy?"점 (0.2, 0.2)의 정답은 B입니다. 슬라이더는 보라색 수 한 곳만 바꿉니다. 입력이나 곱할 수는 바꾸지 않아요.":"실제 학습은 오차가 줄어드는 방향을 계산해 여러 연결값을 함께 고칩니다. 이 예제에서는 한 그림을 반복 학습하고 대표선 하나를 봅니다.";
   if(toy){const b=after.hiddenBias[0]!;
-    el(root,"flCalculation").innerHTML=`<span>① 뉴런의 합: 0.2 × 1 + 0.2 × 0.5 + <b>${n(b)}</b> = <b>${n(.3+b)}</b></span><div class="movement-scores"><span>A <b>${n(r.logits[0]!)}</b></span><span>B <b>${n(r.logits[1]!)}</b></span><strong>${Math.abs(r.logits[0]!-r.logits[1]!)<1e-8?"같은 점수":r.logits[0]!>r.logits[1]! ? "지금 예상 A":"지금 예상 B"}</strong></div><span>더해주는 값이 0.1 커지면 신호는 0.1 커지고, A는 0.1 작아지고 B는 0.1 커집니다.</span>`;
+    el(root,"flCalculation").innerHTML=`<span>곱한 값은 그대로: 0.2 × 1 = 0.2 · 0.2 × 0.5 = 0.1</span><div class="bias-equation">합 = 0.2 + 0.1 + <mark class="bias-value">(${n(b)})</mark> = <b>${n(.3+b)}</b> → 보낼 값 <b>${n(r.hidden[0]!)}</b></div><div class="movement-scores"><span>A: 1 − ${n(r.hidden[0]!)} = <b>${n(r.logits[0]!)}</b></span><span>B: <b>${n(r.logits[1]!)}</b><small>처음 0.3 → ${n(r.logits[1]!)}</small></span><strong>${Math.abs(r.logits[0]!-r.logits[1]!)<1e-8?"같은 점수":r.logits[0]!>r.logits[1]! ? "지금 예상 A":"지금 예상 B"}</strong></div>${.3+b<0?'<span>합이 음수라 0을 보냅니다. 여기서는 수를 더 줄여도 B는 0입니다.</span>':''}`;
     el(root,"flSelected").innerHTML=neuronDiagram(after,point,3);
-    el(root,"flCalculation").innerHTML+=`<span>검은 경계는 신호가 0.5인 곳. 세로 0.2에서는<br>가로 + 0.1 + ${n(b)} = 0.5 → 가로 <b>${n(.4-b)}</b></span>`;
-    el(root,"flVisualNote").textContent="보라선: 은닉 뉴런의 합 0 · 검은 선: A와 B가 같은 점수 · 파란 화살표: 검은 경계의 이동";
+    el(root,"flVisualNote").textContent=`검은 경계는 A = B = 0.5. 세로 0.2에서 가로 + 0.1 + (${n(b)}) = 0.5이므로, 경계의 가로는 ${n(.4-b)}입니다.`;
+    el(root,"flSourceNote").textContent="한 수만 직접 바꾸는 작은 실험 · 실제 학습은 여러 연결값을 함께 고칩니다.";
   }else{const a=hiddenPlane(before,projection,0),b=hiddenPlane(after,projection,0);
     el(root,"flCalculation").innerHTML=`<span>전: ${n(p.x)} × ${n(a.horizontal)} + ${n(p.y)} × (${n(a.vertical)}) + (${n(a.constant)}) ≈ ${n(pixelHiddenLineValue(before,point,0))}</span><span>후: ${n(p.x)} × ${n(b.horizontal)} + ${n(p.y)} × (${n(b.vertical)}) + (${n(b.constant)}) ≈ ${n(pixelHiddenLineValue(after,point,0))}</span><span>정답의 출력 점수: ${n(old.logits[label]!)} → <b>${n(r.logits[label]!)}</b></span><span>다른 출력들과 함께 비교합니다. 한 뉴런의 값이 커진다고 언제나 정답 점수가 커지는 것은 아닙니다.</span>`;
     el(root,"flVisualNote").textContent="점 색은 정답, 배경은 모델의 현재 예상입니다. 은닉 기준선과 최종 경계는 다를 수 있습니다.";

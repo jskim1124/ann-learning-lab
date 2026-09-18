@@ -52,9 +52,56 @@
 .neuron-outputs span + span { border-color:#df466f; color:#b22f55; }
 .neuron-terms { display:flex; gap:8px; }
 .neuron-terms > span { flex:1; padding:8px; border-radius:8px; background:#f5f6f8; }
-.neuron-probes { display:flex; flex-wrap:wrap; gap:6px; }
-.neuron-probes button { flex:1 1 29%; padding:7px; border-radius:8px; font-size:14px; }
-.neuron-probes button[aria-pressed=true] { color:#1769d2; background:#e9f1fe; border-color:#1769d2; }
+.feature-lesson #flMap { touch-action:none; }
+.arithmetic-term { display:grid; gap:5px; border:2px solid transparent; font-size:16px; }
+.arithmetic-term small { font-size:14px; }
+.arithmetic-term.is-pending { color:#687381; background:#fafafa; }
+.feature-lesson .is-current { border-color:#7446f5; background:#f1ecff; color:#4d27aa; }
+.arithmetic-sum { padding:10px; border-radius:10px; font-size:20px; transition:background .3s; }
+.arithmetic-explanation { min-height:2.8em; margin:3px 0; }
+.arithmetic-check { display:grid; gap:5px; padding-top:12px; border-top:1px solid #cdd3dd; margin-top:8px; }
+.arithmetic-check p { margin:2px 0; }
+.arithmetic-check p:empty { display:none; }
+.arithmetic-token { display:inline-block; animation:arithmetic-flow .7s ease both; }
+#flArithmeticFlow { flex:1; width:100%; min-height:0; display:flex; flex-direction:column; justify-content:center; }
+#flArithmeticFlow svg { width:100%; max-height:100%; min-height:150px; flex:1; }
+#flArithmeticFlow p { font-size:15px; text-align:center; }
+#flArithmeticFlow text { fill:#202633; font-size:22px; font-weight:700; }
+#flArithmeticFlow .flow-label { font-size:17px; font-weight:500; }
+#flArithmeticFlow rect { fill:#f6f7f9; stroke:#cbd0d9; }
+#flArithmeticFlow .flow-wire { stroke:#cbd0d9; stroke-width:3; fill:none; }
+#flArithmeticFlow .flow-reached { stroke:#7446f5; }
+#flArithmeticFlow .flow-active rect,.flow-total { fill:#f1ecff; stroke:#7446f5; stroke-width:2; }
+#flArithmeticFlow .flow-total { fill:#f1ecff; }
+#flArithmeticFlow .flow-number { font-size:36px; fill:#5324be; }
+#flArithmeticFlow .flow-packet circle { fill:#7446f5; }
+#flArithmeticFlow .flow-packet text { fill:white; font-size:18px; }
+.flow-mobile-controls { display:none; }
+@media (max-width:900px) { .flow-mobile-controls { display:flex; gap:8px; font-size:15px; justify-content:center; } }
+@media (max-width:500px) {
+  #flArithmeticFlow text { font-size:28px; }
+  #flArithmeticFlow .flow-label { font-size:24px; }
+  #flArithmeticFlow .flow-packet text { font-size:24px; }
+}
+.bias-value { background:#ebe2ff; color:#5324be; border-radius:5px; padding:2px 6px; font-weight:700; }
+.bias-equation { font-size:18px; padding:6px 0; }
+.bias-experiment { display:grid; gap:6px; border:1px solid #dcd2f4; border-radius:12px; padding:10px; }
+.bias-experiment label { display:flex; justify-content:space-between; align-items:center; font-size:15px; }
+.bias-experiment output { color:#5324be; font-size:20px; font-weight:700; min-width:45px; text-align:right; }
+.bias-experiment input { width:100%; accent-color:#7446f5; margin:0; }
+.bias-scale { position:relative; display:flex; justify-content:space-between; color:#626b76; font-size:14px; }
+.bias-scale span:nth-child(2) { position:absolute; left:38.46%; transform:translateX(-50%); }
+.bias-check-row { display:flex; align-items:center; gap:8px; font-size:14px; }
+.bias-check-row button { padding:6px 10px; min-height:34px; flex:none; }
+.bias-check-row .wrong,.arithmetic-check .wrong { color:#ac2851; }
+.bias-check-row .correct,.arithmetic-check .correct { color:#1255b2; }
+.bias-check-row button.wrong { background:#fff0f4; border-color:#df466f; }
+.bias-check-row button.correct { background:#e6efff; border-color:#1769d2; }
+.movement-scores small { display:block; color:#626b76; font-size:14px; }
+.trace-result { display:grid; gap:8px; margin-top:10px; }
+.trace-result button { justify-self:start; border-radius:8px; }
+@keyframes arithmetic-flow { from { opacity:0; transform:translate(-18px,-5px) scale(.8); } to { opacity:1; transform:none; } }
+@media (prefers-reduced-motion:reduce) { .arithmetic-token { animation:none; } }
 @media (max-width:500px) {
   .neuron-diagram { flex-wrap:wrap; }
   .neuron-box { flex-basis:45%; }

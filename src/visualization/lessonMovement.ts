@@ -14,6 +14,6 @@ export function drawLessonMovement(canvas:HTMLCanvasElement,before:PixelModel,cu
     const y=point[1]!,start=.5-.5*y-before.hiddenBias[0]!,end=.5-.5*y-current.hiddenBias[0]!;
     ctx.strokeStyle="#344054";ctx.lineWidth=2;ctx.setLineDash([3,4]);ctx.beginPath();ctx.moveTo(px(-1),py(y));ctx.lineTo(px(1),py(y));ctx.stroke();ctx.setLineDash([]);
     ctx.fillStyle="#202633";ctx.beginPath();ctx.arc(px(end),py(y),5,0,Math.PI*2);ctx.fill();
-    if(Math.abs(end-start)>.005){const ex=px(end),sx=px(start),yy=py(y)+25;ctx.strokeStyle="#1f6bd6";ctx.fillStyle="#1f6bd6";ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(sx,yy);ctx.lineTo(ex,yy);ctx.stroke();ctx.beginPath();ctx.moveTo(ex,yy);ctx.lineTo(ex+8,yy-5);ctx.lineTo(ex+8,yy+5);ctx.closePath();ctx.fill();}
+    if(Math.abs(end-start)>.005){const ex=px(end),sx=px(start),yy=py(y)+25,back=ex>sx?-8:8;ctx.strokeStyle="#1f6bd6";ctx.fillStyle="#1f6bd6";ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(sx,yy);ctx.lineTo(ex,yy);ctx.stroke();ctx.beginPath();ctx.moveTo(ex,yy);ctx.lineTo(ex+back,yy-5);ctx.lineTo(ex+back,yy+5);ctx.closePath();ctx.fill();}
   }
 }

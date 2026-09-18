@@ -19,6 +19,14 @@ function mapCanvasPoint(point: { x: number; y: number }, plotW: number, plotH: n
   return { x: MAP_MARGIN.left + (point.x + 1) / 2 * plotW, y: MAP_MARGIN.top + (1 - (point.y + 1) / 2) * plotH };
 }
 
+/** Inverse of the rendered plot geometry, in CSS pixels (independent of DPR). */
+export function pixelMapInputAt(canvas: HTMLCanvasElement, clientX: number, clientY: number): [number, number] | null {
+  const rect = canvas.getBoundingClientRect(), { plotW, plotH } = mapGeometry(canvas);
+  const x = (clientX - rect.left - MAP_MARGIN.left) / plotW;
+  const y = (clientY - rect.top - MAP_MARGIN.top) / plotH;
+  return x < 0 || x > 1 || y < 0 || y > 1 ? null : [2*x-1, 1-2*y];
+}
+
 function dot(left: number[], right: number[]): number { return left.reduce((sum, value, index) => sum + value * (right[index] ?? 0), 0); }
 function mixWithWhite(hex: string, strength: number): string {
   const rgb = [1, 3, 5].map((start) => Number.parseInt(hex.slice(start, start + 2), 16)); const amount = Math.max(0, Math.min(1, strength));

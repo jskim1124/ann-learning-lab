@@ -294,13 +294,13 @@ function renderQuiz(state: LabState, store: LabStore): void {
   quiz.choices.forEach(([value, label]) => {
     const button = document.createElement("button"); button.type = "button"; button.className = "quiz-choice"; button.textContent = label;
     if (correct) button.disabled = true;
-    if (state.quizAnswer && value === quiz.correct) button.classList.add("correct");
+    if (correct && value === state.quizAnswer) button.classList.add("correct");
     if (state.quizAnswer === value && !correct) button.classList.add("wrong");
     button.addEventListener("click", () => store.answerQuiz(value)); choices.append(button);
   });
   const feedback = element<HTMLElement>("#quizFeedback");
   feedback.hidden = state.quizAnswer === null; feedback.className = state.quizAnswer ? `quiz-feedback ${correct ? "correct" : "wrong"}` : "quiz-feedback";
-  feedback.textContent = state.quizAnswer ? `${correct ? "맞았습니다! " : "그래프를 다시 보고 골라 보세요. "}${quiz.explanation}` : "";
+  feedback.textContent = state.quizAnswer ? correct ? `맞았습니다! ${quiz.explanation}` : "오답입니다. 그래프를 다시 보고 골라 보세요." : "";
   const next = element<HTMLButtonElement>("#nextQuiz"); next.hidden = !correct; next.textContent = state.explanationStep === 4 ? "직접 연습시키기 →" : "다음 장면 →";
 }
 
