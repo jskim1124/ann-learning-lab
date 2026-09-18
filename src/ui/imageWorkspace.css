@@ -41,6 +41,25 @@
 .movement-scores { display:flex; gap:12px; align-items:center; padding:8px; border-radius:8px; background:#f5f6f8; }
 .movement-scores > span { color:#f17605; flex:1; }
 .movement-scores > span:nth-child(2) { color:#df466f; }
+.neuron-diagram { display:flex; align-items:center; gap:7px; width:100%; padding:9px 0; font-size:14px; line-height:1.5; }
+.neuron-inputs, .neuron-links, .neuron-output-links, .neuron-outputs { display:grid; gap:9px; flex:none; }
+.neuron-box { border:2px solid #7446f5; border-radius:14px; padding:9px; display:grid; gap:3px; flex:1; min-width:0; }
+.neuron-box strong { color:#7446f5; }
+.neuron-box.is-active { background:#f3efff; }
+.neuron-inputs span { background:#f5f6f8; border-radius:7px; padding:4px 7px; }
+.neuron-links, .neuron-output-links { color:#626b76; font-size:14px; }
+.neuron-outputs span { border:1px solid #f17605; border-radius:8px; padding:4px 8px; color:#b65500; }
+.neuron-outputs span + span { border-color:#df466f; color:#b22f55; }
+.neuron-terms { display:flex; gap:8px; }
+.neuron-terms > span { flex:1; padding:8px; border-radius:8px; background:#f5f6f8; }
+.neuron-probes { display:flex; flex-wrap:wrap; gap:6px; }
+.neuron-probes button { flex:1 1 29%; padding:7px; border-radius:8px; font-size:14px; }
+.neuron-probes button[aria-pressed=true] { color:#1769d2; background:#e9f1fe; border-color:#1769d2; }
+@media (max-width:500px) {
+  .neuron-diagram { flex-wrap:wrap; }
+  .neuron-box { flex-basis:45%; }
+  .neuron-output-links { margin-left:auto; }
+}
 .boundary-position { display:grid; gap:4px; background:#f4f6f9; border-radius:10px; padding:10px; font-size:14px; line-height:1.4; width:100%; }
 .score-conversion { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
 .score-conversion span { padding:6px; background:#f5f6f8; border-radius:7px; }
@@ -312,6 +331,7 @@
   .image-lesson-visual > canvas { max-height: none; width: min(100%, 300px); }
 }
 @media (max-width: 500px) {
+  .feature-lesson #flMap { min-height:190px; }
   .image-results-panel .image-training-choice { grid-template-columns: 1fr; }
   .image-results-panel .image-training-choice > select { margin-top: 0; }
   .feature-lesson .image-lesson-copy { gap: 6px; }

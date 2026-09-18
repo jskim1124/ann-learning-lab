@@ -1,6 +1,7 @@
 import { forward } from "../core/neuralNetwork";
 import type { DataPoint, NetworkModel } from "../types";
 import { canvasPoint, PALETTE, probabilityColor } from "./canvasUtils";
+import { drawCoordinateGrid, drawCoordinateTicks } from "./coordinateGrid";
 
 export { NEURON_COLORS as HIDDEN_COLORS } from "./neuronColors";
 import { NEURON_COLORS as HIDDEN_COLORS } from "./neuronColors";
@@ -50,14 +51,7 @@ export function contourCell(corners: [[number, number, number], [number, number,
 }
 
 function drawGrid(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement): void {
-  ctx.strokeStyle = "rgba(66, 75, 90, .17)"; ctx.lineWidth = 1;
-  for (let step = 0; step <= 8; step += 1) {
-    const x = (step / 8) * canvas.width; const y = (step / 8) * canvas.height;
-    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
-  }
-  ctx.strokeStyle = "rgba(37,48,71,.45)";
-  ctx.beginPath(); ctx.moveTo(canvas.width / 2, 0); ctx.lineTo(canvas.width / 2, canvas.height); ctx.moveTo(0, canvas.height / 2); ctx.lineTo(canvas.width, canvas.height / 2); ctx.stroke();
+  drawCoordinateGrid(ctx, {left:0, top:0, width:canvas.width, height:canvas.height});
 }
 
 function drawHiddenBoundaries(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, model: NetworkModel, selectedNeuron: number, emphasizeSelected: boolean): void {
@@ -106,6 +100,7 @@ export function drawDecisionSurface(canvas: HTMLCanvasElement, model: NetworkMod
     const p = data[options.selectedPoint]!; const [x,y] = canvasPoint(canvas,p.x,p.y);
     ctx.strokeStyle="#202633";ctx.lineWidth=3;ctx.beginPath();ctx.arc(x,y,12,0,Math.PI*2);ctx.stroke();
   }
+  drawCoordinateTicks(ctx, {left:0, top:0, width:canvas.width, height:canvas.height});
   if (options.showProbe === false) return;
   const [tx, ty] = canvasPoint(canvas, testInput.x, testInput.y);
   if (options.highlightRevealed) {

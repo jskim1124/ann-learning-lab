@@ -3,6 +3,7 @@ import { pixelAxisLegend, projectPixels, projectionBasis, type PixelAxisLegend, 
 import type { PixelTaskName } from "../data/pixelDatasets";
 import { classContours } from "./classContours";
 import { NEURON_COLORS as HIDDEN } from "./neuronColors";
+import { drawCoordinateGrid, drawCoordinateTicks } from "./coordinateGrid";
 
 const STRONG = ["#f17605", "#df466f", "#7446f5", "#1f6bd6", "#1558b7", "#a93658"];
 export type PixelMapView = "placement" | "decision";
@@ -40,7 +41,7 @@ function lineEndpoints(plane: { constant: number; horizontal: number; vertical: 
   return points.slice(0, 2);
 }
 
-export interface PixelMapOptions { view?: PixelMapView; focusLabel?: string; previousModel?: PixelModel; highlightAxis?: "horizontal" | "vertical"; showNeuronBoundaries?: boolean; showDecisionBoundary?: boolean; axisLegend?: PixelAxisLegend; onlyNeuron?: number; resolution?: number; classLabels?: string[]; }
+export interface PixelMapOptions { view?: PixelMapView; focusLabel?: string; previousModel?: PixelModel; highlightAxis?: "horizontal" | "vertical"; showNeuronBoundaries?: boolean; showDecisionBoundary?: boolean; axisLegend?: PixelAxisLegend; onlyNeuron?: number; resolution?: number; classLabels?: string[]; neutralBackground?: boolean; markerColor?: string; }
 
 export function drawPixelLatentMap(canvas: HTMLCanvasElement, model: PixelModel, data: PixelExample[], focusPixels: number[], projection: PixelProjection, options: PixelMapOptions = {}): void {
   const context = canvas.getContext("2d"); if (!context) return;
@@ -56,7 +57,7 @@ export function drawPixelLatentMap(canvas: HTMLCanvasElement, model: PixelModel,
     const row: number[] = []; classes.push(row); const previousRow: number[] = []; previousClasses.push(previousRow);
     for (let gx = 0; gx < cells; gx += 1) {
       const x = (gx + .5) / cells * 2 - 1; const y = 1 - (gy + .5) / cells * 2;
-      if (view === "placement") {
+      if (view === "placement" || options.neutralBackground) {
         context.fillStyle = "#fafafa";
       } else if (options.onlyNeuron !== undefined && options.showDecisionBoundary === false) {
         // A neuron lesson shows its signed sum, not a misleading final-class background.
@@ -74,7 +75,8 @@ export function drawPixelLatentMap(canvas: HTMLCanvasElement, model: PixelModel,
     }
   }
   context.strokeStyle = "rgba(73,83,98,.16)"; context.lineWidth = 1;
-  for (let tick = 0; tick <= 4; tick += 1) { const x = margin.left + tick * plotW / 4; const y = margin.top + tick * plotH / 4; context.beginPath(); context.moveTo(x, margin.top); context.lineTo(x, margin.top + plotH); context.stroke(); context.beginPath(); context.moveTo(margin.left, y); context.lineTo(margin.left + plotW, y); context.stroke(); }
+  drawCoordinateGrid(context, {left:margin.left, top:margin.top, width:plotW, height:plotH});
+  drawCoordinateTicks(context, {left:margin.left, top:margin.top, width:plotW, height:plotH});
   if (view === "placement" && focusPixels.length && options.highlightAxis) {
     const point = projectPixels(projection, focusPixels); const x = margin.left + (point.x + 1) / 2 * plotW; const y = margin.top + (1 - (point.y + 1) / 2) * plotH;
     context.fillStyle = "rgba(23,105,210,.09)"; if (options.highlightAxis === "horizontal") context.fillRect(x - 11, margin.top, 22, plotH); else context.fillRect(margin.left, y - 11, plotW, 22);
@@ -104,10 +106,10 @@ export function drawPixelLatentMap(canvas: HTMLCanvasElement, model: PixelModel,
       context.stroke();
     }
   }
-  data.forEach((example) => { const point = projectPixels(projection, example.pixels); const x = margin.left + (point.x + 1) / 2 * plotW; const y = margin.top + (1 - (point.y + 1) / 2) * plotH; context.beginPath(); context.arc(x, y, 4.7, 0, Math.PI * 2); context.fillStyle = STRONG[example.label % STRONG.length]!; context.globalAlpha = view === "placement" ? .65 : 1; context.fill(); context.globalAlpha = 1; context.strokeStyle = "#fff"; context.lineWidth = 1.2; context.stroke(); });
+  data.forEach((example) => { const point = projectPixels(projection, example.pixels); const x = margin.left + (point.x + 1) / 2 * plotW; const y = margin.top + (1 - (point.y + 1) / 2) * plotH; context.beginPath(); context.arc(x, y, 4.7, 0, Math.PI * 2); context.fillStyle = options.markerColor ?? STRONG[example.label % STRONG.length]!; context.globalAlpha = view === "placement" ? .65 : 1; context.fill(); context.globalAlpha = 1; context.strokeStyle = "#fff"; context.lineWidth = 1.2; context.stroke(); });
   if (focusPixels.length) { const point = projectPixels(projection, focusPixels); const x = margin.left + (point.x + 1) / 2 * plotW; const y = margin.top + (1 - (point.y + 1) / 2) * plotH; context.beginPath(); context.arc(x, y, 9, 0, Math.PI * 2); context.fillStyle = "rgba(255,255,255,.9)"; context.fill(); context.strokeStyle = "#111722"; context.lineWidth = 3; context.stroke(); context.fillStyle = "#111722"; context.font = "700 11px sans-serif"; context.textAlign = x > margin.left + plotW * .76 ? "right" : "left"; context.fillText(options.focusLabel ?? "이 그림", x + (context.textAlign === "right" ? -12 : 12), y - 10); }
   regionLabels.forEach((p,c)=>{const x=margin.left+(p.x+1)/2*plotW,y=margin.top+(1-p.y)/2*plotH;context.font="bold 14px sans-serif";context.textAlign="center";context.fillStyle="rgba(255,255,255,.92)";context.fillRect(x-42,y-17,84,24);context.fillStyle=STRONG[c%STRONG.length]!;context.fillText(`${options.classLabels![c]}로 예상`,x,y);});
-  const legend = options.axisLegend; const horizontalLabel = legend ? `${legend.horizontal.title}   ${legend.horizontal.negative}  ←  0  →  ${legend.horizontal.positive}` : "가로 점수   −1  ←   0   →  +1"; const verticalLabel = legend ? `${legend.vertical.title}   ${legend.vertical.negative}  ←  0  →  ${legend.vertical.positive}` : "세로 점수   −1  ←   0   →  +1";
+  const legend = options.axisLegend; const horizontalLabel = legend?.horizontal.title ?? "가로 점수"; const verticalLabel = legend?.vertical.title ?? "세로 점수";
   context.strokeStyle = "#7b8491"; context.lineWidth = 1.1; context.strokeRect(margin.left, margin.top, plotW, plotH); context.fillStyle = "#535e6d"; context.font = "12px sans-serif"; context.textAlign = "center"; context.fillText(horizontalLabel, margin.left + plotW / 2, height - 8); context.save(); context.translate(15, margin.top + plotH / 2); context.rotate(-Math.PI / 2); context.fillText(verticalLabel, 0, 0); context.restore();
 }
 
@@ -119,7 +121,8 @@ export function drawPixelNeuronMovement(canvas: HTMLCanvasElement, before: Pixel
   const margin = { left: 50, right: 16, top: 18, bottom: 41 }; const plotW = width - margin.left - margin.right; const plotH = height - margin.top - margin.bottom;
   const toCanvas = (point: { x: number; y: number }) => ({ x: margin.left + (point.x + 1) / 2 * plotW, y: margin.top + (1 - (point.y + 1) / 2) * plotH });
   context.strokeStyle = "rgba(73,83,98,.16)"; context.lineWidth = 1;
-  for (let tick = 0; tick <= 4; tick += 1) { const x = margin.left + tick * plotW / 4; const y = margin.top + tick * plotH / 4; context.beginPath(); context.moveTo(x, margin.top); context.lineTo(x, margin.top + plotH); context.stroke(); context.beginPath(); context.moveTo(margin.left, y); context.lineTo(margin.left + plotW, y); context.stroke(); }
+  drawCoordinateGrid(context, {left:margin.left, top:margin.top, width:plotW, height:plotH});
+  drawCoordinateTicks(context, {left:margin.left, top:margin.top, width:plotW, height:plotH});
   data.forEach((example) => { const p = toCanvas(projectPixels(projection, example.pixels)); context.beginPath(); context.arc(p.x, p.y, 4.5, 0, Math.PI * 2); context.fillStyle = STRONG[example.label % STRONG.length]!; context.globalAlpha = .72; context.fill(); context.globalAlpha = 1; context.strokeStyle = "white"; context.stroke(); });
   const oldPlane = hiddenPlane(before, projection, neuron); const newPlane = hiddenPlane(after, projection, neuron); const t = Math.max(0, Math.min(1, progress)); const currentPlane = { constant: oldPlane.constant + (newPlane.constant - oldPlane.constant) * t, horizontal: oldPlane.horizontal + (newPlane.horizontal - oldPlane.horizontal) * t, vertical: oldPlane.vertical + (newPlane.vertical - oldPlane.vertical) * t }; const lineColor = HIDDEN[neuron % HIDDEN.length]!; const draw = (plane: ReturnType<typeof hiddenPlane>, color: string, dashed: boolean, widthValue: number) => { const endpoints = lineEndpoints(plane); if (endpoints.length < 2) return; const a = toCanvas(endpoints[0]!); const b = toCanvas(endpoints[1]!); context.strokeStyle = color; context.lineWidth = widthValue; context.setLineDash(dashed ? [8, 6] : []); context.beginPath(); context.moveTo(a.x, a.y); context.lineTo(b.x, b.y); context.stroke(); context.setLineDash([]); };
   draw(oldPlane, "#7a828e", true, 2.5); draw(currentPlane, lineColor, false, 4);
@@ -151,7 +154,8 @@ export function drawPixelFeatureMap(canvas: HTMLCanvasElement, data: PixelExampl
   context.setTransform(ratio, 0, 0, ratio, 0, 0); context.clearRect(0, 0, width, height); context.fillStyle = "#fafafa"; context.fillRect(0, 0, width, height);
   const margin = { left: 58, right: 16, top: 18, bottom: 43 }; const plotW = width - margin.left - margin.right; const plotH = height - margin.top - margin.bottom;
   context.strokeStyle = "rgba(73,83,98,.16)"; context.lineWidth = 1;
-  for (let tick = 0; tick <= 4; tick += 1) { const x = margin.left + tick * plotW / 4; const y = margin.top + tick * plotH / 4; context.beginPath(); context.moveTo(x, margin.top); context.lineTo(x, margin.top + plotH); context.stroke(); context.beginPath(); context.moveTo(margin.left, y); context.lineTo(margin.left + plotW, y); context.stroke(); }
+  drawCoordinateGrid(context, {left:margin.left, top:margin.top, width:plotW, height:plotH});
+  drawCoordinateTicks(context, {left:margin.left, top:margin.top, width:plotW, height:plotH});
   const t = Math.max(0, Math.min(1, progress)); const combined = focusPixels.length ? [...data, { pixels: focusPixels, label: 0 }] : data; const coordinates = pixelFeatureCoordinates(combined, projection, task, mode); const points = coordinates.slice(0, data.length); points.forEach((point, index) => { const example = data[index]!; const x = margin.left + (point.x + 1) / 2 * plotW; const y = margin.top + (1 - (point.y + 1) / 2) * plotH; context.beginPath(); context.arc(x, y, 2 + 3 * t, 0, Math.PI * 2); context.fillStyle = STRONG[example.label % STRONG.length]!; context.globalAlpha = .18 + .54 * t; context.fill(); context.globalAlpha = 1; context.strokeStyle = "white"; context.lineWidth = 1; context.stroke(); });
   if (focusPixels.length) { const focus = coordinates.at(-1)!; const x = margin.left + (focus.x + 1) / 2 * plotW; const y = margin.top + (1 - (focus.y + 1) / 2) * plotH; context.beginPath(); context.arc(x, y, 9, 0, Math.PI * 2); context.fillStyle = "rgba(255,255,255,.9)"; context.fill(); context.strokeStyle = "#111722"; context.lineWidth = 3; context.stroke(); }
   const legend = pixelAxisLegend(task, mode); const labels = [`가로: ${legend.horizontal.title}`, `세로: ${legend.vertical.title}`];

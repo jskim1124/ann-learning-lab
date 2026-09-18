@@ -1,6 +1,7 @@
 import { forwardPixels, type PixelExample, type PixelModel } from "../core/pixelNetwork";
 import { classContours, type ScorePoint } from "./classContours";
 import { canvasPoint } from "./canvasUtils";
+import { drawCoordinateGrid, drawCoordinateTicks } from "./coordinateGrid";
 import { hiddenBoundarySegment, HIDDEN_COLORS } from "./decisionSurface";
 
 export const CLASS_COLORS = ["#f17605", "#df466f", "#7446f5", "#1f6bd6", "#1558b7", "#a93658"];
@@ -27,7 +28,7 @@ export function drawFeatureSurface(canvas: HTMLCanvasElement, model: PixelModel,
     }
   }
   context.strokeStyle = "rgba(66,75,90,.16)"; context.lineWidth = 1;
-  for (let step = 0; step <= 8; step += 1) { const x = step / 8 * canvas.width; const y = step / 8 * canvas.height; context.beginPath(); context.moveTo(x, 0); context.lineTo(x, canvas.height); context.stroke(); context.beginPath(); context.moveTo(0, y); context.lineTo(canvas.width, y); context.stroke(); }
+  drawCoordinateGrid(context, {left:0, top:0, width:canvas.width, height:canvas.height});
   if (options.showNeuronBoundaries !== false) model.inputHidden.forEach((weights, neuron) => {
     const segment = hiddenBoundarySegment(weights[0] ?? 0, weights[1] ?? 0, model.hiddenBias[neuron] ?? 0); if (!segment) return;
     const start = canvasPoint(canvas, ...segment[0]); const end = canvasPoint(canvas, ...segment[1]); const color = HIDDEN_COLORS[neuron % HIDDEN_COLORS.length]!;
@@ -48,6 +49,7 @@ export function drawFeatureSurface(canvas: HTMLCanvasElement, model: PixelModel,
   if (options.selectedPoint !== undefined && options.selectedPoint !== null && data[options.selectedPoint]) {
     const p=data[options.selectedPoint]!.pixels;const [x,y]=canvasPoint(canvas,p[0]!,p[1]!);context.strokeStyle="#202633";context.lineWidth=3;context.beginPath();context.arc(x,y,12,0,Math.PI*2);context.stroke();
   }
+  drawCoordinateTicks(context, {left:0, top:0, width:canvas.width, height:canvas.height});
   if(options.showProbe===false)return;
   const [testX, testY] = canvasPoint(canvas, testInput.x, testInput.y); context.strokeStyle = "#111827"; context.lineWidth = 3; context.beginPath(); context.arc(testX, testY, 8, 0, Math.PI * 2); context.stroke();
 }

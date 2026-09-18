@@ -1,3 +1,4 @@
+import { drawCoordinateGrid, drawCoordinateTicks } from "./coordinateGrid";
 import { canvasPoint, PALETTE, probabilityColor } from "./canvasUtils";
 import { NEURON_COLORS } from "./neuronColors";
 import { forward, trainOne } from "../core/neuralNetwork";
@@ -181,12 +182,8 @@ export function drawXorLesson(canvas: HTMLCanvasElement, step: 1 | 2 | 3 | 4, re
     for(let r=0;r<grid;r++)for(let c=0;c<grid;c++)for(const [a,b] of contourCell([[c*cw,r*ch,values[r]![c]!],[(c+1)*cw,r*ch,values[r]![c+1]!],[(c+1)*cw,(r+1)*ch,values[r+1]![c+1]!],[c*cw,(r+1)*ch,values[r+1]![c]!]],.5)){ctx.moveTo(...a);ctx.lineTo(...b);}
     ctx.stroke();ctx.restore();
   }
-  ctx.strokeStyle = "rgba(55,67,84,.15)";
-  ctx.lineWidth = 1;
-  [0.25, .5, .75].forEach((ratio) => {
-    ctx.beginPath(); ctx.moveTo(canvas.width * ratio, 0); ctx.lineTo(canvas.width * ratio, canvas.height); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(0, canvas.height * ratio); ctx.lineTo(canvas.width, canvas.height * ratio); ctx.stroke();
-  });
+  drawCoordinateGrid(ctx, {left:0, top:0, width:canvas.width, height:canvas.height});
+  drawCoordinateTicks(ctx, {left:0, top:0, width:canvas.width, height:canvas.height});
   if (step === 2 && revealed) {
     ctx.save(); ctx.globalAlpha = revealProgress;
     drawLine(ctx, canvas, .3, "#6f7784", 4, true);

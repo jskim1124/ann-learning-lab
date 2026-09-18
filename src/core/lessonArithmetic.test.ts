@@ -26,7 +26,7 @@ describe("한눈에 따라 계산하는 작은 예제", () => {
   });
   it("출력값은 변환된 뉴런 신호에 연결값을 곱한 합이다",()=>{
     const model=outputTeachingModel(), values=forwardPixels(model,[.4,.2]);
-    expect(values.hidden[0]).toBeCloseTo(.4+.2*.5+.3);
+    expect(values.hidden[0]).toBeCloseTo(.4+.2*.5);
     expect(values.logits[0]).toBeCloseTo(-values.hidden[0]!+values.hidden[1]!*.8+1);
   });
   it("애니메이션 중간 계산과 경계 위치도 실제 모델과 일치한다",()=>{
@@ -42,5 +42,11 @@ describe("한눈에 따라 계산하는 작은 예제", () => {
     const model=outputTeachingModel(hidden),r=outputScoreBreakdown(model,[.4,.2]);
     expect(r.hidden).toHaveLength(hidden);expect(r.logits).toHaveLength(3);
     r.positive.forEach((v,i)=>expect(v/r.total).toBeCloseTo(r.probabilities[i]!,12));
+  });
+  it("세 클래스 예제도 같은 뉴런과 A/B 출력 계산에서 시작한다",()=>{
+    const {point,frames}=biasDirectionExample(),a=forwardPixels(frames[0]!,point),b=forwardPixels(outputTeachingModel(1),point);
+    expect(b.hidden).toEqual(a.hidden);expect(b.logits.slice(0,2)).toEqual(a.logits);
+    // A new output changes the normalization, not the old output scores.
+    expect(b.probabilities[0]).not.toBe(a.probabilities[0]);
   });
 });

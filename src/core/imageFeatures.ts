@@ -24,7 +24,7 @@ export function selectedImageProjection(data: PixelExample[], features: ImageFea
   return projectionFromFeatures(data, features.find(f => f.id === x)!.weights, features.find(f => f.id === y)!.weights);
 }
 export function imageFeatureLegend(features: ImageFeature[], x: string, y: string): PixelAxisLegend {
-  const axis = (id: string) => ({ title: features.find(f => f.id === id)?.name ?? id, negative: "평균보다 작음", positive: "평균보다 큼" });
+  const axis = (id: string) => ({ title: `${features.find(f => f.id === id)?.name ?? id} (평균 0)`, negative: "평균보다 작음", positive: "평균보다 큼" });
   // Coordinates are centered and scaled; zero is the training mean, not zero raw ink.
   return { horizontal: { ...axis(x), negative: "평균보다 작음", positive: "평균보다 큼" }, vertical: { ...axis(y), negative: "평균보다 작음", positive: "평균보다 큼" } };
 }

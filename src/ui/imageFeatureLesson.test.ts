@@ -24,8 +24,10 @@ describe("네 단계 특징 탐구",()=>{
     answer(1);expect(root.querySelector('[data-fl-choice="1"]')!.classList.contains("correct")).toBe(true);click("flNext");
     expect(root.querySelector("#flTitle")!.textContent).toContain("두 특징");
     click("flAction");answer(0);click("flNext");
+    for(let i=0;i<5;i++)click("flAction");
     (root.querySelector('[data-fl-predict="up"]') as HTMLButtonElement).click();click("flPlay");vi.advanceTimersByTime(10000);
     expect(root.querySelector("#flCalculation")!.textContent).toContain("지금 예상 B");
+    expect((root.querySelector("#flText") as HTMLElement).hidden).toBe(true);
     expect((root.querySelector("#flPredict") as HTMLElement).hidden).toBe(true);
     answer(1);click("flNext");
     for(let i=0;i<4;i++)click("flAction");
@@ -52,12 +54,35 @@ describe("네 단계 특징 탐구",()=>{
     vi.useFakeTimers();document.body.innerHTML='<div id="lesson"></div>';
     const root=document.getElementById("lesson")!,lesson=new ImageFeatureLesson(root,new ImageLabStore("digits"),vi.fn(),vi.fn());lesson.render();
     const click=(selector:string)=>(root.querySelector(selector) as HTMLButtonElement).click();
-    click('[data-fl-step="3"]');click('[data-fl-predict="up"]');click('#flPlay');vi.advanceTimersByTime(400);
+    click('[data-fl-step="3"]');for(let i=0;i<5;i++)click('#flAction');click('[data-fl-predict="up"]');click('#flPlay');vi.advanceTimersByTime(400);
     const middle=root.querySelector('#flCalculation')!.textContent;
     expect(middle).toContain('0.05'); // Interpolated, not merely initial/final snapshots.
     click('#flPlay');vi.advanceTimersByTime(2000);expect(root.querySelector('#flCalculation')!.textContent).toBe(middle);
     click('#flPlay');vi.advanceTimersByTime(200);click('[data-fl-step="4"]');
     const next=root.querySelector('#flCalculation')!.textContent;vi.advanceTimersByTime(2000);
     expect(root.querySelector('#flCalculation')!.textContent).toBe(next);lesson.stop();
+  });
+  it("뉴런 계산부터 두 종류의 선까지 같은 예제로 연결하고 재생은 예측 앞에서 멈춘다",()=>{
+    vi.useFakeTimers();document.body.innerHTML='<div id="lesson"></div>';
+    const root=document.getElementById("lesson")!,lesson=new ImageFeatureLesson(root,new ImageLabStore("digits"),vi.fn(),vi.fn());lesson.render();
+    const click=(selector:string)=>(root.querySelector(selector) as HTMLButtonElement).click();
+    click('[data-fl-step="3"]');
+    expect(root.querySelector('#flTitle')!.textContent).toContain("작은 계산기");
+    expect((root.querySelector('#flPredict') as HTMLElement).hidden).toBe(true);
+    click('#flAction');
+    expect(root.querySelector('#flCalculation')!.textContent).toContain("합 = 0.2 + 0.1 + 0 = 0.3");
+    click('#flAction');click('[data-neuron-probe="purple3"]');
+    expect(root.querySelector('#flCalculation')!.textContent).toContain("(0.5 × 1) + (-1 × 0.5) + 0 = 0");
+    expect(root.querySelector('.neuron-inputs')!.textContent).toContain("가로 0.5");
+    click('#flAction');click('#flAction');click('[data-neuron-probe="sideB"]');
+    expect(root.querySelector('#flCalculation')!.textContent).toContain("B로 분류");
+    expect(root.querySelector('.neuron-outputs')!.textContent).toContain("B 1");
+    click('#flPrevious');expect(root.querySelector('#flTitle')!.textContent).toContain("출력은");
+    click('#flAction');expect(root.querySelector('#flTitle')!.textContent).toContain("검은 경계");
+    click('[data-fl-step="3"]');click('#flPlay');vi.advanceTimersByTime(15000);
+    expect((root.querySelector('#flPredict') as HTMLElement).hidden).toBe(false);
+    expect(root.querySelector('#flPlay')!.textContent).toContain("재생");
+    expect(root.querySelector('#flAction')!.textContent).toContain("(0/8)");
+    lesson.stop();
   });
 });
