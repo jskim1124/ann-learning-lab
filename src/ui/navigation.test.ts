@@ -38,5 +38,9 @@ describe("자료에서 연습으로 이어지는 실제 화면 이동",()=>{
     click('[data-app-page="4"] [data-back]');expect(document.querySelector<HTMLElement>('[data-app-page="2"]')!.hidden).toBe(false);
     click("#dataNext");expect(document.querySelector<HTMLElement>('[data-app-page="4"]')!.hidden).toBe(false);
     expect(document.getElementById("customRowName")).toBeNull();
+    click('.lesson-progress [data-go-step="1"]');click('[data-preset="omr"]');click('#scenarioNext');
+    expect(document.querySelector<HTMLButtonElement>('.lesson-progress [data-go-step="4"]')!.disabled).toBe(true);
+    click('.lesson-progress [data-go-step="4"]');
+    expect(document.querySelector<HTMLElement>('[data-app-page="2"]')!.hidden).toBe(false);
   },20000);
 });

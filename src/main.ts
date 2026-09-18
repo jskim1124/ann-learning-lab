@@ -466,7 +466,7 @@ export function mountApp(store = createInitialStore()): LabStore {
     boundarySelectedPoint = null; featureSelectedPoint = null; customClassPage=0; customSelectedClass=0; tabularLesson?.reset();penaltyCollection.reset();penaltyLesson.reset();
     if (preset === "custom") { customDraft = createCustomDraft(); featureStore.setHiddenUnits(1); syncCustomPreset("custom"); imageWorkspace.configure("custom"); }
     else if (isPixelPreset(preset) || preset === "webcam") imageWorkspace.configure(preset);
-    store.setPreset(preset); if (preset === "custom") syncCustomStore(store);
+    store.setPreset(preset, { restartLesson: true }); if (preset === "custom") syncCustomStore(store);
   }));
   document.querySelectorAll<HTMLButtonElement>("[data-go-step]").forEach((button) => button.addEventListener("click", () => { const step = Number(button.dataset.goStep) as LabState["lessonStep"]; if (step <= store.snapshot.furthestLessonStep) { if (usesImages(store.snapshot.preset)) goImageStep(step); else { if(isCustomPreset(store.snapshot.preset)&&step>=3){const error=validateCustomDataset(customDraft);if(error)return showToast(error);} if(step===5&&!featureStore.snapshot.model.epoch&&isCustomPreset(store.snapshot.preset))return showToast("먼저 학습해 주세요."); store.setLessonStep(step); } } }));
   document.querySelectorAll<HTMLButtonElement>("[data-back]").forEach((button) => button.addEventListener("click", () => {

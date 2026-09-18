@@ -112,11 +112,12 @@ export class LabStore {
   setConfig(change: Partial<Pick<NetworkModel["config"], "hiddenUnits" | "activation" | "learningRate">>): void {
     this.replaceModel(initializeNetwork({ ...this.state.model.config, ...change }));
   }
-  setPreset(preset: PresetName): void {
+  setPreset(preset: PresetName, { restartLesson = false }: { restartLesson?: boolean } = {}): void {
     const config = { ...this.state.model.config, hiddenUnits: 1 };
     const model = initializeNetwork(config);
     const metrics = evaluate(model, clonePreset(preset));
     this.state = { ...this.state, preset, data: clonePreset(preset), model, history: [{ epoch: 0, loss: metrics.loss ?? 0, accuracy: metrics.accuracy ?? undefined }], selectedNeuron: 0, explanationStep: 1, quizAnswer: null, highlightRevealed: false, mediaSampleIndex: 0, mediaHighlight: false, epochGoal: PRESETS[preset].recommendedHiddenUnits >= 4 ? 2000 : 1000 };
+    if (restartLesson) this.state = { ...this.state, lessonStep: 1, furthestLessonStep: 1, furthestExplanationStep: 1 };
     this.stopAuto(false); this.emit();
   }
   setCustomData(data: DataPoint[], preset: "custom" | "webcam" = "custom"): void {

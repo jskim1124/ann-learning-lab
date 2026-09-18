@@ -116,6 +116,14 @@ describe("lab interactions", () => {
     expect(store.snapshot.model.epoch).toBe(0);
   });
 
+  it("새 문제의 진도는 초기화하고 같은 문제의 자료 초기화·복습은 진도를 유지한다", () => {
+    const store = new LabStore();
+    store.setLessonStep(4); store.setLessonStep(2); store.setPreset("xor");
+    expect(store.snapshot).toMatchObject({ lessonStep: 2, furthestLessonStep: 4 });
+    store.setPreset("omr", { restartLesson: true });
+    expect(store.snapshot).toMatchObject({ lessonStep: 1, furthestLessonStep: 1, furthestExplanationStep: 1 });
+  });
+
   it("starts and pauses continuous training", () => {
     vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => window.setTimeout(() => callback(0), 1));
     vi.stubGlobal("cancelAnimationFrame", (id: number) => window.clearTimeout(id));
