@@ -20,7 +20,7 @@ describe("자료에서 연습으로 이어지는 실제 화면 이동",()=>{
     const question=document.getElementById('plQuestion')!.textContent;
     expect(question).toBeTruthy();
     const choices=[...document.querySelectorAll<HTMLButtonElement>('#plChoices button')];
-    const wrong=choices.find(b=>b.textContent==='−0.5')!;
+    const wrong=choices.find(b=>b.textContent==='(−1, 1)')!;
     wrong.click();
     expect(document.querySelectorAll('#plChoices .wrong')).toHaveLength(1);
     expect(document.querySelector('#plChoices .correct')).toBeNull();

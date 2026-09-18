@@ -6,6 +6,9 @@ import { lessonTruth, NEURON_EXAMPLES, neuronCalculation, neuronLessonModel } fr
 import { outputTeachingModel } from "../core/lessonArithmetic";
 import { forwardPixels } from "../core/pixelNetwork";
 import { outputPractice, renderOutputScene } from "./outputLesson";
+import { crossLessonLine, SEVEN_HEIGHTS } from './lessonTestHelpers';
+vi.mock('../visualization/graphCallout',()=>({drawGraphCallout:vi.fn()}));
+vi.mock('../visualization/neuronTrace',()=>({drawNeuronTrace:vi.fn()}));
 const predicted=(r:ReturnType<typeof forwardPixels>)=>r.probabilities.indexOf(Math.max(...r.probabilities));
 
 vi.mock("../visualization/pixelLatentMap",async original=>({...await original<typeof import("../visualization/pixelLatentMap")>(),drawPixelLatentMap:vi.fn()}));
@@ -31,18 +34,22 @@ describe('연결값·정답·출력의 의미',()=>{
     expect(neuronCalculation(m,[.2,.4]).sum-base.sum).toBeCloseTo(.1);
     lesson.stop();
   });
-  it('숨겨진 선은 배경·화살표로도 공개하지 않으며, 확인 버튼으로만 보인다',()=>{
+  it('숨겨진 선은 서로 다른 7곳을 찾아야 자동 공개되고 다음 장면에도 남는다',()=>{
     const {root,lesson,click}=setup();click('[data-fl-step="3"]');
     for(let i=0;i<5;i++)click('#flAction');click('[data-neuron-answer="0"]');click('#flAction');
     const options=()=>vi.mocked(drawPixelLatentMap).mock.calls.at(-1)![5]!;
     expect(options()).toMatchObject({neutralBackground:true,showNeuronBoundaries:false,showDecisionBoundary:false,showDataLabels:true});
     expect(root.querySelector('.point-truth')!.textContent).toContain('정답 B');
-    click('#flShowLines');expect(options().showNeuronBoundaries).toBe(true);
-    click('#flShowLines');expect(options().showNeuronBoundaries).toBe(false);
-    click('#flAction');click('#flAction');
-    expect(options()).toMatchObject({neutralBackground:true,showNeuronBoundaries:false,showDecisionBoundary:false});
+    expect(root.querySelector('#flShowLines')).toBeNull();
+    crossLessonLine(root,SEVEN_HEIGHTS.slice(0,6));expect(options().showNeuronBoundaries).toBe(false);
+    expect(root.querySelector<HTMLButtonElement>('#flAction')!.disabled).toBe(true);
+    crossLessonLine(root,[SEVEN_HEIGHTS[6]!]);expect(options().showNeuronBoundaries).toBe(true);
+    expect(root.querySelector<HTMLButtonElement>('#flAction')!.disabled).toBe(false);
+    click('#flAction');expect(options().showNeuronBoundaries).toBe(true);
+    click('#flAction');
+    expect(options()).toMatchObject({neutralBackground:true,showNeuronBoundaries:true,showDecisionBoundary:false});
     expect(root.querySelector('.point-truth')!.textContent).toContain('정답 B · 모델 예상 A');
-    click('#flShowLines');expect(options()).toMatchObject({neutralBackground:false,showNeuronBoundaries:true,showDecisionBoundary:true});
+    crossLessonLine(root,SEVEN_HEIGHTS);expect(options()).toMatchObject({neutralBackground:false,showNeuronBoundaries:true,showDecisionBoundary:true});
     lesson.stop();
   });
   it('정답은 모델 예상과 독립적이며 새 좌표의 정답을 만들어 내지 않는다',()=>{
@@ -90,6 +97,13 @@ describe('연결값·정답·출력의 의미',()=>{
     renderOutputScene(root,[.36,.28],4,1);
     expect(root.querySelector('.point-truth')!.textContent).toContain('A·B 동점');
     lesson.stop();
+  });
+  it('두 번째 뉴런의 0 구간과 양수 구간에서 실제 최종 경계의 기울기가 달라진다',()=>{
+    const m=outputTeachingModel(2);
+    const below=forwardPixels(m,[2/3,-.4]),join=forwardPixels(m,[7/15,0]),above=forwardPixels(m,[0,.4]);
+    for(const r of [below,join,above]){expect(r.logits[0]).toBeCloseTo(r.logits[2]!,12);expect(r.logits[0]).toBeGreaterThan(r.logits[1]!);}
+    expect(below.hidden[1]).toBe(0);expect(above.hidden[1]).toBe(.4);
+    expect((7/15-2/3)/.4).not.toBeCloseTo((0-7/15)/.4);
   });
   it.each(['digits','omr','webcam'] as const)('%s도 마지막 퀴즈만 풀어서는 앞의 계산을 건너뛸 수 없다',task=>{
     document.body.innerHTML='<div id="lesson"></div>';

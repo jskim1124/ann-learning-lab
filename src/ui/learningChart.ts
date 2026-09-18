@@ -6,12 +6,12 @@ interface ChartState { metric:ChartMetric; zoom:boolean; history:HistoryPoint[];
 const states=new WeakMap<HTMLCanvasElement,ChartState>();
 export function chartControls(canvas:HTMLCanvasElement,history:HistoryPoint[],draw:()=>void):ChartState {
   let state=states.get(canvas);if(state){state.history=history;state.draw=draw;return state;}
-  state={metric:"loss",zoom:false,history,draw};states.set(canvas,state);
+  state={metric:"accuracy",zoom:true,history,draw};states.set(canvas,state);
   const parent=canvas.parentElement;if(!parent)return state;
   parent.classList.add("learning-chart");
   [...parent.children].filter(e=>e!==canvas).forEach(e=>e.remove());
   const bar=document.createElement("div");bar.className="learning-chart-controls";
-  bar.innerHTML='<div role="group" aria-label="학습 그래프 종류"><button data-metric="loss" aria-pressed="true">오차</button><button data-metric="accuracy" aria-pressed="false">학습 정답률</button></div><label><input type="checkbox" data-chart-zoom> 차이 확대</label><button data-chart-help>그래프 읽는 법</button>';
+  bar.innerHTML='<div role="group" aria-label="학습 그래프 종류"><button data-metric="loss" aria-pressed="false">오차</button><button data-metric="accuracy" aria-pressed="true">학습 정답률</button></div><label><input type="checkbox" data-chart-zoom checked> 차이 확대</label><button data-chart-help>그래프 읽는 법</button>';
   parent.prepend(bar);
   const current=state;
   bar.addEventListener("click",e=>{const b=(e.target as HTMLElement).closest<HTMLButtonElement>("[data-metric]");if(b){current.metric=b.dataset.metric as ChartMetric;bar.querySelectorAll<HTMLElement>("[data-metric]").forEach(x=>x.setAttribute("aria-pressed",String(x===b)));current.draw();}if((e.target as HTMLElement).closest("[data-chart-help]"))openChartHelp();});

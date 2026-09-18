@@ -20,12 +20,12 @@ export function featureTrainingPanels(root: HTMLElement, redraw: () => void): vo
   advanced.className = "image-detail";
   const summary = document.createElement("summary"); summary.textContent = "학습 설정"; advanced.append(summary);
   controls.querySelectorAll("label.field").forEach((label, i) => { if (i > 0) advanced.append(label); });
-  advanced.append(controls.querySelector("#featureResetModel")!);
-  controls.append(advanced, ...connection.children); connection.remove();
+  advanced.append(controls.querySelector("#featureResetModel, #resetModel")!);
+  controls.append(...connection.children, advanced); connection.remove();
   controls.className = "image-panel image-model-panel";
   stage.className = "image-panel image-results-panel feature-training-stage";
   const layout = document.createElement("div"); layout.className = "image-train";
   layout.append(stage, controls); root.replaceChildren(layout);
-  root.className = "image-workspace tabular-training";
+  root.className = `image-workspace ${root.id==='boundaryTrainingView'?'boundary-training':'tabular-training'}`;
   workspacePanels(root, [stage, controls], ["학습 지도", "모델 살펴보기"], redraw);
 }

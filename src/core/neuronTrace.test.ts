@@ -16,6 +16,10 @@ describe("그리는 좌표와 선의 교차점",()=>{
     expect(traceHits([[[-.8,0]],[ [.8,0] ]],true)).toEqual([]);
     expect(traceHits([[[.5,0]]],true)).toEqual([[.5,0]]);
   });
+  it('같은 자리를 여러 번 찍거나 지나도 일곱 곳으로 세지 않는다',()=>{
+    expect(traceHits(Array.from({length:20},()=>[[.5,0] as [number,number]]),true)).toHaveLength(1);
+    expect(traceHits(Array.from({length:20},()=>[[-1,0] as [number,number],[1,0] as [number,number]]),true)).toHaveLength(1);
+  });
   it.each([1,2])("DPR %s에서도 실제 그리드 원점과 끝점을 정확히 선택한다",ratio=>{
     vi.stubGlobal("devicePixelRatio",ratio);
     const canvas=document.createElement('canvas');canvas.width=720*ratio;canvas.height=460*ratio;

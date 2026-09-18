@@ -5,6 +5,7 @@ import {PenaltyLesson} from './penaltyLesson';
 import {LabStore} from '../state/labStore';
 import {drawPixelLatentMap} from '../visualization/pixelLatentMap';
 vi.mock('../visualization/pixelLatentMap',()=>({drawPixelLatentMap:vi.fn()}));
+vi.mock('../visualization/graphCallout',()=>({drawGraphCallout:vi.fn()}));
 const click=(s:string)=>document.querySelector<HTMLButtonElement>(s)!.click();
 describe('승부차기 공통 수집·이해 UI',()=>{
   beforeEach(()=>{document.body.innerHTML=readFileSync('index.html','utf8');localStorage.clear();});
@@ -24,7 +25,7 @@ describe('승부차기 공통 수집·이해 UI',()=>{
   });
   it('계산과 예측을 풀어야 진행하며 재생만 눌러서는 연습으로 갈 수 없다',()=>{
     vi.useFakeTimers();const next=vi.fn(),lesson=new PenaltyLesson(next);lesson.show(true);
-    click('[data-pl-step="3"]');click('#plPlay');vi.runAllTimers();expect(document.getElementById('plCalculation')!.textContent).toContain('처음 골 점수');
+    click('[data-pl-step="3"]');click('#plPlay');vi.runAllTimers();expect(document.getElementById('plCalculation')!.textContent).toContain('1 − 2 − 0 = -1');
     click('[data-pl-predict="1"]');expect(document.querySelector('#plPredict .correct')).toBeNull();
     click('[data-pl-predict="0"]');click('#plPlay');vi.runAllTimers();click('[data-pl-choice="1"]');click('#plNext');expect(next).not.toHaveBeenCalled();
     for(const [step,answer] of [[0,1],[1,2],[2,0]]){click(`[data-pl-step="${step}"]`);click('#plPlay');vi.runAllTimers();
@@ -32,6 +33,17 @@ describe('승부차기 공통 수집·이해 UI',()=>{
       click(`[data-pl-choice="${answer}"]`);
     }
     click('[data-pl-step="3"]');click('#plNext');expect(next).toHaveBeenCalledOnce();lesson.stop();
+  });
+  it('실제 방향키로 고르고 클래스를 명시적으로 바꿔 저장할 수 있다',()=>{
+    const store=new LabStore();store.setPreset('xor');const c=new PenaltyCollection(store,vi.fn());c.show(true);
+    const photo=document.getElementById('penaltyPhoto')!;
+    photo.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowLeft',bubbles:true}));
+    photo.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}));
+    expect(document.getElementById('penaltyCoordinates')!.textContent).toContain('왼쪽 -0.5');
+    expect(document.getElementById('penaltyCoordinates')!.textContent).not.toContain('× 2');
+    const select=document.getElementById('penaltyClass') as HTMLSelectElement;select.value='0';select.dispatchEvent(new Event('change'));
+    expect(document.getElementById('penaltyClassNote')!.textContent).toContain('규칙과 다른 이름표');
+    click('#penaltyAdd');expect(store.snapshot.data.at(-1)).toMatchObject({x:-.5,y:.5,label:0});
   });
   it('학습에서는 대표 뉴런 선만 표시하고 배경·최종 경계와 함께 비교한다',()=>{
     const lesson=new PenaltyLesson(vi.fn());lesson.show(true);click('[data-pl-step="3"]');click('[data-pl-predict="0"]');click('#plAdvance');click('#plAdvance');

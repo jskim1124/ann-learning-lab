@@ -1,5 +1,6 @@
 import { lessonTruth, NEURON_EXAMPLES, neuronCalculation, neuronLessonModel } from "../core/neuronLesson";
-import { traceHits, type LessonPoint, type LessonStroke } from "../core/neuronTrace";
+import { traceHits, REQUIRED_LINE_HITS, type LessonPoint, type LessonStroke } from "../core/neuronTrace";
+import { drawGraphCallout } from '../visualization/graphCallout';
 import { drawPixelLatentMap } from "../visualization/pixelLatentMap";
 import { drawNeuronTrace } from "../visualization/neuronTrace";
 import { neuronDiagram } from "./neuronDiagram";
@@ -16,12 +17,17 @@ export interface NeuronActivity {
   point: LessonPoint;
   strokes: LessonStroke[];
   linesShown: boolean;
+  foundHidden:boolean;
+  foundOutput:boolean;
 }
-export const newNeuronActivity = (): NeuronActivity => ({phase:0,answer:null,point:[.2,.2],strokes:[],linesShown:false});
+export const newNeuronActivity = (): NeuronActivity => ({phase:0,answer:null,point:[.2,.2],strokes:[],linesShown:false,foundHidden:false,foundOutput:false});
 
 export function renderNeuronIntroduction(root: HTMLElement, stage: number, activity: NeuronActivity, playing=false): void {
   const get = <T extends HTMLElement>(id: string) => root.querySelector<T>(`#${id}`)!;
   const model = neuronLessonModel(), interactive = stage===2 || stage===4;
+  const hits=interactive?traceHits(activity.strokes,stage===4):[];
+  if(hits.length>=REQUIRED_LINE_HITS){if(stage===2)activity.foundHidden=true;else activity.foundOutput=true;}
+  activity.linesShown=stage===4?activity.foundOutput:activity.foundHidden;
   const point: LessonPoint = interactive ? activity.point : [.2,.2];
   if(interactive)get("flSourceNote").textContent="선 찾기용 가상 자료 · 정답 표는 모델의 예상과 별개로 미리 정했습니다.";
   const r = neuronCalculation(model, point), phase=activity.phase;
@@ -34,6 +40,7 @@ export function renderNeuronIntroduction(root: HTMLElement, stage: number, activ
     "은닉 뉴런이 보낸 값을 ‘신호’라고 부릅니다. 이 예제의 출력 A는 1에서 신호를 빼고, B는 신호를 그대로 씁니다. 더 큰 쪽을 예상 답으로 고릅니다.",
     "선을 숨겨 두었습니다. A·B 점수가 같아지는 자리를 찾아 그려 보세요. 파란 점이 채워집니다. 검은 선은 현재 모델의 예상 경계이며, 실제 정답을 보장하지 않습니다.",
   ][stage]!;
+  if(interactive&&activity.linesShown)get('flText').textContent=stage===2?'찾은 점들을 이으면 보라선입니다. 이 선 위에서는 뉴런의 합이 0입니다. 다음 장면에서도 선을 볼 수 있어요.':'찾은 점들을 이으면 검은 경계입니다. 이곳에서 A·B의 점수가 같고, 선 양쪽의 예상이 달라집니다.';
   let calculation = "";
   if (stage===0) calculation='<b>뉴런은 입력을 계산해 다음으로 보내는 계산기예요.</b><div class="neuron-terms"><span>연결값 1<br>0.2 × 1 = <b>0.2 · 그대로</b></span><span>연결값 0.5<br>0.2 × 0.5 = <b>0.1 · 절반</b></span></div><span>실제 연습에서는 임의의 연결값으로 시작해, 예상과 정답의 차이가 줄도록 조금씩 고칩니다. 1이 항상 더 좋은 값이라는 뜻은 아니에요.</span>';
   if (stage===1) {
@@ -48,15 +55,16 @@ export function renderNeuronIntroduction(root: HTMLElement, stage: number, activ
   if (stage===4) calculation=`<span>(${n(point[0])} × 1) + (${n(point[1])} × 0.5) + 0 = <b>${n(r.sum)}</b> → 보낼 값 ${n(r.hidden[0]!)}</span><div class="movement-scores"><span>A: 1 − ${n(r.hidden[0]!)} = <b>${n(r.logits[0]!)}</b></span><span>B: <b>${n(r.logits[1]!)}</b></span><strong>${Math.abs(r.logits[0]!-r.logits[1]!)<1e-9?"같은 점수":r.logits[0]!>r.logits[1]!?"A로 분류":"B로 분류"}</strong></div>`;
   if (interactive) {
     const hits=traceHits(activity.strokes,stage===4), last=hits.at(-1);
-    calculation+=`<div class="trace-result"><span>${last?`선을 지난 자리 (${n(last[0])}, ${n(last[1])}) · ${stage===4?'A = B = 0.5':'합 = 0'}`:'선을 가로질러 그리면 만난 자리가 채워집니다.'}</span><button data-neuron-clear>그린 자국 지우기</button></div>`;
+    calculation+=`<div class="trace-result"><b>${activity.linesShown?'7곳을 찾았어요. 점을 이으면 이 선이 됩니다.':`찾은 자리 ${hits.length}/${REQUIRED_LINE_HITS} · 서로 다른 7곳을 찾아보세요.`}</b><span>${last?`(${n(last[0])}, ${n(last[1])}) · ${stage===4?'A = B = 0.5':'합 = 0'}`:'여러 높이에서 가로질러 그리면 만난 자리가 채워집니다.'}</span><button data-neuron-clear>그린 자국 지우기</button></div>`;
   }
   get("flCalculation").innerHTML=calculation;
   const truth=lessonTruth(point), same=Math.abs(r.logits[0]!-r.logits[1]!)<1e-9;
   const predicted=same?'동점':r.logits[0]!>r.logits[1]!?'A':'B';
   const truthText=truth===null?'정답 미지정':`정답 ${['A','B'][truth]}`;
-  get("flSelected").innerHTML=(interactive?`<div class="point-truth">${truthText}${stage===4?` · 모델 예상 ${predicted}`:''}</div>`:'')+neuronDiagram(model,point,stage,stage===1?phase:undefined);
+  get("flSelected").innerHTML=(interactive?`<div class="point-truth">${truthText} · 모델 예상 ${predicted}</div>`:'')+neuronDiagram(model,point,Math.max(3,stage),stage===1?phase:undefined);
   get("flVisualNote").textContent="선을 그리는 기준도 이 연결지도에서 계산합니다.";
   if(interactive)get("flVisualNote").textContent="예제 점의 정답은 미리 붙인 표입니다. 예제 점을 누르면 선택됩니다. 새 좌표의 정답은 아직 없어요.";
-  if(stage!==1)drawPixelLatentMap(get("flMap"),model,interactive?NEURON_EXAMPLES:[],point,identity,{view:stage>=2?"decision":"placement",neutralBackground:stage<4||!activity.linesShown,classLabels:["A","B"],showDataLabels:interactive,showNeuronBoundaries:stage>=2&&activity.linesShown,showDecisionBoundary:stage>=4&&activity.linesShown,axisLegend:axes,focusLabel:interactive?`${truthText} · (${n(point[0])}, ${n(point[1])})`:`(${n(point[0])}, ${n(point[1])})`});
+  if(stage!==1)drawPixelLatentMap(get("flMap"),model,interactive?NEURON_EXAMPLES:[],point,identity,{view:stage>=2?"decision":"placement",neutralBackground:stage<4||!activity.linesShown,classLabels:["A","B"],showDataLabels:interactive,showNeuronBoundaries:stage>=2&&activity.foundHidden,showDecisionBoundary:stage>=4&&activity.foundOutput,axisLegend:axes,focusLabel:interactive?`${truthText} · 예상 ${predicted}`:`(${n(point[0])}, ${n(point[1])})`});
   if(interactive)drawNeuronTrace(get("flMap"),activity.strokes,stage===4);
+  if(interactive)drawGraphCallout(get('flMap'),point,[`${n(point[0])} + ${n(point[1])}의 절반 = ${n(r.sum)}`,`다음 계산에 넘길 숫자 ${n(r.hidden[0]!)} · A ${n(r.logits[0]!)} / B ${n(r.logits[1]!)}`]);
 }

@@ -3,6 +3,7 @@ import { outputScoreBreakdown, outputTeachingModel } from "../core/lessonArithme
 import { LESSON_PROJECTION, lessonTruth, NEURON_EXAMPLES, neuronLessonModel } from "../core/neuronLesson";
 import { drawPixelLatentMap } from "../visualization/pixelLatentMap";
 import { NEURON_COLORS } from "../visualization/neuronColors";
+import { drawGraphCallout } from '../visualization/graphCallout';
 import type { SceneQuiz } from "./lessonScenes";
 
 export const OUTPUT_LAST_STAGE=6;
@@ -34,7 +35,7 @@ export function renderOutputScene(root:HTMLElement,focus:number[],stage:number,h
     "B의 연결값은 1, 마지막에 더하는 값은 0으로 정했습니다. 그래서 이 예제의 B 점수는 신호와 같아요.",
     "예제 점을 누르거나 다른 좌표를 찍어 보세요. 점에 적힌 정답은 그대로지만 모델의 예상은 틀릴 수 있어요. 두 점수가 같으면 동점입니다.",
     "같은 신호를 C에도 보냅니다. C의 연결값은 0.5, 마지막 더할 값은 0.3으로 정했어요. A·B의 점수 계산은 그대로입니다.",
-    "은닉 뉴런은 판단에 쓸 신호를 만들고, 출력은 답마다 점수를 계산합니다. 이 모델은 A·B·C 세 클래스이므로 출력도 3개입니다.",
+    "뉴런 2는 세로가 음수일 때 0, 양수일 때 세로 값을 넘깁니다. 위와 아래에서 C의 계산이 달라져 경계가 꺾일 수 있어요. 출력은 여전히 A·B·C 세 개입니다.",
   ][stage]!;
   get('flVisualTitle').textContent=explore?'정답과 모델의 예상을 따로 비교해요':`출력 계산 ${stage+1} · 같은 예제 이어 보기`;
   get('flSourceNote').textContent='계산을 위한 예제 · 실제 학습 결과가 아닙니다.';
@@ -49,7 +50,14 @@ export function renderOutputScene(root:HTMLElement,focus:number[],stage:number,h
   }
   if(stage===4)html=`<span>(${n(point[0]!)} × 1) + (${n(point[1]!)} × 0.5) + 0 → 신호 <b>${n(signal)}</b></span><div class="movement-scores"><span>A: 1 − ${n(signal)} = <b>${n(r.logits[0]!)}</b></span><span>B: <b>${n(r.logits[1]!)}</b></span><strong>예상 ${predicted}</strong></div><span>검은 경계는 A·B 점수가 같은 곳입니다. 실제 정답의 선이 아니라 현재 계산이 만드는 예상 경계예요.</span>`;
   if(stage===5)html='<b>C: 0.3 × 0.5 + 0.3</b><span>① 0.3의 절반 = 0.15</span><span>② 0.15 + 0.3 = <b>0.45</b></span><div class="movement-scores"><span>A 0.7</span><span>B 0.3</span><span>C 0.45</span></div><span>C가 추가되어도 A·B 점수는 그대로입니다. 이제 세 점수를 비교해요.</span>';
-  if(stage===6)html=`<div class="neuron-count-example"><b>은닉 ${model.hiddenUnits}개 → 출력 3개</b><div>${[1,2].map(count=>`<button data-output-neurons="${count}" aria-pressed="${count===hidden}">은닉 뉴런 ${count}개</button>`).join('')}</div></div><span>${hidden===1?'신호 하나를 A·B·C가 서로 다르게 계산합니다.':'뉴런 2는 세로 입력을 보내되, 음수면 0을 보냅니다. C에만 더하도록 정한 예제입니다.'}</span><span>뉴런을 늘린다고 무조건 잘 맞히지는 않아요. 연습한 자료와 새 자료 모두 확인해야 합니다.</span><button data-output-percent class="plain-help">점수와 퍼센트는 어떻게 다른가요?</button>`;
+  if(stage===6){
+    get('flBendValue').textContent=n(point[1]!);
+    get('flBendControl').querySelector<HTMLInputElement>('input')!.value=String(point[1]);
+    html=`<div class="neuron-count-example"><b>은닉 ${model.hiddenUnits}개 → 출력 3개</b><div>${[1,2].map(count=>`<button data-output-neurons="${count}" aria-pressed="${count===hidden}">은닉 뉴런 ${count}개</button>`).join('')}</div></div>
+      <span>${hidden===1?'뉴런 2를 추가하고 점을 위·아래로 움직여 보세요.':`뉴런 2: 세로 ${n(point[1]!)} → 넘길 숫자 ${n(r.hidden[1]!)}. ${point[1]!<=0?'아래쪽에서는 C에 0을 더합니다.':'위쪽에서는 C에 이 숫자를 더합니다.'}`}</span>
+      <span>${hidden===2?`C = ${n(signal)}의 절반 + 0.3 + ${n(r.hidden[1]!)} = ${n(r.logits[2]!)}`:'같은 계산만 더하면 경계가 꼭 꺾이는 것은 아닙니다.'}</span>
+      <span>뉴런을 늘려도 항상 꺾이거나 더 잘 맞히지는 않아요.</span>`;
+  }
   get('flCalculation').innerHTML=html;
   const rows=labels.map((label,i)=>{
     const shown=i===0?stage>=2:i===1?stage>=3:stage>=5,active=i===0?(stage===1||stage===2):i===1?stage===3:stage===5;
@@ -58,8 +66,10 @@ export function renderOutputScene(root:HTMLElement,focus:number[],stage:number,h
   }).join('');
   get('flSelected').innerHTML=`<div class="point-truth">${truth===null?'정답 미지정':`정답 ${labels[truth]}`} ${stage>=4?`· 모델 예상 ${predicted}`:''}</div><div class="output-network"><div class="output-signals">${r.hidden.map((v,i)=>`<span style="--signal-color:${NEURON_COLORS[i]}">뉴런 ${i+1}<b>${n(v)}</b>${stage===6&&sums[i]!<0?`<small>합 ${n(sums[i]!)}</small>`:''}</span>`).join('')}</div><span aria-hidden="true">→</span><div class="output-routes">${rows}</div></div>`;
   get('flVisualNote').textContent=explore?'점을 눌러 계산을 확인하세요. 좌표는 0.01 간격이며 새 좌표의 정답은 미지정입니다.':'먼저 고정된 점 (0.2, 0.2)으로 계산합니다. 점수 비교 장면부터 직접 찍을 수 있어요.';
+  if(stage===6)get('flSelected').insertAdjacentHTML('beforeend','<button data-output-percent class="plain-help">점수와 퍼센트는 어떻게 다른가요?</button>');
   drawPixelLatentMap(get('flMap'),model,data,point,LESSON_PROJECTION,{view:'decision',neutralBackground:!linesShown,showNeuronBoundaries:linesShown,showDecisionBoundary:linesShown,showDataLabels:true,classLabels:labels,axisLegend:{horizontal:{title:'가로 입력',negative:'',positive:''},vertical:{title:'세로 입력',negative:'',positive:''}},focusLabel:truth===null?`정답 미지정 · (${n(point[0]!)}, ${n(point[1]!)})`:`정답 ${labels[truth]} · (${n(point[0]!)}, ${n(point[1]!)})`});
+  if(explore)drawGraphCallout(get('flMap'),point,stage===6&&hidden===2?[`뉴런 2: 세로 ${n(point[1]!)} → ${n(r.hidden[1]!)}`,`C에 ${n(r.hidden[1]!)} 더하기 · 예상 ${predicted}`]:[`뉴런 1이 넘긴 숫자 ${n(signal)}`,`A ${n(r.logits[0]!)} · B ${n(r.logits[1]!)} → ${predicted}`]);
   // Percent conversion is optional, separate from the middle-school arithmetic path.
   get('flPercent').innerHTML=`<div class="image-heading"><h2>출력 점수 ≠ 맞힌 비율</h2><form method="dialog"><button aria-label="퍼센트 설명 닫기">닫기</button></form></div><p>퍼센트는 지금 그림에 대한 모델의 예상입니다. 80%라고 해서 실제로 100장 중 80장을 맞혔다는 뜻은 아니에요.</p><p>음수도 가능한 점수를 계산기의 같은 변환으로 양수로 만든 다음, 합으로 나눕니다. 이 추가 변환식은 지금 외울 필요가 없어요.</p><div class="score-conversion">${labels.map((l,i)=>`<span>${l}: 점수 ${n(r.logits[i]!)} → 변환값 ${r.positive[i]!.toFixed(3)}</span>`).join('')}</div><p>B: ${r.positive[1]!.toFixed(3)} ÷ ${r.total.toFixed(3)} × 100 ≈ ${(r.probabilities[1]!*100).toFixed(1)}%</p><details><summary>계산기의 변환 규칙</summary><p>exp(점수)로 바꿉니다. 예: 0 → 1, 0.3 → 약 1.350, 0.7 → 약 2.014. 이 양수들의 합으로 나누는 방법을 softmax라고 합니다. 표시값은 반올림했고 계산은 원래 값으로 합니다.</p></details>`;
-  return {question:'클래스가 3개이고 은닉 뉴런이 1개라면?',choices:[{text:'출력 점수는 3개, 잘 구분하는지는 학습 후 확인',correct:true},{text:'은닉 뉴런이 1개이므로 클래스도 1개',correct:false}],explanation:'이 다중 분류 모델은 클래스마다 출력 하나를 둡니다. 은닉 뉴런 수는 클래스 수를 정하지 않습니다.'};
+  return {question:'이 예제에서 뉴런 2를 추가하면 왜 경계가 꺾일 수 있을까요?',choices:[{text:'위·아래에서 뉴런 2가 더해 주는 값의 계산이 달라져서',correct:true},{text:'뉴런을 추가하면 클래스가 하나 더 생겨서',correct:false}],explanation:'아래에서는 0, 위에서는 세로 값을 C에 더합니다. 클래스와 출력 수는 그대로이고, 구간별 계산이 달라집니다.'};
 }

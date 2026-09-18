@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ImageLabStore } from "../state/imageLabStore";
 import { ImageFeatureLesson } from "./imageFeatureLesson";
+import { crossLessonLine, SEVEN_HEIGHTS } from './lessonTestHelpers';
+vi.mock('../visualization/graphCallout',()=>({drawGraphCallout:vi.fn()}));
 
 vi.mock("../core/imageInput",async original=>({...await original<typeof import("../core/imageInput")>(),drawImagePixels:vi.fn()}));
 vi.mock("../visualization/pixelLatentMap",async original=>({...await original<typeof import("../visualization/pixelLatentMap")>(),drawPixelLatentMap:vi.fn(),drawPixelNeuronMovement:vi.fn()}));
@@ -11,7 +13,7 @@ function finishIntro(root:HTMLElement) {
   const click=(s:string)=>root.querySelector<HTMLButtonElement>(s)!.click();
   for(let i=0;i<5;i++)click("#flAction");
   click('[data-neuron-answer="0"]');
-  for(let i=0;i<4;i++)click("#flAction");
+  click('#flAction');crossLessonLine(root,SEVEN_HEIGHTS);click('#flAction');click('#flAction');crossLessonLine(root,SEVEN_HEIGHTS);click('#flAction');
 }
 
 describe("네 단계 특징 탐구",()=>{

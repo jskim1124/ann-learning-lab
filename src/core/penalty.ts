@@ -22,15 +22,15 @@ export function penaltyRecord(kick:GoalPick,keeper:GoalPick):{x:number;y:number;
 /** Simple ReLU calculation model, not claimed to be a learned football predictor. */
 export function penaltyTeachingModel(hidden=2):NetworkModel {
   return {config:{hiddenUnits:hidden,activation:'relu',learningRate:.08,seed:31},epoch:0,
-    parameters:{inputHidden:[[1,1],[-1,-1]].slice(0,hidden) as [number,number][],hiddenBias:[-.25,-.25].slice(0,hidden),hiddenOutput:[-1,-1].slice(0,hidden),outputBias:.5}};
+    parameters:{inputHidden:[[1,1],[-1,-1]].slice(0,hidden) as [number,number][],hiddenBias:[0,0].slice(0,hidden),hiddenOutput:[-1,-1].slice(0,hidden),outputBias:1}};
 }
 /** softmax([0,z]) === sigmoid(z); the blocked score is a fixed reference, not a second trained output. */
 export function penaltyPixelModel(m:NetworkModel):PixelModel {
   return {inputSize:2,hiddenUnits:m.config.hiddenUnits,classCount:2,activation:m.config.activation,epoch:m.epoch,
     inputHidden:m.parameters.inputHidden,hiddenBias:m.parameters.hiddenBias,hiddenOutput:[Array(m.config.hiddenUnits).fill(0),m.parameters.hiddenOutput],outputBias:[0,m.parameters.outputBias]};
 }
-export const PENALTY_CASES=[{pixels:[-.5,-.5],label:0},{pixels:[-.5,.5],label:1},{pixels:[.5,-.5],label:1},{pixels:[.5,.5],label:0}];
+export const PENALTY_CASES=[{pixels:[-1,-1],label:0},{pixels:[-1,1],label:1},{pixels:[1,-1],label:1},{pixels:[1,1],label:0}];
 export function penaltyLearningTrace():NetworkModel[] {
-  let m=penaltyTeachingModel();m={...m,parameters:{...m.parameters,hiddenBias:[.5,.5],outputBias:.2}};
-  const frames=[m];for(let i=0;i<20;i++){m=trainOne(m,[{x:-.5,y:.5,label:1}]);frames.push(m);}return frames;
+  let m=penaltyTeachingModel();m={...m,parameters:{...m.parameters,hiddenBias:[1,1]}};
+  const frames=[m];for(let i=0;i<20;i++){m=trainOne(m,[{x:-1,y:1,label:1}]);frames.push(m);}return frames;
 }

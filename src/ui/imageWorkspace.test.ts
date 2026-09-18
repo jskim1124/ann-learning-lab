@@ -92,13 +92,27 @@ describe("공통 이미지 UI 연결", () => {
   it("연습 안에서 특징·좌표를 바꾸고 뉴런 수를 늘려도 연결 지도는 항상 보인다",()=>{
     workspace.configure("omr"); workspace.show(true,4);
     const network=document.getElementById("imageNetwork")!,old=workspace.store.snapshot.projection;
-    expect(network.closest("details")!.hidden).toBe(false);expect(network.closest("details")!.open).toBe(true);
+    expect(network.closest("details")!.hidden).toBe(false);expect(document.getElementById('imageSignalNetwork')!.closest('details')!.open).toBe(true);
     const x=document.getElementById("imagePracticeX") as HTMLSelectElement;x.value="lr";x.dispatchEvent(new Event("change"));
     expect(workspace.store.snapshot.xFeature).toBe("lr");expect(workspace.store.snapshot.projection).not.toBe(old);
     const hidden=document.getElementById("imageHidden") as HTMLInputElement;hidden.value="16";hidden.dispatchEvent(new Event("input"));
     expect(network.querySelectorAll('[data-kind="hidden"]')).toHaveLength(16);
     expect(network.closest("details")!.hidden).toBe(false);
     expect(document.querySelector<HTMLElement>('.image-workspace:has(#imageMap)')!.hidden).toBe(false);
+  });
+  it('확인점을 움직이면 계산이 바뀌되 자료·모델은 유지하며 가져가기는 열려 있다',()=>{
+    workspace.configure('digits');workspace.show(true,4);
+    const original=JSON.stringify(workspace.store.snapshot.data),model=JSON.stringify(workspace.store.snapshot.model);
+    const canvas=document.getElementById('imageMap') as HTMLCanvasElement;
+    canvas.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight'}));
+    const before=document.getElementById('imageLiveCalculation')!.textContent;
+    canvas.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight'}));
+    expect(document.getElementById('imageLiveCalculation')!.textContent).not.toBe(before);
+    expect(document.getElementById('imageFocusName')!.textContent).toContain('정답 미지정');
+    expect(JSON.stringify(workspace.store.snapshot.data)).toBe(original);expect(JSON.stringify(workspace.store.snapshot.model)).toBe(model);
+    const select=document.getElementById('imageTrainingClass') as HTMLSelectElement;select.value='2';select.dispatchEvent(new Event('change'));
+    expect(document.getElementById('imageFocusName')!.textContent).toContain('정답 2');
+    workspace.show(true,5);expect(document.getElementById('imageExportSb3')!.closest('details')!.open).toBe(true);
   });
   it("자유 드로잉은 진한 검정 붓으로 그리고 실제 픽셀을 미리보기·학습에 같이 사용한다",()=>{
     const ctx={fillRect:vi.fn(),strokeRect:vi.fn(),beginPath:vi.fn(),moveTo:vi.fn(),lineTo:vi.fn(),stroke:vi.fn(),strokeStyle:"",lineWidth:0};

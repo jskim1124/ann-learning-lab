@@ -23,8 +23,20 @@
 .penalty-output { display:grid;gap:7px;font-size:14px; }.penalty-output b { margin-left:8px; }
 .penalty-understanding #plNext { margin-top:auto; }
 .penalty-understanding #plProgress { margin:0; }
+.penalty-ruler { position:absolute;bottom:0;left:0;right:0;display:flex;justify-content:space-between;padding:5px 12px;background:#fffffff0;font-weight:700;font-size:14px;pointer-events:none; }
+.penalty-class-choice { display:flex;align-items:center;gap:10px;font-size:15px;font-weight:700; }
+.penalty-class-choice select { flex:1;min-width:0;padding:7px;border:1px solid #d9dde4;border-radius:8px;background:white; }
+.penalty-live-inputs { display:flex;gap:14px; }
+.penalty-live-inputs label { display:grid;grid-template-columns:1fr auto;flex:1;min-width:0;font-size:14px;gap:3px; }
+.penalty-live-inputs input { grid-column:1/-1;width:100%; }
+.penalty-live-inputs output,.penalty-bias output { font-weight:800;color:#7446f5; }
+.penalty-bias { display:grid;grid-template-columns:1fr auto;font-size:15px;gap:6px; }
+.penalty-bias input { width:100%;grid-column:1/-1;accent-color:#7446f5; }
+#plMap { touch-action:none; }
 .penalty-new-point { animation:penalty-added .7s; }
 @keyframes penalty-added { 50% { outline:3px solid #7446f5;outline-offset:2px; } }
-@media(max-height:780px) and (min-width:901px) { .penalty-photo { max-width:56dvh; }.penalty-source { gap:7px; }.penalty-source .image-heading { margin-bottom:3px; } }
+.penalty-phase { animation:penalty-phase .65s ease-out; }
+@keyframes penalty-phase { from { background-color:#f1ecff; } to { background-color:transparent; } }
+@media(max-height:780px) and (min-width:901px) { .penalty-photo { max-width:39dvh; }.penalty-source { gap:6px; }.penalty-source .image-heading { margin-bottom:3px; } }
 @media(max-width:900px) { .penalty-collection,.penalty-understanding { display:flex; }.penalty-collection>.image-panel,.penalty-understanding>.image-panel { flex:1; }.penalty-photo { max-width:min(100%,49dvh); } }
-@media(prefers-reduced-motion:reduce) { .penalty-new-point { animation:none; }.penalty-marker { transition:none; } }
+@media(prefers-reduced-motion:reduce) { .penalty-new-point,.penalty-phase { animation:none; }.penalty-marker { transition:none; } }

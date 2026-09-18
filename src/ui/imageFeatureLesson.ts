@@ -43,13 +43,14 @@ export class ImageFeatureLesson {
         <div id="flExampleTabs" class="lesson-source-tabs"><button data-fl-source="example">작은 예제로 배우기</button><button data-fl-source="data">내 자료에서 확인</button></div>
         <p id="flSourceNote"></p><div id="flTiny" class="tiny-calculation"></div><canvas id="flPicture" width="420" height="420" hidden aria-label="실제 그림의 칸을 눌러 계산 확인"></canvas>
         <div id="flArithmeticFlow" hidden></div><canvas id="flMap" width="720" height="460" hidden tabindex="0" aria-label="특징 분포와 뉴런·최종 경계. 누른 채 그리거나 방향키로 점을 움직이세요."></canvas>
-        <div id="flGraphTools" hidden><button id="flShowLines" aria-pressed="false">숨은 선 확인</button></div><p id="flPointControl">그래프를 누르거나 그려 보세요. 방향키로도 움직일 수 있어요.</p>
+        <p id="flPointControl">그래프를 누르거나 그려 보세요. 방향키로도 움직일 수 있어요.</p>
         <p id="flVisualNote"></p><div id="flSelected"></div>
       </section>
       <section class="image-panel image-lesson-copy"><nav class="image-lesson-tabs" aria-label="이해 순서">${["특징 계산", "분포·선택", "뉴런·선", "뉴런·출력"].map((s,i)=>`<button data-fl-step="${i+1}">${i+1} ${s}</button>`).join("")}</nav>
         <h2 id="flTitle"></h2><p id="flText"></p>
         <div class="feature-axis-pair"><label>가로 특징<select id="flX"></select></label><label>세로 특징<select id="flY"></select></label><button id="flCreate">+ 특징 만들기</button></div>
         <div id="flCalculation" class="image-calculation" aria-live="polite"></div>
+        <label id="flBendControl" class="bend-control" hidden>세로만 움직여 보기 <output id="flBendValue"></output><input data-output-y type="range" min="-1" max="1" step=".01" value=".2"></label>
         <div id="flPredict" class="bias-experiment" hidden><strong id="flPredictTitle">정답 B의 점수를 처음보다 높여 보세요.</strong><label for="flBias">마지막에 더해주는 값 <output id="flBiasValue" for="flBias">0</output></label><input id="flBias" type="range" min="-.5" max=".8" step=".1" value="0"><div class="bias-scale"><span>−0.5</span><span>처음 0</span><span>+0.8</span></div><div class="bias-check-row"><button id="flBiasCheck">이 값 확인</button><span id="flBiasFeedback" role="status"></span></div></div>
         <div class="lesson-playback"><button id="flReplay">처음부터</button><button id="flPrevious" aria-label="이전 장면" hidden>←</button><button id="flAction" class="button primary"></button><button id="flPlay" aria-label="계산 과정 자동 재생">▶ 재생</button></div>
         <section id="flQuiz" class="image-quiz"><strong id="flQuestion"></strong><div id="flChoices" class="lesson-choice-grid"></div><p id="flFeedback" role="status"></p></section>
@@ -65,7 +66,7 @@ export class ImageFeatureLesson {
       if(count){this.outputNeurons=Number(count.dataset.outputNeurons);this.render();}
       const answer=target.closest<HTMLElement>("[data-neuron-answer]");
       if(answer){this.activity.answer=Number(answer.dataset.neuronAnswer);this.render();}
-      if(target.closest("[data-neuron-clear]")){this.activity.strokes=[];this.render();}
+      if(target.closest("[data-neuron-clear]")){this.activity.strokes=[];if(this.reveal===2)this.activity.foundHidden=false;else this.activity.foundOutput=false;this.render();}
       if(target.closest("[data-neuron-flow-next]")){this.stop();this.advance();}
       if(target.closest("[data-neuron-flow-play]"))this.el("flPlay").click();
       const outputAnswer=target.closest<HTMLElement>("[data-output-answer]");
@@ -77,6 +78,7 @@ export class ImageFeatureLesson {
       if (error) message(error); else { this.reveal = 0; this.frame = 0; this.answer = null; this.passed.clear(); this.signature = ""; }
       this.render();
     }));
+    root.addEventListener('input',e=>{const target=e.target as HTMLInputElement;if(target.matches('[data-output-y]')){this.focus=[this.focus[0]!,Number(target.value)];this.renderOutput();}});
     click("flOther", () => { this.sample = (this.sample + 1) % store.snapshot.data.length; this.reveal = 0; this.answer = null; this.render(); });
     this.el<HTMLCanvasElement>("flPicture").addEventListener("click", e => { const r = this.el("flPicture").getBoundingClientRect(); this.pixel = Math.min(195, Math.max(0, Math.floor((e.clientY-r.top)/r.height*14)*14+Math.floor((e.clientX-r.left)/r.width*14))); this.render(); });
     this.el<HTMLCanvasElement>("flMap").addEventListener("click", e => {
@@ -87,7 +89,6 @@ export class ImageFeatureLesson {
       }
       if (this.step !== 2) return; const s = store.snapshot, i = pixelMapExampleAt(this.el("flMap"),e.clientX,e.clientY,s.projection,s.data); if (i !== null) { this.sample = i; this.render(); }
     });
-    click("flShowLines",()=>{this.activity.linesShown=!this.activity.linesShown;this.render();});
     const map=this.el<HTMLCanvasElement>("flMap");
     let drawing=false;
     const interactive=()=>this.step===4&&outputCanExplore(this.reveal) || this.intro()&&(this.reveal===2||this.reveal===4);
@@ -99,7 +100,7 @@ export class ImageFeatureLesson {
       this.activity.point=point;
       const strokes=this.activity.strokes,last=strokes.at(-1)!;
       if(last&&last.length<700)last.push(point);
-      this.renderMovement();
+      this.render();
     };
     map.addEventListener("pointerdown",e=>{
       if(!interactive())return;
@@ -140,7 +141,7 @@ export class ImageFeatureLesson {
     click("flAction", () => { this.stop(); this.advance(); });
     click("flPlay", () => {
       if (this.playing) { this.stop(); return this.render(); }
-      if(this.arithmeticPending()||this.outputPending())return message("아래 계산 문제를 먼저 풀어 보세요.");
+      if(this.arithmeticPending()||this.outputPending()||this.tracePending())return message(this.tracePending()?"그래프에서 서로 다른 일곱 자리를 먼저 찾아보세요.":"아래 계산 문제를 먼저 풀어 보세요.");
       if (this.complete()) { this.reveal = 0; this.frame = 0; this.biasChecked=null; this.activity=newNeuronActivity();this.outputAnswer=null;this.focus=[.2,.2]; }
       this.playing = true; this.play();
     });
@@ -173,10 +174,10 @@ export class ImageFeatureLesson {
   private intro():boolean { return this.step===3&&this.example&&this.reveal<NEURON_INTRO_STEPS; }
   private arithmeticPending():boolean { return this.intro()&&this.reveal===1&&this.activity.phase===4&&this.activity.answer!==0; }
   private outputPending():boolean { return this.step===4&&this.reveal===3&&this.outputAnswer!==0; }
+  private tracePending():boolean { return this.intro()&&(this.reveal===2&&!this.activity.foundHidden||this.reveal===4&&!this.activity.foundOutput); }
   private complete():boolean { return !this.intro() && (this.step===3&&this.example&&this.biasChecked===true || (this.step === 3 ? this.frame : this.reveal) >= this.limit()); }
   private advance():void {
-    if(this.arithmeticPending()||this.outputPending())return;
-    this.activity.linesShown=false;
+    if(this.arithmeticPending()||this.outputPending()||this.tracePending())return;
     if(this.intro()){
       if(this.reveal===1&&this.activity.phase<4)this.activity.phase++;
       else{this.reveal++;this.activity.strokes=[];this.activity.point=[.2,.2];}
@@ -200,6 +201,7 @@ export class ImageFeatureLesson {
     this.el("flFeedback").className = right ? "correct" : this.answer !== null ? "wrong" : "";
   }
   render():void {
+    this.el('flBendControl').hidden=!(this.step===4&&this.reveal===6);
     const s = this.store.snapshot; if (!s.data.length) return;
     this.root.querySelector('.feature-lesson')!.classList.toggle('output-lesson',this.step===4);
     this.sample = Math.min(this.sample, s.data.length - 1);
@@ -217,9 +219,6 @@ export class ImageFeatureLesson {
     this.el("flMap").hidden = this.step===1||arithmetic;
     this.el("flOther").hidden = this.step>2 || this.step===1&&this.example;
     this.el("flPointControl").hidden = true; // The output graph caption carries the same interaction hint.
-    this.el("flGraphTools").hidden=!(this.intro()&&(this.reveal===2||this.reveal===4)||this.step===4&&outputCanExplore(this.reveal));
-    this.el("flShowLines").textContent=this.activity.linesShown?"선 다시 숨기기":"숨은 선 확인";
-    this.el("flShowLines").setAttribute("aria-pressed",String(this.activity.linesShown));
     const pair = this.root.querySelector<HTMLElement>(".feature-axis-pair")!; pair.hidden = this.step>=3;
     (pair.querySelector("label:nth-child(2)") as HTMLElement).hidden=this.step===1;
     this.el("flCreate").hidden=this.step!==2;
@@ -242,7 +241,8 @@ export class ImageFeatureLesson {
     this.el("flAction").textContent=done?"확인 완료":this.arithmeticPending()||this.outputPending()?"아래 계산 확인":this.intro()&&this.reveal===1&&this.activity.phase<4?`한 항씩 계산 (${this.activity.phase}/4)`:this.intro()?`다음 장면 (${this.reveal+1}/${NEURON_INTRO_STEPS})`:this.step===3?this.example?"0.1 더해 보기":`한 번 고치기 (${Math.floor(this.frame)}/${this.limit()})`:`다음 계산 (${this.reveal}/${this.limit()})`;
     this.el("flPrevious").hidden=this.step===2;
     this.el<HTMLButtonElement>("flPrevious").disabled=this.reveal===0&&this.frame===0;
-    this.el<HTMLButtonElement>("flAction").disabled=done||this.arithmeticPending()||this.outputPending();
+    this.el<HTMLButtonElement>("flAction").disabled=done||this.arithmeticPending()||this.outputPending()||this.tracePending();
+    if(this.tracePending())this.el('flAction').textContent='그래프에서 7곳 찾기';
     this.el("flPlay").hidden=this.step===2;this.el("flPlay").textContent=this.playing?"Ⅱ 멈춤":"▶ 재생";
     this.el("flPlay").setAttribute("aria-label",this.playing?"계산 과정 일시 정지":"계산 과정 자동 재생");
     this.el("flCalculation").setAttribute("aria-live",this.playing?"off":"polite");
@@ -276,7 +276,7 @@ export class ImageFeatureLesson {
     this.quiz("어떤 특징 조합을 먼저 시험해 볼까요?",[{text:"서로 다른 클래스가 덜 겹치는 조합",correct:true},{text:"모든 점이 한곳에 겹치는 조합",correct:false}],"덜 겹치면 구분에 도움이 될 수 있습니다. 새 그림도 잘 맞히는지는 따로 시험해야 합니다.");
   }
   private renderOutput():void {
-    const quiz=renderOutputScene(this.root,this.focus,this.reveal,this.outputNeurons,this.outputAnswer,this.activity.linesShown);
+    const quiz=renderOutputScene(this.root,this.focus,this.reveal,this.outputNeurons,this.outputAnswer,true);
     this.quiz(quiz.question,quiz.choices,quiz.explanation);
   }
   private renderMovement():void {

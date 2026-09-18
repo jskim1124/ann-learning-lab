@@ -5,6 +5,9 @@ import { TabularLesson } from "./ui/tabularLesson";
 import { importSpreadsheet } from "./data/spreadsheetImport";
 import { evaluate, forward } from "./core/neuralNetwork";
 import { forwardPixels } from "./core/pixelNetwork";
+import { penaltyPixelModel } from "./core/penalty";
+import { liveCalculation, signalNetwork, installSignalNetwork } from "./ui/liveCalculation";
+import { bindPracticeProbe } from "./ui/practiceProbe";
 import { PRESETS } from "./data/presets";
 import { addCustomClass, centroidAccuracy, createCustomDraft, createCustomExample, projectCustomDataset, removeCustomClass, textFeatures, validateCustomDataset, type CustomDatasetDraft, type CustomInputKind } from "./data/customDataset";
 import type { PixelTaskName } from "./data/pixelDatasets";
@@ -52,6 +55,7 @@ let featureAutoTimer = 0;
 let customClassPage = 0, customSelectedClass = 0;
 let featureSelectedPoint: number | null = null;
 let boundarySelectedPoint: number | null = null;
+let featureProbe = false, boundaryProbe = false;
 let tabularLesson: TabularLesson | null = null;
 let imageWorkspace: ImageWorkspace;
 let penaltyCollection:PenaltyCollection;
@@ -71,6 +75,7 @@ function syncCustomStore(store: LabStore): void {
   const projection = projectCustomDataset(customDraft);
   store.setCustomData(projection.points.filter((point) => point.label < 2), preset);
   featureSelectedPoint = null;
+  featureProbe = false;
   featureUiStore?.setDataset(projection.points, projection.classes);
 }
 
@@ -337,12 +342,13 @@ function renderFeatureLab(lab: LabState, state: FeatureLabState): void {
   element<HTMLInputElement>("#featureHiddenUnits").value = String(state.model.hiddenUnits); element<HTMLOutputElement>("#featureHiddenOut").value = `${state.model.hiddenUnits}개`; element<HTMLSelectElement>("#featureActivation").value = state.model.activation; element<HTMLInputElement>("#featureLearningRate").value = String(state.learningRate); element<HTMLOutputElement>("#featureLearningRateOut").value = state.learningRate.toFixed(2);
   element<HTMLElement>("#featureEpoch").textContent = String(state.model.epoch); element<HTMLElement>("#featureEpochNow").textContent = String(state.model.epoch); element<HTMLElement>("#featureProgressBar").style.width = `${Math.min(100, state.model.epoch / 10)}%`; element<HTMLElement>("#featureLoss").textContent = metrics ? metrics.loss.toFixed(4) : "—"; element<HTMLElement>("#featureAccuracy").textContent = metrics ? `${(metrics.accuracy * 100).toFixed(1)}%` : "—"; element<HTMLElement>("#featureTrainCount").textContent = `${state.data.length}개`; element<HTMLButtonElement>("#featureAutoTrain").textContent = featureAutoTimer ? "잠시 멈추기" : "계속 연습";
   element<HTMLInputElement>("#featureNeuronLayer").checked = state.showNeuronBoundaries; element<HTMLInputElement>("#featureDecisionLayer").checked = state.showDecisionBoundary; element<HTMLElement>("#featureTrainAxisX").textContent = projection.axes[0]; element<HTMLElement>("#featureTrainAxisY").textContent = projection.axes[1];
-  if (lab.lessonStep === 4) { drawFeatureSurface(element<HTMLCanvasElement>("#featureModelCanvas"), state.model, state.data, state.testInput, { ...state, showProbe: false, selectedPoint: featureSelectedPoint }); drawLossChart(element<HTMLCanvasElement>("#featureLossCanvas"), state.history); const result = forwardPixels(state.model, [state.testInput.x, state.testInput.y]); element<SVGSVGElement>("#featureNetworkSvg").innerHTML = pixelNetworkGraphMarkup(state.model, state.classes, featureSelectedPoint === null ? [] : result.hidden, featureSelectedPoint === null ? [] : result.probabilities, [projection.axes[0], projection.axes[1]]); renderProbabilityBars("#featureTrainBars", state, result.probabilities); }
+  if (lab.lessonStep === 4) { drawFeatureSurface(element<HTMLCanvasElement>("#featureModelCanvas"), state.model, state.data, state.testInput, { ...state, showProbe: featureProbe, selectedPoint: featureSelectedPoint }); drawLossChart(element<HTMLCanvasElement>("#featureLossCanvas"), state.history); const result = forwardPixels(state.model, [state.testInput.x, state.testInput.y]); element<SVGSVGElement>("#featureNetworkSvg").innerHTML = pixelNetworkGraphMarkup(state.model, state.classes, result.hidden, result.probabilities, [projection.axes[0], projection.axes[1]]); renderProbabilityBars("#featureTrainBars", state, result.probabilities); element('#featureLiveCalculation').innerHTML=liveCalculation(state.model,[state.testInput.x,state.testInput.y],state.classes); }
   element<SVGSVGElement>("#featureNetworkSvg").removeAttribute("hidden");
   for (const [id, selected] of [["featurePracticeX", customDraft.xFeature], ["featurePracticeY", customDraft.yFeature]] as const) fillSelect(element<HTMLSelectElement>(`#${id}`), customDraft.features, selected);
-  element<HTMLElement>("#featureTrainBars").hidden=featureSelectedPoint===null;
+  element<HTMLElement>("#featureTrainBars").hidden=true;
+  element('#featureSignalNetwork').innerHTML=signalNetwork(state.model,[state.testInput.x,state.testInput.y],state.classes);
   const selected=featureSelectedPoint===null?null:customDraft.rows[featureSelectedPoint];
-  element<HTMLElement>("#featureSelectedData").textContent=selected?`${selected.name} · 정답 ${customDraft.classes[selected.label]} · ${selected.values.map((v,i)=>customDraft.features[i]+": "+Number(v.toFixed(2))).join(" / ")}`:"그래프의 점을 선택해 보세요.";
+  element<HTMLElement>("#featureSelectedData").textContent=selected?`${selected.name} · 정답 ${customDraft.classes[selected.label]} · 예상 ${state.classes[best]} · ${selected.values.map((v,i)=>customDraft.features[i]+": "+Number(v.toFixed(2))).join(" / ")}`:featureProbe?`확인점 (${state.testInput.x.toFixed(2)}, ${state.testInput.y.toFixed(2)}) · 정답 미지정 · 예상 ${state.classes[best]}`:"점을 선택하거나 빈 곳에서 확인점을 움직여 보세요.";
   element<HTMLElement>("#featureUseAxisX").textContent = projection.axes[0]; element<HTMLElement>("#featureUseAxisY").textContent = projection.axes[1]; element<HTMLInputElement>("#featureUseX").value = String(state.testInput.x); element<HTMLInputElement>("#featureUseY").value = String(state.testInput.y);
   if (lab.lessonStep === 5) { renderProbabilityBars("#featureUseBars", state, probabilities); element<HTMLElement>("#featurePredictionAnswer").textContent = state.model.epoch ? `모델의 답: ${state.classes[best] ?? "?"}` : "먼저 모델을 연습시켜 주세요"; }
 }
@@ -392,13 +398,16 @@ function render(state: LabState, store: LabStore): void {
     }
   }
   if (state.lessonStep === 4 && !isPixelPreset(state.preset) && !isCustomPreset(state.preset)) {
-    drawDecisionSurface(element<HTMLCanvasElement>("#modelCanvas"), state.model, state.data, state.testInput, { explanationStep: 4, selectedNeuron: state.selectedNeuron, showNeuronBoundaries: state.showNeuronBoundaries, showDecisionBoundary: state.showDecisionBoundary, showProbe: false, selectedPoint: boundarySelectedPoint });
+    drawDecisionSurface(element<HTMLCanvasElement>("#modelCanvas"), state.model, state.data, state.testInput, { explanationStep: 4, selectedNeuron: state.selectedNeuron, showNeuronBoundaries: state.showNeuronBoundaries, showDecisionBoundary: state.showDecisionBoundary, showProbe: boundaryProbe, selectedPoint: boundarySelectedPoint });
     drawLossChart(element<HTMLCanvasElement>("#lossCanvas"), state.history);
-    element<SVGSVGElement>("#networkSvg").toggleAttribute("hidden",boundarySelectedPoint === null);
+    element<SVGSVGElement>("#networkSvg").removeAttribute("hidden");
     const chosen = boundarySelectedPoint === null ? null : state.data[boundarySelectedPoint];
-    element<HTMLElement>("#boundarySelectedData").textContent = chosen ? `선택한 사례 · 정답 ${preset.classes[chosen.label]} · 키커 ${chosen.x < 0 ? "왼쪽" : "오른쪽"} / 골키퍼 ${chosen.y < 0 ? "왼쪽" : "오른쪽"}` : "그래프의 점을 선택해 보세요.";
-    element<HTMLElement>("#boundarySelectedResult").textContent = chosen ? `예상 ${preset.classes[prediction.probability >= .5 ? 1 : 0]} · 골 점수 ${(prediction.probability * 100).toFixed(1)}%` : "";
-    element<SVGSVGElement>("#networkSvg").innerHTML = networkGraphMarkup(state.model, prediction.hidden);
+    const ruleTruth=state.testInput.x===0||state.testInput.y===0?'가운데는 정답 미지정':`규칙의 정답 ${preset.classes[Number((state.testInput.x<0)!==(state.testInput.y<0))]}`;
+    element<HTMLElement>("#boundarySelectedData").textContent = chosen ? `자료 정답 ${preset.classes[chosen.label]} · 키커 ${chosen.x < 0 ? "왼쪽" : "오른쪽"} / 골키퍼 ${chosen.y < 0 ? "왼쪽" : "오른쪽"}` : boundaryProbe?`확인점 (${state.testInput.x.toFixed(2)}, ${state.testInput.y.toFixed(2)}) · ${ruleTruth}`:"점을 선택하거나 빈 곳에서 확인점을 움직여 보세요.";
+    element<HTMLElement>("#boundarySelectedResult").textContent = `예상 ${preset.classes[prediction.probability >= .5 ? 1 : 0]} · 골 가능성 ${(prediction.probability * 100).toFixed(1)}%`;
+    element<SVGSVGElement>("#networkSvg").innerHTML = networkGraphMarkup(state.model, prediction.hidden,[state.testInput.x,state.testInput.y]);
+    element('#boundaryLiveCalculation').innerHTML=liveCalculation(penaltyPixelModel(state.model),[state.testInput.x,state.testInput.y],preset.classes);
+    element('#boundarySignalNetwork').innerHTML=signalNetwork(penaltyPixelModel(state.model),[state.testInput.x,state.testInput.y],preset.classes);
   }
   if (state.lessonStep === 3 && state.preset!=='xor' && !isPixelPreset(state.preset) && !isCustomPreset(state.preset)) {
     drawDecisionSurface(element<HTMLCanvasElement>("#decisionCanvas"), state.model, state.data, state.testInput, { explanationStep: state.explanationStep, selectedNeuron: state.selectedNeuron, highlightRevealed: state.highlightRevealed });
@@ -451,6 +460,10 @@ export function mountApp(store = createInitialStore()): LabStore {
   const rerender = () => render(store.snapshot, store);
   tabularLesson = new TabularLesson(element("#customFeatureView"), () => renderCustomLab(store.snapshot), showToast);
   featureTrainingPanels(element("#customTrainingView"), rerender);
+  featureTrainingPanels(element("#boundaryTrainingView"), rerender);
+  for(const [svg,id] of [['#networkSvg','boundaryLiveCalculation'],['#featureNetworkSvg','featureLiveCalculation']]){const panel=document.createElement('div');panel.id=id!;element(svg!).after(panel);}
+  installSignalNetwork(element('#networkSvg'),'boundarySignalNetwork');installSignalNetwork(element('#featureNetworkSvg'),'featureSignalNetwork');
+  document.querySelectorAll<HTMLDetailsElement>('[data-app-page="5"] details').forEach(panel=>panel.open=true);
   const axes = document.createElement("div"); axes.className = "feature-axis-pair practice-axes";
   axes.innerHTML = '<label>가로 특징<select id="featurePracticeX"></select></label><label>세로 특징<select id="featurePracticeY"></select></label><span>바꾸면 좌표·분포가 바뀌고 학습이 초기화됩니다.</span>';
   element("#customTrainingView .feature-training-stage .stage-toolbar").after(axes);
@@ -463,7 +476,7 @@ export function mountApp(store = createInitialStore()): LabStore {
   store.subscribe(rerender); featureStore.subscribe(rerender);
   document.querySelectorAll<HTMLButtonElement>("[data-preset]").forEach((card) => card.addEventListener("click", () => {
     const preset = card.dataset.preset as PresetName;
-    boundarySelectedPoint = null; featureSelectedPoint = null; customClassPage=0; customSelectedClass=0; tabularLesson?.reset();penaltyCollection.reset();penaltyLesson.reset();
+    boundarySelectedPoint = null; featureSelectedPoint = null; boundaryProbe=false;featureProbe=false;customClassPage=0; customSelectedClass=0; tabularLesson?.reset();penaltyCollection.reset();penaltyLesson.reset();
     if (preset === "custom") { customDraft = createCustomDraft(); featureStore.setHiddenUnits(1); syncCustomPreset("custom"); imageWorkspace.configure("custom"); }
     else if (isPixelPreset(preset) || preset === "webcam") imageWorkspace.configure(preset);
     store.setPreset(preset, { restartLesson: true }); if (preset === "custom") syncCustomStore(store);
@@ -563,8 +576,10 @@ export function mountApp(store = createInitialStore()): LabStore {
   element<HTMLInputElement>("#featureNeuronLayer").addEventListener("change", (event) => featureStore.setLayers({ showNeuronBoundaries: (event.currentTarget as HTMLInputElement).checked }));
   element<HTMLInputElement>("#featureDecisionLayer").addEventListener("change", (event) => featureStore.setLayers({ showDecisionBoundary: (event.currentTarget as HTMLInputElement).checked }));
   const nearestPoint = (canvas: HTMLCanvasElement, event: MouseEvent, points: Array<{x:number;y:number}>) => { const r=canvas.getBoundingClientRect();let selected:number|null=null,best=16**2;points.forEach((p,i)=>{const d=((p.x+1)/2*r.width-(event.clientX-r.left))**2+((1-p.y)/2*r.height-(event.clientY-r.top))**2;if(d<best){best=d;selected=i;}});return selected;};
-  element<HTMLCanvasElement>("#featureModelCanvas").addEventListener("click",event=>{ const i=nearestPoint(event.currentTarget as HTMLCanvasElement,event,featureStore.snapshot.data.map(row=>({x:row.pixels[0]!,y:row.pixels[1]!})));if(i===null)return;featureSelectedPoint=i;const p=featureStore.snapshot.data[i]!.pixels;featureStore.setTestInput(p[0]!,p[1]!);revealModelPanel(element("#customTrainingView"));});
-  element<HTMLCanvasElement>("#modelCanvas").addEventListener("click",event=>{const i=nearestPoint(event.currentTarget as HTMLCanvasElement,event,store.snapshot.data);if(i===null)return;boundarySelectedPoint=i;const p=store.snapshot.data[i]!;store.setTestInput(p.x,p.y);});
+  element<HTMLCanvasElement>("#featureModelCanvas").addEventListener("click",event=>{ const i=nearestPoint(event.currentTarget as HTMLCanvasElement,event,featureStore.snapshot.data.map(row=>({x:row.pixels[0]!,y:row.pixels[1]!})));if(i===null)return;featureProbe=false;featureSelectedPoint=i;const p=featureStore.snapshot.data[i]!.pixels;featureStore.setTestInput(p[0]!,p[1]!);revealModelPanel(element("#customTrainingView"));});
+  element<HTMLCanvasElement>("#modelCanvas").addEventListener("click",event=>{const i=nearestPoint(event.currentTarget as HTMLCanvasElement,event,store.snapshot.data);if(i===null)return;boundaryProbe=false;boundarySelectedPoint=i;const p=store.snapshot.data[i]!;store.setTestInput(p.x,p.y);revealModelPanel(element('#boundaryTrainingView'));});
+  bindPracticeProbe(element('#modelCanvas'),()=>store.snapshot.data,()=>store.snapshot.testInput,(i,x,y)=>{boundarySelectedPoint=i;boundaryProbe=i===null;store.setTestInput(x,y);});
+  bindPracticeProbe(element('#featureModelCanvas'),()=>featureStore.snapshot.data.map(row=>({x:row.pixels[0]!,y:row.pixels[1]!})),()=>featureStore.snapshot.testInput,(i,x,y)=>{featureSelectedPoint=i;featureProbe=i===null;featureStore.setTestInput(x,y);});
   const updateFeatureUse = () => featureStore.setTestInput(Number(element<HTMLInputElement>("#featureUseX").value), Number(element<HTMLInputElement>("#featureUseY").value)); element<HTMLInputElement>("#featureUseX").addEventListener("input", updateFeatureUse); element<HTMLInputElement>("#featureUseY").addEventListener("input", updateFeatureUse);
   element<HTMLButtonElement>("#featureAutoTrain").addEventListener("click", () => { if (featureAutoTimer) { stopFeatureAuto(); rerender(); return; } featureAutoTimer = window.setInterval(() => { if (!isCustomPreset(store.snapshot.preset) || store.snapshot.lessonStep !== 4 || featureStore.snapshot.model.epoch >= 1000) { stopFeatureAuto(); rerender(); return; } featureStore.train(5); }, 100); featureStore.train(1); });
   element<HTMLButtonElement>("#featureExportScratch").addEventListener("click", () => { const state = featureStore.snapshot; if(!state.model.epoch)return showToast("먼저 학습해 주세요."); downloadBlob("neural-lab-feature-scratch.sb3", createPixelScratchProject(state.model, state.classes, [], { blockName: "특징 두 개로 예측하기", inputListName: "특징 값", stageTitle: "Neural Lab 특징 모델", inputSummary: "특징 2개" })); showToast("학습 자료 없이 예측 모델만 내보냈습니다."); });

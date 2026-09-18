@@ -7,7 +7,9 @@ import { downloadBlob, downloadText } from "../export/modelJson";
 import { generateInferenceExtension } from "../export/inferenceExtension";
 import { createPixelScratchProject } from "../export/pixelScratchProject";
 import { ImageLabStore, type ImageTask, type ImageMode } from "../state/imageLabStore";
-import { drawPixelLatentMap, pixelMapExampleAt, projectedPixelModel } from "../visualization/pixelLatentMap";
+import { drawPixelLatentMap, pixelMapExampleAt, pixelMapInputAt, projectedPixelModel } from "../visualization/pixelLatentMap";
+import { projectPixels, reconstructProjectedPixels } from '../core/pixelProjection';
+import { liveCalculation, signalNetwork, installSignalNetwork } from './liveCalculation';
 import { pixelNetworkGraphMarkup } from "../visualization/pixelNetworkGraph";
 import { drawLossChart } from "../visualization/lossChart";
 import "./imageWorkspace.css";
@@ -35,6 +37,7 @@ export class ImageWorkspace {
   private collectionSignature = "";
   private showLines = true;
   private showBoundary = true;
+  private probe:[number,number]|null=null;
 
   constructor(private message: (text: string) => void, private go: (step: 1 | 2 | 3 | 4 | 5) => void, private changeInput: (kind: "numbers" | "text") => void) {
     const pages: Record<number, string> = {
@@ -58,6 +61,12 @@ export class ImageWorkspace {
     axisBar.innerHTML = '<label>가로 특징<select id="imagePracticeX"></select></label><label>세로 특징<select id="imagePracticeY"></select></label><span>특징을 바꾸면 분포가 바뀌고 학습은 처음부터 시작합니다.</span>';
     this.el("imageChooseFeatures").replaceWith(axisBar);
     this.el("imageNetwork").closest("details")!.open = true;
+    this.el('imageExportSb3').closest('details')!.open=true;
+    const calculation=document.createElement('div');calculation.id='imageLiveCalculation';this.el('imageNetwork').after(calculation);
+    installSignalNetwork(this.el('imageNetwork'),'imageSignalNetwork');
+    const classChoice=document.createElement('label');classChoice.className='practice-class-choice';classChoice.innerHTML='자료 클래스 선택<select id="imageTrainingClass" aria-label="연습에서 살펴볼 클래스"></select>';
+    this.el('imageFocus').parentElement!.before(classChoice);
+    this.el('imageTrainingClass').addEventListener('change',()=>{const label=Number(this.el<HTMLSelectElement>('imageTrainingClass').value),row=this.store.snapshot.data.find(d=>d.label===label);this.probe=null;if(row)this.store.selectSample(row.id);});
     this.capture = document.createElement("div"); this.capture.className = "image-capture";
     this.capture.innerHTML = `<div class="image-heading"><h2 id="imageCaptureTitle">그림을 모아 보세요</h2><span id="imageCaptureClass"></span></div><div class="image-input-switch" id="imageInputSwitch"><button data-image-input="drawing">그리기</button><button data-image-input="webcam">웹캠</button></div><div class="image-capture-pair"><figure><div class="image-source"><canvas id="imageDraw" width="420" height="420" aria-label="자유롭게 그림 그리기"></canvas><video id="imageVideo" autoplay playsinline muted hidden aria-label="중앙을 정사각형으로 자른 웹캠"></video><span id="imageCameraEmpty" hidden>카메라를 켜고 손을 보여 주세요</span></div><figcaption id="imageSourceCaption">직접 그린 그림</figcaption></figure><span class="image-convert-arrow" aria-hidden="true">→</span><figure class="image-processed"><canvas id="imageInputPreview" width="224" height="224" aria-label="모델에 실제 입력하는 14×14 흑백 그림"></canvas><figcaption>모델이 받는 14×14칸</figcaption></figure></div><div class="image-capture-buttons"><button id="imageCameraStart" class="button secondary" hidden>카메라 켜기</button><button id="imageCameraStop" class="button secondary" hidden>카메라 끄기</button><button id="imageClear" class="button secondary">지우기</button><button id="imageCaptureAdd" class="button primary">이 그림 추가</button></div><p id="imageCaptureHint">한 칸의 진하기를 0~1로 바꾸어 입력합니다.</p><p id="imagePrivacy" hidden>영상은 이 브라우저에서만 처리됩니다. 배경도 그림에 포함됩니다.</p>`;
     document.querySelector("#imageCollectSlot")!.append(this.capture);
@@ -80,6 +89,7 @@ export class ImageWorkspace {
   }
   private el<T extends HTMLElement = HTMLElement>(id: string): T { return document.getElementById(id) as T; }
   configure(task: ImageTask, kind: CaptureKind = task === "webcam" ? "webcam" : "drawing", classes?: string[]): void {
+    this.probe=null;
     this.stopCamera(); this.stopTraining(); this.featureLesson.stop(); this.kind = kind; this.classPage = 0; this.samplePage = 0; this.collectionSignature = ""; this.featureLesson.reset();
     this.store.configure(task, classes); this.clearDrawing();
   }
@@ -149,15 +159,18 @@ export class ImageWorkspace {
     drawImagePixels(this.el<HTMLCanvasElement>("imageInputPreview"), s.input, true);
   }
   private renderTraining(): void {
-    const s = this.store.snapshot; const map = s.mode === "map"; const metrics = this.store.metrics(); const focus = this.store.focus(); const result = this.store.predict();
+    const s = this.store.snapshot; const map = s.mode === "map"; const metrics = this.store.metrics(); const focus = this.store.focus();
+    const probe=map?this.probe:null,input=probe?reconstructProjectedPixels(s.projection,...probe):focus.pixels,result=this.store.predict(input),selected=!!probe||s.selectedSample!==null;
+    const coordinate=projectPixels(s.projection,input),mapModel=projectedPixelModel(s.model,s.projection),predicted=s.classes[result.probabilities.indexOf(Math.max(...result.probabilities))];
+    this.options(this.el<HTMLSelectElement>('imageTrainingClass'));this.el<HTMLSelectElement>('imageTrainingClass').value=String(focus.label);
     this.el("imageResultGrid").hidden = true; this.el("imageResultPager").hidden = true;
     this.el("imageMap").hidden = false; this.el("imageMapControls").hidden = !map;
-    this.el("imageResultTitle").textContent = "점을 눌러 그림과 예상 확인";
+    this.el("imageResultTitle").textContent = map?"점을 움직이며 계산 확인":"그림을 골라 계산 확인";
     this.el("imageModelTag").textContent = map ? "고른 두 특징으로 학습" : "그림 전체로 학습";
     this.el<HTMLSelectElement>("imageMode").value = s.mode;
     this.el("imageModeNote").textContent = map ? "점 색 = 정답 · 배경색 = 예상 · 검은 선 = 최종 경계" : "점은 두 특징의 요약입니다. 그림 전체 모델의 경계는 이 평면으로 모두 표현할 수 없습니다.";
-    this.el("imageTrainBars").hidden = s.selectedSample === null;
-    this.el("imageFocus").hidden = s.selectedSample === null;
+    this.el("imageTrainBars").hidden = true; // Probabilities are in the always-visible connection diagram.
+    this.el("imageFocus").hidden = !!probe||s.selectedSample === null;
     this.el("imageNetwork").closest("details")!.hidden = false;
     for (const [id, value] of [["imagePracticeX", s.xFeature], ["imagePracticeY", s.yFeature]]) {
       const select = this.el<HTMLSelectElement>(id!);
@@ -169,11 +182,13 @@ export class ImageWorkspace {
     this.el<HTMLInputElement>("imageRate").value = String(s.rate); this.el<HTMLOutputElement>("imageRateValue").value = s.rate.toFixed(2);
     this.el("imageAutoTrain").textContent = this.training ? "잠시 멈추기" : "계속 학습";
     drawImagePixels(this.el<HTMLCanvasElement>("imageFocus"), focus.pixels);
-    this.el("imageFocusName").textContent = s.selectedSample === null ? "그래프의 점을 누르면 이곳에 그림과 예상이 나타납니다." : `고른 그림 · 정답 ${s.classes[focus.label]}`;
-    if (s.selectedSample !== null) this.bars("imageTrainBars", result.probabilities);
-    this.el("imageNetwork").innerHTML = pixelNetworkGraphMarkup(map ? projectedPixelModel(s.model,s.projection) : s.model, s.classes, s.selectedSample === null ? [] : result.hidden, s.selectedSample === null ? [] : result.probabilities, map ? [s.features.find(f=>f.id===s.xFeature)!.name,s.features.find(f=>f.id===s.yFeature)!.name] : undefined);
+    this.el("imageFocusName").textContent = probe?`새 좌표 (${coordinate.x.toFixed(2)}, ${coordinate.y.toFixed(2)}) · 정답 미지정 · 예상 ${predicted}`:s.selectedSample === null ? "점을 누르거나 누른 채 움직여 보세요. 학습 자료는 이동하지 않습니다." : `고른 그림 · 정답 ${s.classes[focus.label]} · 예상 ${predicted}`;
+    if(selected)this.bars("imageTrainBars", result.probabilities);
+    this.el("imageNetwork").innerHTML = pixelNetworkGraphMarkup(map?mapModel:s.model, s.classes, selected?result.hidden:[], selected?result.probabilities:[], map ? [`가로 ${coordinate.x.toFixed(2)}`,`세로 ${coordinate.y.toFixed(2)}`] : undefined);
+    this.el('imageSignalNetwork').innerHTML=signalNetwork(map?mapModel:s.model,map?[coordinate.x,coordinate.y]:input,s.classes,selected);
+    this.el('imageLiveCalculation').innerHTML=selected?liveCalculation(map?mapModel:s.model,map?[coordinate.x,coordinate.y]:input,s.classes):'';
     drawLossChart(this.el<HTMLCanvasElement>("imageLoss"), s.history);
-    drawPixelLatentMap(this.el<HTMLCanvasElement>("imageMap"), s.model, s.data, s.selectedSample === null ? [] : focus.pixels, s.projection, { view: map ? "decision" : "placement", showNeuronBoundaries: this.showLines, showDecisionBoundary: this.showBoundary, axisLegend: imageFeatureLegend(s.features, s.xFeature, s.yFeature), focusLabel: `정답 ${s.classes[focus.label]}` });
+    drawPixelLatentMap(this.el<HTMLCanvasElement>("imageMap"), s.model, s.data, selected?input:[], s.projection, { view: map ? "decision" : "placement", showNeuronBoundaries: this.showLines, showDecisionBoundary: this.showBoundary, axisLegend: imageFeatureLegend(s.features, s.xFeature, s.yFeature), focusLabel: probe?`정답 미지정 · 예상 ${predicted}`:`정답 ${s.classes[focus.label]} · 예상 ${predicted}` });
   }
   private clearDrawing(): void {
     const canvas = this.el<HTMLCanvasElement>("imageDraw"); const ctx = canvas.getContext("2d")!;
@@ -258,9 +273,13 @@ export class ImageWorkspace {
     click("imageReset", () => { this.stopTraining(); this.store.resetModel(); });
     this.el<HTMLInputElement>("imageLines").addEventListener("change", (event) => { this.showLines = (event.target as HTMLInputElement).checked; this.render(); });
     this.el<HTMLInputElement>("imageBoundary").addEventListener("change", (event) => { this.showBoundary = (event.target as HTMLInputElement).checked; this.render(); });
-    this.el<HTMLCanvasElement>("imageMap").addEventListener("click", (event) => { const s = this.store.snapshot; const index = pixelMapExampleAt(event.currentTarget as HTMLCanvasElement, event.clientX, event.clientY, s.projection, s.data); if (index !== null) { this.store.selectSample(s.data[index]!.id); revealModelPanel(this.roots.get(4)!); } });
+    this.el<HTMLCanvasElement>("imageMap").addEventListener("click", (event) => { const s = this.store.snapshot; const index = pixelMapExampleAt(event.currentTarget as HTMLCanvasElement, event.clientX, event.clientY, s.projection, s.data); if (index !== null) { this.probe=null;this.store.selectSample(s.data[index]!.id); revealModelPanel(this.roots.get(4)!); } });
+    const practiceMap=this.el<HTMLCanvasElement>('imageMap');practiceMap.tabIndex=0;let probing=false;
+    const moveProbe=(e:PointerEvent)=>{if(!probing)return;const s=this.store.snapshot,index=pixelMapExampleAt(practiceMap,e.clientX,e.clientY,s.projection,s.data);if(index!==null){this.probe=null;this.store.selectSample(s.data[index]!.id);}else if(s.mode==='map'){const p=pixelMapInputAt(practiceMap,e.clientX,e.clientY);if(p){this.probe=p;this.renderTraining();}}};
+    practiceMap.addEventListener('pointerdown',e=>{probing=true;practiceMap.setPointerCapture?.(e.pointerId);moveProbe(e);});practiceMap.addEventListener('pointermove',moveProbe);practiceMap.addEventListener('pointerup',()=>probing=false);practiceMap.addEventListener('pointercancel',()=>probing=false);
+    practiceMap.addEventListener('keydown',e=>{if(this.store.snapshot.mode!=='map'||!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key))return;e.preventDefault();const p=this.probe??[0,0];this.probe=[Math.max(-1,Math.min(1,p[0]!+(e.key==='ArrowLeft'?-.05:e.key==='ArrowRight'?.05:0))),Math.max(-1,Math.min(1,p[1]!+(e.key==='ArrowDown'?-.05:e.key==='ArrowUp'?.05:0)))];this.renderTraining();});
     for (const id of ["imagePracticeX", "imagePracticeY"]) this.el(id).addEventListener("change", () => {
-      this.stopTraining(); const error = this.store.setAxes(this.el<HTMLSelectElement>("imagePracticeX").value, this.el<HTMLSelectElement>("imagePracticeY").value);
+      this.stopTraining();this.probe=null; const error = this.store.setAxes(this.el<HTMLSelectElement>("imagePracticeX").value, this.el<HTMLSelectElement>("imagePracticeY").value);
       this.message(error ?? "새 특징으로 분포를 바꾸었습니다. 여기서 다시 학습해 보세요."); this.render();
     });
     click("imageRecordTest", () => {

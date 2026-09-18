@@ -2,7 +2,7 @@ import type { NetworkModel } from "../types";
 import { PALETTE } from "./canvasUtils";
 import { NEURON_COLORS } from "./neuronColors";
 
-export function networkGraphMarkup(model: NetworkModel, activations: number[]): string {
+export function networkGraphMarkup(model: NetworkModel, activations: number[], inputs?:[number,number]): string {
   const inputX = 38; const hiddenX = 165; const outputX = 292;
   const hiddenYs = Array.from({ length: model.config.hiddenUnits }, (_, index) => 24 + ((index + 0.5) / model.config.hiddenUnits) * 182);
   const lines: string[] = [];
@@ -17,9 +17,9 @@ export function networkGraphMarkup(model: NetworkModel, activations: number[]): 
     const activation = activations[h] ?? 0;
     const intensity = Math.min(1, Math.abs(activation));
     const color = NEURON_COLORS[h % NEURON_COLORS.length];
-    nodes.push(`<g class="network-node" data-kind="hidden"><circle cx="${hiddenX}" cy="${y}" r="15" style="fill:${color};fill-opacity:${0.12 + intensity * .45};stroke:${color};stroke-width:2"/><text x="${hiddenX}" y="${y + 4}">${h + 1}</text><title>은닉 뉴런 ${h + 1}: ${activation.toFixed(5)}</title></g>`);
+    nodes.push(`<g class="network-node" data-kind="hidden"><circle cx="${hiddenX}" cy="${y}" r="15" style="fill:${color};fill-opacity:${0.12 + intensity * .45};stroke:${color};stroke-width:2"/><text x="${hiddenX}" y="${y + 4}">${h + 1}</text><text x="${hiddenX+38}" y="${y+4}" style="fill:${color};font-size:14px;paint-order:stroke;stroke:white;stroke-width:3px">${activation.toFixed(2)}</text><title>은닉 뉴런 ${h + 1}: ${activation.toFixed(5)}</title></g>`);
   });
-  nodes.unshift(`<g class="network-node"><circle cx="${inputX}" cy="76" r="16"/><text x="${inputX}" y="80">A</text></g><g class="network-node"><circle cx="${inputX}" cy="154" r="16"/><text x="${inputX}" y="158">B</text></g>`);
+  nodes.unshift(`<g class="network-node"><circle cx="${inputX}" cy="76" r="16"/><text x="${inputX}" y="80">가로</text>${inputs?`<text x="${inputX}" y="106">${inputs[0].toFixed(2)}</text>`:''}</g><g class="network-node"><circle cx="${inputX}" cy="154" r="16"/><text x="${inputX}" y="158">세로</text>${inputs?`<text x="${inputX}" y="184">${inputs[1].toFixed(2)}</text>`:''}</g>`);
   nodes.push(`<g class="network-node"><circle cx="${outputX}" cy="115" r="18"/><text x="${outputX}" y="119">답</text></g>`);
   return `<g class="network-lines">${lines.join("")}</g><g class="network-nodes">${nodes.join("")}</g>`;
 }

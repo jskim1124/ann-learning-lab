@@ -1,5 +1,6 @@
 export type LessonPoint = [number, number];
 export type LessonStroke = LessonPoint[];
+export const REQUIRED_LINE_HITS = 7;
 
 /** These are the actual zero-sum / equal-output lines of neuronLessonModel. */
 export function targetValue(point: LessonPoint, output: boolean): number {
@@ -17,11 +18,12 @@ export function lineCrossing(a: LessonPoint, b: LessonPoint, output: boolean): L
 
 export function traceHits(strokes: LessonStroke[], output: boolean): LessonPoint[] {
   const hits: LessonPoint[] = [];
+  const add=(hit:LessonPoint)=>{if(!hits.some(p=>Math.hypot(p[0]-hit[0],p[1]-hit[1])<.06))hits.push(hit);};
   for (const stroke of strokes) {
-    if (stroke[0] && Math.abs(targetValue(stroke[0], output)) < 1e-9) hits.push(stroke[0]);
+    if (stroke[0] && Math.abs(targetValue(stroke[0], output)) < 1e-9) add(stroke[0]);
     for (let i=1; i<stroke.length; i++) {
       const hit = lineCrossing(stroke[i-1]!, stroke[i]!, output);
-      if (hit && !hits.some(p=>Math.hypot(p[0]-hit[0],p[1]-hit[1])<.015)) hits.push(hit);
+      if (hit) add(hit);
     }
   }
   return hits;

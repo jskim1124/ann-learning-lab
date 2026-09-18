@@ -16,9 +16,10 @@ describe("오차·정답률 그래프",()=>{
     document.body.innerHTML='<div><div>이전 설명</div><canvas></canvas></div>';
     const canvas=document.querySelector("canvas")!,draw=vi.fn();
     const state=chartControls(canvas,history,draw);
+    expect(state).toMatchObject({metric:'accuracy',zoom:true});
     (document.querySelector('[data-metric="accuracy"]') as HTMLButtonElement).click();
     (document.querySelector('[data-chart-zoom]') as HTMLInputElement).click();
-    expect(state.metric).toBe("accuracy");expect(state.zoom).toBe(true);expect(draw).toHaveBeenCalledTimes(2);
+    expect(state.metric).toBe("accuracy");expect(state.zoom).toBe(false);expect(draw).toHaveBeenCalledTimes(2);
     expect(chartControls(canvas,history,draw)).toBe(state);
     expect(document.querySelectorAll(".learning-chart-controls")).toHaveLength(1);
   });
