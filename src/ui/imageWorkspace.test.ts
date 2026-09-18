@@ -33,13 +33,27 @@ describe("공통 이미지 UI 연결", () => {
     expect(document.getElementById("imageCameraStill")!.hidden).toBe(false);
     expect(workspace.store.focus().pixels).toEqual(Array(196).fill(.4));
   });
-  it("그림·정답 클래스·모델 입력을 재계산 없이 그대로 추가한다", () => {
+  it("원래 그림은 그대로 저장하고 추가 후 입력만 빈 그림으로 초기화한다", () => {
     workspace.configure("digits"); workspace.show(true,2);
     const input = Array.from({length:196}, (_, i) => i/195);
     workspace.store.selectClass(2); workspace.store.setInput(input,undefined,"drawing");
+    capture.mockReturnValueOnce({pixels:Array(196).fill(0),image:'data:image/jpeg;base64,empty'});
     button("imageCaptureAdd").click();
     expect(workspace.store.snapshot.data[0]).toMatchObject({pixels:input,label:2,source:"drawing"});
-    expect(workspace.store.snapshot.input).toEqual(input);
+    expect(workspace.store.snapshot.input).toEqual(Array(196).fill(0));
+    expect(workspace.store.snapshot.selectedClass).toBe(2);
+    expect(workspace.store.snapshot.selectedSample).toBeNull();
+  });
+  it('추가 버튼의 클래스 선택은 그림을 지우지 않고 즉시 저장 대상을 바꾼다',()=>{
+    workspace.configure('omr');workspace.show(true,2);
+    const input=Array(196).fill(.7);workspace.store.setInput(input,undefined,'drawing');
+    const select=document.getElementById('imageAddClass') as HTMLSelectElement;
+    select.value='4';select.dispatchEvent(new Event('change'));
+    expect(workspace.store.snapshot.input).toEqual(input);expect(button('imageCaptureAdd').textContent).toBe('⑤에 추가');
+    button('imageCaptureAdd').click();expect(workspace.store.snapshot.data[0]).toMatchObject({label:4,pixels:input});
+    expect(document.getElementById('imageClassList')!.textContent).toContain('⑤');
+    workspace.store.renameClass(4,'선택 5');expect(select.options[4]!.text).toBe('선택 5');
+    workspace.store.removeClass(0);expect(select.options).toHaveLength(4);expect(select.value).toBe('3');
   });
   it("카메라 권한 응답을 기다리다 페이지를 나가면 늦게 열린 트랙도 종료한다", async () => {
     let resolve!: (value: MediaStream) => void;

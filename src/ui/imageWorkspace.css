@@ -1,4 +1,7 @@
 .image-workspace { flex: 1; min-height: 0; min-width: 0; }
+.image-add-destination { display:grid; gap:3px; font-size:14px; min-width:110px; flex:1; }
+.image-add-destination select { width:100%; border:1px solid #cbd2dd; border-radius:9px; padding:7px; background:white; font-size:15px; }
+.toast { pointer-events:none; }
 .practice-axes { width: 100%; margin: 4px 0 8px; }
 .practice-axes > span { flex-basis: 100%; font-size: 14px; color: #626b76; }
 .spreadsheet-import { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }

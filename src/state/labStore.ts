@@ -130,8 +130,8 @@ export class LabStore {
     this.stopAuto(false); this.emit();
   }
   setPointClass(pointClass: Label): void { this.state = { ...this.state, pointClass }; this.emit(); }
-  addDataPoint(x: number, y: number): void {
-    this.state = { ...this.state, data: addPoint(this.state.data, x, y, this.state.pointClass) };
+  addDataPoint(x: number, y: number, label:Label=this.state.pointClass): void {
+    this.state = { ...this.state, data: addPoint(this.state.data, x, y, label) };
     this.resetModel();
   }
   undoDataPoint(): void { this.state = { ...this.state, data: undoPoint(this.state.data) }; this.resetModel(); }

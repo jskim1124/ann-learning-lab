@@ -14,11 +14,13 @@ import { createScratchProject } from "./export/scratchProject";
 import { createPixelScratchProject } from "./export/pixelScratchProject";
 import { createInitialStore, type LabState, type LabStore } from "./state/labStore";
 import { ImageWorkspace } from "./ui/imageWorkspace";
+import { PenaltyCollection } from "./ui/penaltyCollection";
+import { PenaltyLesson } from "./ui/penaltyLesson";
 import { FeatureLabStore, type FeatureLabState } from "./state/featureLabStore";
 import type { ActivationName, Label, PresetName } from "./types";
 import { drawDecisionSurface, HIDDEN_COLORS } from "./visualization/decisionSurface";
 import { CLASS_COLORS, drawFeatureSurface } from "./visualization/featureSurface";
-import { drawXorLesson, XOR_LESSON } from "./visualization/xorLesson";
+import { XOR_LESSON } from "./visualization/xorLesson";
 import { drawLossChart } from "./visualization/lossChart";
 import { drawMediaSample, mediaSampleText, playSoundSample, toggleMediaPixel } from "./visualization/mediaSample";
 import { networkGraphMarkup } from "./visualization/networkGraph";
@@ -52,6 +54,8 @@ let featureSelectedPoint: number | null = null;
 let boundarySelectedPoint: number | null = null;
 let tabularLesson: TabularLesson | null = null;
 let imageWorkspace: ImageWorkspace;
+let penaltyCollection:PenaltyCollection;
+let penaltyLesson:PenaltyLesson;
 function usesImages(preset: PresetName): boolean { return isPixelPreset(preset) || preset === "webcam" || preset === "custom" && (customDraft.inputKind === "drawing" || customDraft.inputKind === "webcam"); }
 function stopFeatureAuto(): void { if (featureAutoTimer) window.clearInterval(featureAutoTimer); featureAutoTimer = 0; }
 
@@ -352,6 +356,9 @@ function render(state: LabState, store: LabStore): void {
   understandingButton.title = skipUnderstanding ? "자율 문제는 이해 단계를 건너뜁니다." : "이해 단계 다시 보기";
   element<HTMLButtonElement>('[data-app-page="4"] [data-back]').textContent = skipUnderstanding ? "← 자료 다시 보기" : "← 원리 다시 보기";
   ["boundaryDataView", "boundaryWhyView", "boundaryTrainingView", "boundaryUseView"].forEach((id) => { element<HTMLElement>(`#${id}`).hidden = images || custom; });
+  if(state.preset==='xor') { element<HTMLElement>('#boundaryDataView').hidden=true;element<HTMLElement>('#boundaryWhyView').hidden=true; }
+  penaltyCollection.show(state.preset==='xor'&&state.lessonStep===2);
+  penaltyLesson.show(state.preset==='xor'&&state.lessonStep===3);
   ["customDataView", "customFeatureView", "customTrainingView", "customUseView"].forEach((id) => { element<HTMLElement>(`#${id}`).hidden = !custom; });
   element<HTMLElement>("#customFeatureNext").hidden = !custom;
   element<HTMLElement>("#whyFooterNote").hidden = images || custom;
@@ -359,7 +366,7 @@ function render(state: LabState, store: LabStore): void {
   imageWorkspace.show(images, state.lessonStep);
   element<HTMLElement>("#stepThreeLabel").textContent = "이해";
   element<HTMLButtonElement>("#dataNext").textContent = skipUnderstanding ? "바로 학습하기 →" : images ? "원리 살펴보기 →" : "원리 살펴보기 →";
-  element<HTMLElement>("#dataTitle").textContent = images ? "클래스를 고르고 그림을 모아요" : custom ? "자료를 직접 모아요" : "네 가지 경우를 살펴봐요";
+  element<HTMLElement>("#dataTitle").textContent = images ? "클래스를 고르고 그림을 모아요" : custom ? "자료를 직접 모아요" : "사진에서 승부차기를 모아요";
   element<HTMLElement>("#whyTitle").textContent = images ? "그림에서 예상까지, 한 단계씩" : custom ? "어떤 특징으로 나눌까요?" : "은닉 뉴런이 왜 두 개 필요할까요?";
   element<HTMLElement>("#trainTitle").textContent = images ? "모은 그림으로 학습해요" : "모델을 직접 학습시켜요";
   element<HTMLElement>("#trainTitle").nextElementSibling!.textContent = images ? "그림을 선택해 예상과 정답을 비교해 보세요." : "은닉 뉴런 수를 바꾸고 선의 변화를 관찰해 보세요.";
@@ -393,9 +400,8 @@ function render(state: LabState, store: LabStore): void {
     element<HTMLElement>("#boundarySelectedResult").textContent = chosen ? `예상 ${preset.classes[prediction.probability >= .5 ? 1 : 0]} · 골 점수 ${(prediction.probability * 100).toFixed(1)}%` : "";
     element<SVGSVGElement>("#networkSvg").innerHTML = networkGraphMarkup(state.model, prediction.hidden);
   }
-  if (state.lessonStep === 3 && !isPixelPreset(state.preset) && !isCustomPreset(state.preset)) {
-    if (state.preset === "xor") { const canvas = element<HTMLCanvasElement>("#decisionCanvas"); canvas.classList.toggle("understanding-motion", state.highlightRevealed && explanationMotionProgress < 1); drawXorLesson(canvas, state.explanationStep, state.highlightRevealed, explanationMotionProgress); }
-    else drawDecisionSurface(element<HTMLCanvasElement>("#decisionCanvas"), state.model, state.data, state.testInput, { explanationStep: state.explanationStep, selectedNeuron: state.selectedNeuron, highlightRevealed: state.highlightRevealed });
+  if (state.lessonStep === 3 && state.preset!=='xor' && !isPixelPreset(state.preset) && !isCustomPreset(state.preset)) {
+    drawDecisionSurface(element<HTMLCanvasElement>("#decisionCanvas"), state.model, state.data, state.testInput, { explanationStep: state.explanationStep, selectedNeuron: state.selectedNeuron, highlightRevealed: state.highlightRevealed });
     renderCausalExplanation(state, store); renderHighlightGuide(state); renderQuiz(state, store);
   }
   element<HTMLElement>("#epochMetric").textContent = String(state.model.epoch);
@@ -422,6 +428,7 @@ function render(state: LabState, store: LabStore): void {
 }
 
 function addPointFromCanvas(event: MouseEvent, store: LabStore): void {
+  if(store.snapshot.preset==='xor')return; // Penalty records come from photo choices, never plot clicks.
   const canvas = event.currentTarget as HTMLCanvasElement; const rect = canvas.getBoundingClientRect();
   store.addDataPoint(((event.clientX - rect.left) / rect.width) * 2 - 1, 1 - ((event.clientY - rect.top) / rect.height) * 2);
   showToast("새 사례를 점으로 추가했습니다.");
@@ -436,6 +443,8 @@ export function mountApp(store = createInitialStore()): LabStore {
   };
   imageWorkspace = new ImageWorkspace(showToast, goImageStep, (kind) => { customDraft = createCustomDraft(kind); syncCustomStore(store); store.setLessonStep(2); });
   imageWorkspace.configure(isPixelPreset(store.snapshot.preset) ? store.snapshot.preset : store.snapshot.preset === "webcam" ? "webcam" : "custom");
+  penaltyCollection=new PenaltyCollection(store,showToast);
+  penaltyLesson=new PenaltyLesson(()=>store.beginPractice());
   workspacePanels(element("#customDataView"), [...element("#customDataView .image-collection").children], ["클래스·자료", "자료 수집"], () => renderCustomLab(store.snapshot));
   const featureStore = new FeatureLabStore(); featureUiStore = featureStore;
   if (isCustomPreset(store.snapshot.preset)) { const projection = projectCustomDataset(customDraft); featureStore.setDataset(projection.points, projection.classes); }
@@ -454,7 +463,7 @@ export function mountApp(store = createInitialStore()): LabStore {
   store.subscribe(rerender); featureStore.subscribe(rerender);
   document.querySelectorAll<HTMLButtonElement>("[data-preset]").forEach((card) => card.addEventListener("click", () => {
     const preset = card.dataset.preset as PresetName;
-    boundarySelectedPoint = null; featureSelectedPoint = null; customClassPage=0; customSelectedClass=0; tabularLesson?.reset();
+    boundarySelectedPoint = null; featureSelectedPoint = null; customClassPage=0; customSelectedClass=0; tabularLesson?.reset();penaltyCollection.reset();penaltyLesson.reset();
     if (preset === "custom") { customDraft = createCustomDraft(); featureStore.setHiddenUnits(1); syncCustomPreset("custom"); imageWorkspace.configure("custom"); }
     else if (isPixelPreset(preset) || preset === "webcam") imageWorkspace.configure(preset);
     store.setPreset(preset); if (preset === "custom") syncCustomStore(store);
@@ -465,6 +474,7 @@ export function mountApp(store = createInitialStore()): LabStore {
   }));
   element<HTMLButtonElement>("#scenarioNext").addEventListener("click", () => store.setLessonStep(2));
   element<HTMLButtonElement>("#dataNext").addEventListener("click", () => {
+    if(store.snapshot.preset==='xor'){store.setLessonStep(3);return;}
     if (usesImages(store.snapshot.preset)) { const error = imageWorkspace.ready(); if (error) return showToast(error); store.setLessonStep(store.snapshot.preset === "custom" ? 4 : 3); return; }
     if (isCustomPreset(store.snapshot.preset)) { const error = validateCustomDataset(customDraft); if (error) return showToast(error); syncCustomStore(store); store.setLessonStep(4); return; }
     const error = store.prepareExplanationModel(); if (error) return showToast(error); store.setLessonStep(3);

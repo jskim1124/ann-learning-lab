@@ -144,7 +144,7 @@ export class ImageFeatureLesson {
       if (this.complete()) { this.reveal = 0; this.frame = 0; this.biasChecked=null; this.activity=newNeuronActivity();this.outputAnswer=null;this.focus=[.2,.2]; }
       this.playing = true; this.play();
     });
-    click("flNext", () => { if (!this.passed.has(this.step)) return message("아래 선택형 문제를 확인해 주세요."); this.stop(); if (this.step === 4) { store.setMode("map"); this.next(); } else { this.step++; this.reveal = 0; this.frame = 0; this.answer = null; this.example = true; this.activity=newNeuronActivity(); this.outputAnswer=null;this.focus=[.2,.2];this.biasChecked=null; this.render(); } });
+    click("flNext", () => { if (!this.passed.has(this.step)) return message("아래 선택형 문제를 확인해 주세요."); this.stop(); if (this.step === 4) { if(![1,2,3,4].every(s=>this.passed.has(s)))return message("위 목차에서 아직 풀지 않은 확인 문제를 마쳐 주세요."); if(store.snapshot.task!=="webcam")store.setMode("map"); this.next(); } else { this.step++; this.reveal = 0; this.frame = 0; this.answer = null; this.example = true; this.activity=newNeuronActivity(); this.outputAnswer=null;this.focus=[.2,.2];this.biasChecked=null; this.render(); } });
     click("flCreate", () => { this.paint.fill(0); this.el<HTMLInputElement>("flName").value = ""; this.el("flEditorError").textContent = ""; this.drawMask(); this.el<HTMLDialogElement>("flEditor").showModal(); });
     let painting = false; const mask = this.el<HTMLCanvasElement>("flMask");
     const paint = (e: PointerEvent) => { if (!painting) return; const r = mask.getBoundingClientRect(), x = Math.floor((e.clientX-r.left)/r.width*14), y = Math.floor((e.clientY-r.top)/r.height*14); if (x<0||x>=14||y<0||y>=14) return; this.paint[y*14+x] = Number(root.querySelector<HTMLInputElement>('input[name="flBrush"]:checked')!.value); this.drawMask(); };
@@ -237,8 +237,8 @@ export class ImageFeatureLesson {
     this.el("flBiasCheck").className=this.biasChecked===null?"":this.biasChecked?"correct":"wrong";
     this.el("flQuiz").hidden=!done||this.step===3&&this.example;
     this.el("flNext").hidden=this.step===3&&!done;
-    this.el<HTMLButtonElement>("flNext").disabled=!this.passed.has(this.step);
-    this.el("flNext").textContent=this.step===4?"고른 특징으로 직접 학습하기 →":"다음 내용 →";
+    this.el<HTMLButtonElement>("flNext").disabled=!this.passed.has(this.step)||this.step===4&&![1,2,3,4].every(s=>this.passed.has(s));
+    this.el("flNext").textContent=this.step===4?this.passed.size<4?`확인 ${this.passed.size}/4 · 위 목차의 남은 문제를 풀어 주세요`:s.task==='webcam'?"그림 전체로 직접 학습하기 →":"고른 특징으로 직접 학습하기 →":"다음 내용 →";
     this.el("flAction").textContent=done?"확인 완료":this.arithmeticPending()||this.outputPending()?"아래 계산 확인":this.intro()&&this.reveal===1&&this.activity.phase<4?`한 항씩 계산 (${this.activity.phase}/4)`:this.intro()?`다음 장면 (${this.reveal+1}/${NEURON_INTRO_STEPS})`:this.step===3?this.example?"0.1 더해 보기":`한 번 고치기 (${Math.floor(this.frame)}/${this.limit()})`:`다음 계산 (${this.reveal}/${this.limit()})`;
     this.el("flPrevious").hidden=this.step===2;
     this.el<HTMLButtonElement>("flPrevious").disabled=this.reveal===0&&this.frame===0;

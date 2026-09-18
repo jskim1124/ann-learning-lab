@@ -91,4 +91,14 @@ describe('연결값·정답·출력의 의미',()=>{
     expect(root.querySelector('.point-truth')!.textContent).toContain('A·B 동점');
     lesson.stop();
   });
+  it.each(['digits','omr','webcam'] as const)('%s도 마지막 퀴즈만 풀어서는 앞의 계산을 건너뛸 수 없다',task=>{
+    document.body.innerHTML='<div id="lesson"></div>';
+    const root=document.getElementById('lesson')!,store=new ImageLabStore(task),next=vi.fn();
+    if(task==='webcam')for(let label=0;label<3;label++)for(let sample=0;sample<2;sample++){store.selectClass(label);store.setInput(Array.from({length:196},(_,i)=>i%3===label?.8:.1),undefined,'webcam');store.addInput();}
+    const lesson=new ImageFeatureLesson(root,store,next,vi.fn());lesson.render();
+    const click=(s:string)=>root.querySelector<HTMLButtonElement>(s)!.click();click('[data-fl-step="4"]');
+    for(let i=0;i<3;i++)click('#flAction');click('[data-output-answer="0"]');for(let i=0;i<3;i++)click('#flAction');click('[data-fl-choice="0"]');
+    expect(root.querySelector<HTMLButtonElement>('#flNext')!.disabled).toBe(true);click('#flNext');expect(next).not.toHaveBeenCalled();
+    expect(root.querySelector('#flNext')!.textContent).toContain('확인 1/4');lesson.stop();
+  });
 });

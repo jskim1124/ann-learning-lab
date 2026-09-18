@@ -15,16 +15,16 @@ describe("자료에서 연습으로 이어지는 실제 화면 이동",()=>{
   afterEach(()=>{vi.restoreAllMocks();vi.unstubAllGlobals();});
   const click=(selector:string)=>document.querySelector<HTMLButtonElement>(selector)!.click();
   it("승부차기에서도 오답만 표시하고 정답이나 해설을 공개하지 않는다",()=>{
-    click('[data-preset="xor"]');click('#scenarioNext');click('#dataNext');click('#revealHighlight');
-    const question=document.getElementById('quizQuestion')!.textContent;
+    click('[data-preset="xor"]');click('#scenarioNext');click('#dataNext');
+    for(let i=0;i<3;i++)click('#plAdvance');
+    const question=document.getElementById('plQuestion')!.textContent;
     expect(question).toBeTruthy();
-    // The first check asks when the simplified penalty example scores a goal.
-    const choices=[...document.querySelectorAll<HTMLButtonElement>('#quizChoices button')];
-    const wrong=choices.find(b=>b.textContent==='두 방향이 같을 때')!;
+    const choices=[...document.querySelectorAll<HTMLButtonElement>('#plChoices button')];
+    const wrong=choices.find(b=>b.textContent==='−0.5')!;
     wrong.click();
-    expect(document.querySelectorAll('#quizChoices .wrong')).toHaveLength(1);
-    expect(document.querySelector('#quizChoices .correct')).toBeNull();
-    expect(document.getElementById('quizFeedback')!.textContent).toBe('오답입니다. 그래프를 다시 보고 골라 보세요.');
+    expect(document.querySelectorAll('#plChoices .wrong')).toHaveLength(1);
+    expect(document.querySelector('#plChoices .correct')).toBeNull();
+    expect(document.getElementById('plFeedback')!.textContent).toBe('오답입니다. 위 계산을 다시 확인해 보세요.');
   },20000);
   it("자율 숫자 문제는 이해 없이 연습으로 가고, 특징을 바꿔도 그 화면에 남는다",()=>{
     click('[data-preset="custom"]');click("#scenarioNext");click("#customLoadExample");click("#dataNext");

@@ -61,6 +61,9 @@ export class ImageWorkspace {
     this.capture = document.createElement("div"); this.capture.className = "image-capture";
     this.capture.innerHTML = `<div class="image-heading"><h2 id="imageCaptureTitle">그림을 모아 보세요</h2><span id="imageCaptureClass"></span></div><div class="image-input-switch" id="imageInputSwitch"><button data-image-input="drawing">그리기</button><button data-image-input="webcam">웹캠</button></div><div class="image-capture-pair"><figure><div class="image-source"><canvas id="imageDraw" width="420" height="420" aria-label="자유롭게 그림 그리기"></canvas><video id="imageVideo" autoplay playsinline muted hidden aria-label="중앙을 정사각형으로 자른 웹캠"></video><span id="imageCameraEmpty" hidden>카메라를 켜고 손을 보여 주세요</span></div><figcaption id="imageSourceCaption">직접 그린 그림</figcaption></figure><span class="image-convert-arrow" aria-hidden="true">→</span><figure class="image-processed"><canvas id="imageInputPreview" width="224" height="224" aria-label="모델에 실제 입력하는 14×14 흑백 그림"></canvas><figcaption>모델이 받는 14×14칸</figcaption></figure></div><div class="image-capture-buttons"><button id="imageCameraStart" class="button secondary" hidden>카메라 켜기</button><button id="imageCameraStop" class="button secondary" hidden>카메라 끄기</button><button id="imageClear" class="button secondary">지우기</button><button id="imageCaptureAdd" class="button primary">이 그림 추가</button></div><p id="imageCaptureHint">한 칸의 진하기를 0~1로 바꾸어 입력합니다.</p><p id="imagePrivacy" hidden>영상은 이 브라우저에서만 처리됩니다. 배경도 그림에 포함됩니다.</p>`;
     document.querySelector("#imageCollectSlot")!.append(this.capture);
+    const destination = document.createElement('label'); destination.id='imageAddDestination'; destination.className='image-add-destination';
+    destination.innerHTML='<span>추가할 클래스</span><select id="imageAddClass" aria-label="추가 버튼의 클래스 선택"></select>';
+    this.el('imageCaptureAdd').before(destination);
     const still = document.createElement("img"); still.id = "imageCameraStill"; still.alt = "촬영해 보관한 원본 그림"; still.hidden = true;
     this.capture.querySelector(".image-source")!.append(still);
     const removeSample = document.createElement("button"); removeSample.id = "imageRemoveSample"; removeSample.textContent = "이 자료 삭제"; removeSample.hidden = true;
@@ -140,6 +143,8 @@ export class ImageWorkspace {
     this.el("imageSourceCaption").textContent = camera ? "지금 카메라에 보이는 그림" : "직접 그린 그림";
     this.el("imageCaptureClass").textContent = this.step === 2 ? `추가할 클래스: ${s.classes[s.selectedClass]}` : "학습 자료에는 추가되지 않습니다";
     const add = this.el<HTMLButtonElement>("imageCaptureAdd"); add.hidden = this.step !== 2; add.disabled = camera && !this.canCapture; add.textContent = `${s.classes[s.selectedClass]}에 추가`;
+    this.el('imageAddDestination').hidden=this.step!==2;
+    this.options(this.el<HTMLSelectElement>('imageAddClass')); this.el<HTMLSelectElement>('imageAddClass').value=String(s.selectedClass);
     this.el("imageCaptureHint").textContent = camera ? "손의 모양·거리·배경을 바꾸어 모아 보세요. 클래스마다 20장 이상을 권장합니다." : s.task === "omr" ? "칸을 벗어나도 괜찮습니다. 연필처럼 직접 칠해 보세요." : "같은 숫자도 크기와 모양을 조금씩 바꾸어 그려 보세요.";
     drawImagePixels(this.el<HTMLCanvasElement>("imageInputPreview"), s.input, true);
   }
@@ -204,8 +209,12 @@ export class ImageWorkspace {
     click("imageCaptureAdd", () => {
       if (this.kind === "webcam" && !this.canCapture) return;
       if (this.kind === "webcam") { const input = captureImage(this.el<HTMLVideoElement>("imageVideo"), true); this.store.setInput(input.pixels, input.image, "webcam"); }
-      this.store.addInput(); this.message(`${this.store.snapshot.classes[this.store.snapshot.selectedClass]} 자료를 맨 앞에 추가했습니다.`);
+      const label=this.store.snapshot.selectedClass;
+      this.store.addInput(); this.classPage=Math.floor(label/3);
+      if(this.kind==='drawing')this.clearDrawing(); // Persist the snapshot before clearing the draft and its preview.
+      this.render(); this.message(`${this.store.snapshot.classes[label]} 자료를 맨 앞에 추가했습니다.${this.kind==='drawing'?' 다음 그림을 그려 주세요.':''}`);
     });
+    this.el('imageAddClass').addEventListener('change',()=>this.store.selectClass(Number(this.el<HTMLSelectElement>('imageAddClass').value)));
     this.el("imageInputSwitch").addEventListener("click", (event) => { const kind = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-image-input]")?.dataset.imageInput as CaptureKind | undefined; if (!kind || kind === this.kind) return; this.stopCamera(); this.kind = kind; this.canCapture = false; this.clearDrawing(); this.render(); });
     this.el<HTMLFormElement>("imageNewClass").addEventListener("submit", (event) => { event.preventDefault(); const input = this.el("imageNewClass").querySelector<HTMLInputElement>("input")!; const error = this.store.addClass(input.value); if (error) this.message(error); else { input.value = ""; this.classPage = Math.floor((this.store.snapshot.classes.length - 1) / 3); this.render(); } });
     this.el("imageClassList").addEventListener("click", (event) => {
