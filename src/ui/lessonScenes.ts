@@ -9,6 +9,7 @@ import { projectPixels } from "../core/pixelProjection";
 
 
 import { neuronDiagram } from "./neuronDiagram";
+import { classBadge } from './lessonClassification';
 
 const n=(v:number)=>Number(v.toFixed(2)).toString();
 const identity={mean:[0,0],horizontal:[1,0],vertical:[0,1],horizontalScale:1,verticalScale:1};
@@ -26,9 +27,9 @@ export function renderMovementScene(root:HTMLElement,s:ImageState,toy:boolean,fr
   el(root,"flVisualTitle").textContent="점은 고정 · 계산값과 경계가 함께 이동";
   el(root,"flText").textContent=toy?"점 (0.2, 0.2)의 정답은 B입니다. 슬라이더는 보라색 수 한 곳만 바꿉니다. 입력이나 곱할 수는 바꾸지 않아요.":"실제 학습은 오차가 줄어드는 방향을 계산해 여러 연결값을 함께 고칩니다. 이 예제에서는 한 그림을 반복 학습하고 대표선 하나를 봅니다.";
   if(toy){const b=after.hiddenBias[0]!;
-    el(root,"flCalculation").innerHTML=`<span>곱한 값은 그대로: 0.2 × 1 = 0.2 · 0.2 × 0.5 = 0.1</span><div class="bias-equation">합 = 0.2 + 0.1 + <mark class="bias-value">(${n(b)})</mark> = <b>${n(.3+b)}</b> → 보낼 값 <b>${n(r.hidden[0]!)}</b></div><div class="movement-scores"><span>A: 1 − ${n(r.hidden[0]!)} = <b>${n(r.logits[0]!)}</b></span><span>B: <b>${n(r.logits[1]!)}</b><small>처음 0.3 → ${n(r.logits[1]!)}</small></span><strong>${Math.abs(r.logits[0]!-r.logits[1]!)<1e-8?"같은 점수":r.logits[0]!>r.logits[1]! ? "지금 예상 A":"지금 예상 B"}</strong></div>${.3+b<0?'<span>합이 음수라 0을 보냅니다. 여기서는 수를 더 줄여도 B는 0입니다.</span>':''}`;
+    el(root,"flCalculation").innerHTML=`<div class="movement-scores"><span>정답 B 점수<small>처음 0.3 → ${n(r.logits[1]!)}</small></span>${Math.abs(r.logits[0]!-r.logits[1]!)<1e-8?'<strong>같은 점수</strong>':classBadge(r.logits[0]!>r.logits[1]!?'지금 예상 A':'지금 예상 B',r.logits[0]!>r.logits[1]!?0:1)}</div><span>연결지도의 보라색 더할 수만 바뀝니다. 검은 경계의 가로 위치는 ${n(.4-b)}예요.</span>${.3+b<0?'<span>합이 음수라 0을 보냅니다. 여기서는 수를 더 줄여도 B는 0입니다.</span>':''}`;
     el(root,"flSelected").innerHTML=neuronDiagram(after,point,3);
-    el(root,"flVisualNote").textContent=`검은 경계는 A = B = 0.5. 세로 0.2에서 가로 + 0.1 + (${n(b)}) = 0.5이므로, 경계의 가로는 ${n(.4-b)}입니다.`;
+    el(root,"flVisualNote").textContent='';
     el(root,"flSourceNote").textContent="한 수만 직접 바꾸는 작은 실험 · 실제 학습은 여러 연결값을 함께 고칩니다.";
   }else{const a=hiddenPlane(before,projection,0),b=hiddenPlane(after,projection,0);
     el(root,"flCalculation").innerHTML=`<span>전: ${n(p.x)} × ${n(a.horizontal)} + ${n(p.y)} × (${n(a.vertical)}) + (${n(a.constant)}) ≈ ${n(pixelHiddenLineValue(before,point,0))}</span><span>후: ${n(p.x)} × ${n(b.horizontal)} + ${n(p.y)} × (${n(b.vertical)}) + (${n(b.constant)}) ≈ ${n(pixelHiddenLineValue(after,point,0))}</span><span>정답의 출력 점수: ${n(old.logits[label]!)} → <b>${n(r.logits[label]!)}</b></span><span>다른 출력들과 함께 비교합니다. 한 뉴런의 값이 커진다고 언제나 정답 점수가 커지는 것은 아닙니다.</span>`;

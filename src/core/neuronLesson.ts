@@ -3,14 +3,18 @@ import { forwardPixels, type PixelExample, type PixelModel } from "./pixelNetwor
 
 export const NEURON_INTRO_STEPS = 5;
 export const LESSON_PROJECTION = { mean:[0,0], horizontal:[1,0], vertical:[0,1], horizontalScale:1, verticalScale:1 };
-// Teacher-labelled fictional examples, independent of the current model's predictions.
+// Fictional teaching truth is fixed BEFORE choosing or changing model weights.
+// A: left half. B: right half. With C added, the lower-right quadrant becomes C.
+export function lessonTruth(point:number[], classes=2):number {
+  return point[0]! < 0 ? 0 : classes===3 && point[1]! < 0 ? 2 : 1;
+}
+export function lessonTruthRule(classes=2):string {
+  return classes===3 ? '정답 규칙: 왼쪽 A / 오른쪽 위 B·아래 C. 0은 오른쪽·위쪽에 포함해요.' : '이번 정답 규칙: 가로가 음수면 A, 0 이상이면 B.';
+}
 export const NEURON_EXAMPLES: PixelExample[] = [
   {pixels:[-.7,.65],label:0}, {pixels:[-.6,-.55],label:0},
   {pixels:[.2,.2],label:1}, {pixels:[.75,.65],label:1}, {pixels:[.8,-.65],label:1},
 ];
-export function lessonTruth(point:number[], examples:PixelExample[]=NEURON_EXAMPLES):number|null {
-  return examples.find(e=>e.pixels.every((v,i)=>Math.abs(v-point[i]!)<1e-8))?.label??null;
-}
 export const NEURON_PROBES: Record<string, { title: string; point: [number, number] }> = {
   input: { title: "처음 점 (0.2, 0.2)", point: [.2, .2] },
   purple1: { title: "(−0.5, 1)", point: [-.5, 1] },

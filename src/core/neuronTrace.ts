@@ -1,6 +1,6 @@
 export type LessonPoint = [number, number];
 export type LessonStroke = LessonPoint[];
-export const REQUIRED_LINE_HITS = 7;
+export const REQUIRED_LINE_HITS = 13;
 
 /** These are the actual zero-sum / equal-output lines of neuronLessonModel. */
 export function targetValue(point: LessonPoint, output: boolean): number {

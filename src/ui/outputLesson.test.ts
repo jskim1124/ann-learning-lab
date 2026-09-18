@@ -6,8 +6,7 @@ import { lessonTruth, NEURON_EXAMPLES, neuronCalculation, neuronLessonModel } fr
 import { outputTeachingModel } from "../core/lessonArithmetic";
 import { forwardPixels } from "../core/pixelNetwork";
 import { outputPractice, renderOutputScene } from "./outputLesson";
-import { crossLessonLine, SEVEN_HEIGHTS } from './lessonTestHelpers';
-vi.mock('../visualization/graphCallout',()=>({drawGraphCallout:vi.fn()}));
+import { crossLessonLine, THIRTEEN_HEIGHTS } from './lessonTestHelpers';
 vi.mock('../visualization/neuronTrace',()=>({drawNeuronTrace:vi.fn()}));
 const predicted=(r:ReturnType<typeof forwardPixels>)=>r.probabilities.indexOf(Math.max(...r.probabilities));
 
@@ -34,36 +33,43 @@ describe('연결값·정답·출력의 의미',()=>{
     expect(neuronCalculation(m,[.2,.4]).sum-base.sum).toBeCloseTo(.1);
     lesson.stop();
   });
-  it('숨겨진 선은 서로 다른 7곳을 찾아야 자동 공개되고 다음 장면에도 남는다',()=>{
+  it('숨겨진 선은 서로 다른 13곳을 찾아야 자동 공개되고 다음 장면에도 남는다',()=>{
     const {root,lesson,click}=setup();click('[data-fl-step="3"]');
     for(let i=0;i<5;i++)click('#flAction');click('[data-neuron-answer="0"]');click('#flAction');
     const options=()=>vi.mocked(drawPixelLatentMap).mock.calls.at(-1)![5]!;
     expect(options()).toMatchObject({neutralBackground:true,showNeuronBoundaries:false,showDecisionBoundary:false,showDataLabels:true});
     expect(root.querySelector('.point-truth')!.textContent).toContain('정답 B');
     expect(root.querySelector('#flShowLines')).toBeNull();
-    crossLessonLine(root,SEVEN_HEIGHTS.slice(0,6));expect(options().showNeuronBoundaries).toBe(false);
+    expect(root.querySelector('.trace-result')!.textContent).toContain('남은 점 13개');
+    crossLessonLine(root,THIRTEEN_HEIGHTS.slice(0,12));expect(options().showNeuronBoundaries).toBe(false);
+    expect(root.querySelector('.trace-result')!.textContent).toContain('남은 점 1개');
+    crossLessonLine(root,[THIRTEEN_HEIGHTS[0]!]);
+    expect(root.querySelector('.trace-result')!.textContent).toContain('남은 점 1개');
     expect(root.querySelector<HTMLButtonElement>('#flAction')!.disabled).toBe(true);
-    crossLessonLine(root,[SEVEN_HEIGHTS[6]!]);expect(options().showNeuronBoundaries).toBe(true);
+    crossLessonLine(root,[THIRTEEN_HEIGHTS[12]!]);expect(options().showNeuronBoundaries).toBe(true);
+    expect(root.querySelector('.trace-result')!.textContent).toContain('남은 점 0개');
     expect(root.querySelector<HTMLButtonElement>('#flAction')!.disabled).toBe(false);
     click('#flAction');expect(options().showNeuronBoundaries).toBe(true);
     click('#flAction');
     expect(options()).toMatchObject({neutralBackground:true,showNeuronBoundaries:true,showDecisionBoundary:false});
     expect(root.querySelector('.point-truth')!.textContent).toContain('정답 B · 모델 예상 A');
-    crossLessonLine(root,SEVEN_HEIGHTS);expect(options()).toMatchObject({neutralBackground:false,showNeuronBoundaries:true,showDecisionBoundary:true});
+    crossLessonLine(root,THIRTEEN_HEIGHTS);expect(options()).toMatchObject({neutralBackground:false,showNeuronBoundaries:true,showDecisionBoundary:true});
     lesson.stop();
   });
-  it('정답은 모델 예상과 독립적이며 새 좌표의 정답을 만들어 내지 않는다',()=>{
+  it('명시한 가상 정답 규칙은 모델 예상과 독립적이고 새 좌표에도 적용된다',()=>{
     const point=[.2,.2],m=neuronLessonModel(),labels=JSON.stringify(NEURON_EXAMPLES);
     expect(lessonTruth(point)).toBe(1);expect(predicted(forwardPixels(m,point))).toBe(0);
     const corrected={...m,hiddenBias:[.5]};expect(predicted(forwardPixels(corrected,point))).toBe(1);
-    expect(lessonTruth(point)).toBe(1);expect(lessonTruth([.37,-.23])).toBeNull();
+    expect(lessonTruth(point)).toBe(1);expect(lessonTruth([.37,-.23])).toBe(1);
+    expect(lessonTruth([-.37,-.23])).toBe(0);expect(lessonTruth([0,0])).toBe(1);
+    expect(lessonTruth([.37,-.23],3)).toBe(2);expect(lessonTruth([0,0],3)).toBe(1);
     expect(JSON.stringify(NEURON_EXAMPLES)).toBe(labels);
   });
   it('A 곱하기·더하기·B 계산을 따로 보여 주고 재생은 출력 계산 문제에서 멈춘다',()=>{
     vi.useFakeTimers();const {root,lesson,click}=setup();click('[data-fl-step="4"]');
     expect(root.querySelectorAll('.output-route')).toHaveLength(2);
     expect(root.querySelector('.output-route strong')!.textContent).toBe('A ?');
-    click('#flAction');expect(root.querySelector('.output-equation')!.textContent).toContain('−0.3');
+    click('#flAction');expect(root.querySelector('.output-equation')!.textContent).toContain('-0.3');
     expect(root.querySelector('.output-route strong')!.textContent).toBe('A ?');
     click('#flAction');expect(root.querySelector('.output-route strong')!.textContent).toBe('A 0.7');
     click('#flPlay');vi.advanceTimersByTime(15000);
@@ -74,7 +80,7 @@ describe('연결값·정답·출력의 의미',()=>{
     expect(root.querySelector('.arithmetic-check [role=status]')!.textContent).not.toContain('0.6');
     click('[data-output-answer="0"]');click('#flAction');click('#flAction');
     expect(root.querySelectorAll('.output-route')).toHaveLength(3);
-    expect(root.querySelector('#flCalculation')!.textContent).toContain('0.15 + 0.3 = 0.45');
+    expect(root.querySelector('#flSelected')!.textContent).toContain('0.15 + 0.3 = 0.45');
     click('#flAction');click('[data-output-neurons="2"]');
     expect(root.querySelectorAll('.output-signals > span')).toHaveLength(2);
     expect(root.querySelectorAll('.output-route')).toHaveLength(3);
@@ -91,7 +97,7 @@ describe('연결값·정답·출력의 의미',()=>{
   it('탐색 좌표와 표시된 점수로 같은 계산을 재현할 수 있다',()=>{
     const {root,lesson}=setup();
     renderOutputScene(root,[.36001,.26998],4,1);
-    expect(root.querySelector('#flCalculation')!.textContent).toContain('신호 0.495');
+    expect(root.querySelector('.output-signals b')!.textContent).toBe('0.495');
     expect(root.querySelector('.output-route strong')!.textContent).toBe('A 0.505');
     expect(root.querySelector('.point-truth')!.textContent).toContain('모델 예상 A');
     renderOutputScene(root,[.36,.28],4,1);

@@ -1,7 +1,6 @@
 import { forward } from '../core/neuralNetwork';
 import { penaltyTeachingModel, penaltyPixelModel, PENALTY_CASES, PENALTY_PROJECTION, PENALTY_AXES } from '../core/penalty';
 import { drawPixelLatentMap, pixelMapInputAt } from '../visualization/pixelLatentMap';
-import { drawGraphCallout } from '../visualization/graphCallout';
 import { workspacePanels } from './workspacePanels';
 import { PALETTE } from '../visualization/canvasUtils';
 import './penaltyWorkspace.css';
@@ -77,8 +76,6 @@ export class PenaltyLesson {
     for(const [id,index] of [['plX',0],['plY',1]] as const){this.el<HTMLInputElement>(id).value=String(point[index]);this.el(id+'Value').textContent=n(point[index]!);}
     const before=penaltyTeachingModel();before.parameters.hiddenBias=[2,0];
     drawPixelLatentMap(this.el('plMap'),penaltyPixelModel(model),PENALTY_CASES,point,PENALTY_PROJECTION,{view:step===0?'placement':'decision',classColors:[PALETTE.zero,PALETTE.one],classLabels:['막힘','골'],axisLegend:PENALTY_AXES,showDataLabels:true,onlyNeuron:step===3?0:undefined,showNeuronBoundaries:step>0,showDecisionBoundary:step>0,previousNeuronModel:step===3?penaltyPixelModel(before):undefined,focusLabel:`정답 ${truth}`});
-    const add=step===3?` + ${n(model.parameters.hiddenBias[0]!)}`:'';
-    if(step)drawGraphCallout(this.el('plMap'),point,[`${n(point[0]!)} + ${n(point[1]!)}${add} = ${n(sum)}`,`넘길 숫자 ${n(r.hidden[0]!)} → 골 점수 ${n(r.logit)}`]);
     const texts=[
       [`<b>가로 ${n(point[0]!)} · 세로 ${n(point[1]!)}</b><span>변환식 없이 골대 눈금에서 바로 읽어요.</span>`,`<b>공의 ${n(point[0]!)}을 가로에 놓아요.</b>`,`<b>골키퍼의 ${n(point[1]!)}만큼 위·아래로 이동해요.</b><span>사진의 높이가 아니라 골키퍼의 좌우 선택입니다.</span>`,`<b>두 선택을 점 하나로: (${n(point[0]!)}, ${n(point[1]!)})</b>`],
       [`<b>가로 ${n(point[0]!)} + 세로 ${n(point[1]!)}</b><span>두 입력에 각각 1을 곱하므로 값이 그대로예요.</span>`,`<b>${n(point[0]!)} + ${n(point[1]!)} = ${n(sum)}</b><span>연결지도에서도 같은 숫자를 확인하세요.</span>`,`<b>다음에 넘길 숫자 = ${n(r.hidden[0]!)}</b><span>‘신호’란 이 숫자입니다. 별도의 에너지가 아닙니다.</span>`,`<b>골 점수: 1 − ${n(r.hidden[0]!)} = ${n(r.logit)}</b><span>0보다 크면 골, 작으면 막힘, 0이면 동점. 둘 다 왼쪽인 경우에는 이 뉴런 하나로 부족해요.</span>`],

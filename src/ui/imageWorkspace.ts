@@ -9,7 +9,7 @@ import { createPixelScratchProject } from "../export/pixelScratchProject";
 import { ImageLabStore, type ImageTask, type ImageMode } from "../state/imageLabStore";
 import { drawPixelLatentMap, pixelMapExampleAt, pixelMapInputAt, projectedPixelModel } from "../visualization/pixelLatentMap";
 import { projectPixels, reconstructProjectedPixels } from '../core/pixelProjection';
-import { liveCalculation, signalNetwork, installSignalNetwork } from './liveCalculation';
+import { renderSignalNetwork, installSignalNetwork } from './liveCalculation';
 import { pixelNetworkGraphMarkup } from "../visualization/pixelNetworkGraph";
 import { drawLossChart } from "../visualization/lossChart";
 import "./imageWorkspace.css";
@@ -62,7 +62,6 @@ export class ImageWorkspace {
     this.el("imageChooseFeatures").replaceWith(axisBar);
     this.el("imageNetwork").closest("details")!.open = true;
     this.el('imageExportSb3').closest('details')!.open=true;
-    const calculation=document.createElement('div');calculation.id='imageLiveCalculation';this.el('imageNetwork').after(calculation);
     installSignalNetwork(this.el('imageNetwork'),'imageSignalNetwork');
     const classChoice=document.createElement('label');classChoice.className='practice-class-choice';classChoice.innerHTML='자료 클래스 선택<select id="imageTrainingClass" aria-label="연습에서 살펴볼 클래스"></select>';
     this.el('imageFocus').parentElement!.before(classChoice);
@@ -177,7 +176,7 @@ export class ImageWorkspace {
       if (select.dataset.features !== s.features.map(f => f.id).join("|")) { select.innerHTML = s.features.map(f => `<option value="${f.id}">${escape(f.name)}</option>`).join(""); select.dataset.features = s.features.map(f => f.id).join("|"); }
       select.value = value!;
     }
-    this.el<HTMLOutputElement>("imageHiddenValue").value = `${s.model.hiddenUnits}개`; this.el<HTMLInputElement>("imageHidden").value = String(s.model.hiddenUnits);
+    this.el<HTMLOutputElement>("imageHiddenValue").value = `${s.model.hiddenUnits}개`; this.el<HTMLOutputElement>('imageHiddenValue').setAttribute('aria-label',`은닉 뉴런 ${s.model.hiddenUnits}개`); this.el<HTMLInputElement>("imageHidden").value = String(s.model.hiddenUnits);
     this.el("imageEpoch").textContent = `${s.model.epoch}번`; this.el("imageAccuracy").textContent = `${(metrics.accuracy * 100).toFixed(0)}%`;
     this.el<HTMLInputElement>("imageRate").value = String(s.rate); this.el<HTMLOutputElement>("imageRateValue").value = s.rate.toFixed(2);
     this.el("imageAutoTrain").textContent = this.training ? "잠시 멈추기" : "계속 학습";
@@ -185,8 +184,7 @@ export class ImageWorkspace {
     this.el("imageFocusName").textContent = probe?`새 좌표 (${coordinate.x.toFixed(2)}, ${coordinate.y.toFixed(2)}) · 정답 미지정 · 예상 ${predicted}`:s.selectedSample === null ? "점을 누르거나 누른 채 움직여 보세요. 학습 자료는 이동하지 않습니다." : `고른 그림 · 정답 ${s.classes[focus.label]} · 예상 ${predicted}`;
     if(selected)this.bars("imageTrainBars", result.probabilities);
     this.el("imageNetwork").innerHTML = pixelNetworkGraphMarkup(map?mapModel:s.model, s.classes, selected?result.hidden:[], selected?result.probabilities:[], map ? [`가로 ${coordinate.x.toFixed(2)}`,`세로 ${coordinate.y.toFixed(2)}`] : undefined);
-    this.el('imageSignalNetwork').innerHTML=signalNetwork(map?mapModel:s.model,map?[coordinate.x,coordinate.y]:input,s.classes,selected);
-    this.el('imageLiveCalculation').innerHTML=selected?liveCalculation(map?mapModel:s.model,map?[coordinate.x,coordinate.y]:input,s.classes):'';
+    renderSignalNetwork(this.el('imageSignalNetwork'),map?mapModel:s.model,map?[coordinate.x,coordinate.y]:input,s.classes,selected);
     drawLossChart(this.el<HTMLCanvasElement>("imageLoss"), s.history);
     drawPixelLatentMap(this.el<HTMLCanvasElement>("imageMap"), s.model, s.data, selected?input:[], s.projection, { view: map ? "decision" : "placement", showNeuronBoundaries: this.showLines, showDecisionBoundary: this.showBoundary, axisLegend: imageFeatureLegend(s.features, s.xFeature, s.yFeature), focusLabel: probe?`정답 미지정 · 예상 ${predicted}`:`정답 ${s.classes[focus.label]} · 예상 ${predicted}` });
   }

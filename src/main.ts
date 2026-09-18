@@ -6,7 +6,7 @@ import { importSpreadsheet } from "./data/spreadsheetImport";
 import { evaluate, forward } from "./core/neuralNetwork";
 import { forwardPixels } from "./core/pixelNetwork";
 import { penaltyPixelModel } from "./core/penalty";
-import { liveCalculation, signalNetwork, installSignalNetwork } from "./ui/liveCalculation";
+import { renderSignalNetwork, installSignalNetwork } from "./ui/liveCalculation";
 import { bindPracticeProbe } from "./ui/practiceProbe";
 import { PRESETS } from "./data/presets";
 import { addCustomClass, centroidAccuracy, createCustomDraft, createCustomExample, projectCustomDataset, removeCustomClass, textFeatures, validateCustomDataset, type CustomDatasetDraft, type CustomInputKind } from "./data/customDataset";
@@ -342,11 +342,11 @@ function renderFeatureLab(lab: LabState, state: FeatureLabState): void {
   element<HTMLInputElement>("#featureHiddenUnits").value = String(state.model.hiddenUnits); element<HTMLOutputElement>("#featureHiddenOut").value = `${state.model.hiddenUnits}개`; element<HTMLSelectElement>("#featureActivation").value = state.model.activation; element<HTMLInputElement>("#featureLearningRate").value = String(state.learningRate); element<HTMLOutputElement>("#featureLearningRateOut").value = state.learningRate.toFixed(2);
   element<HTMLElement>("#featureEpoch").textContent = String(state.model.epoch); element<HTMLElement>("#featureEpochNow").textContent = String(state.model.epoch); element<HTMLElement>("#featureProgressBar").style.width = `${Math.min(100, state.model.epoch / 10)}%`; element<HTMLElement>("#featureLoss").textContent = metrics ? metrics.loss.toFixed(4) : "—"; element<HTMLElement>("#featureAccuracy").textContent = metrics ? `${(metrics.accuracy * 100).toFixed(1)}%` : "—"; element<HTMLElement>("#featureTrainCount").textContent = `${state.data.length}개`; element<HTMLButtonElement>("#featureAutoTrain").textContent = featureAutoTimer ? "잠시 멈추기" : "계속 연습";
   element<HTMLInputElement>("#featureNeuronLayer").checked = state.showNeuronBoundaries; element<HTMLInputElement>("#featureDecisionLayer").checked = state.showDecisionBoundary; element<HTMLElement>("#featureTrainAxisX").textContent = projection.axes[0]; element<HTMLElement>("#featureTrainAxisY").textContent = projection.axes[1];
-  if (lab.lessonStep === 4) { drawFeatureSurface(element<HTMLCanvasElement>("#featureModelCanvas"), state.model, state.data, state.testInput, { ...state, showProbe: featureProbe, selectedPoint: featureSelectedPoint }); drawLossChart(element<HTMLCanvasElement>("#featureLossCanvas"), state.history); const result = forwardPixels(state.model, [state.testInput.x, state.testInput.y]); element<SVGSVGElement>("#featureNetworkSvg").innerHTML = pixelNetworkGraphMarkup(state.model, state.classes, result.hidden, result.probabilities, [projection.axes[0], projection.axes[1]]); renderProbabilityBars("#featureTrainBars", state, result.probabilities); element('#featureLiveCalculation').innerHTML=liveCalculation(state.model,[state.testInput.x,state.testInput.y],state.classes); }
+  if (lab.lessonStep === 4) { drawFeatureSurface(element<HTMLCanvasElement>("#featureModelCanvas"), state.model, state.data, state.testInput, { ...state, showProbe: featureProbe, selectedPoint: featureSelectedPoint }); drawLossChart(element<HTMLCanvasElement>("#featureLossCanvas"), state.history); const result = forwardPixels(state.model, [state.testInput.x, state.testInput.y]); element<SVGSVGElement>("#featureNetworkSvg").innerHTML = pixelNetworkGraphMarkup(state.model, state.classes, result.hidden, result.probabilities, [projection.axes[0], projection.axes[1]]); renderProbabilityBars("#featureTrainBars", state, result.probabilities); }
   element<SVGSVGElement>("#featureNetworkSvg").removeAttribute("hidden");
   for (const [id, selected] of [["featurePracticeX", customDraft.xFeature], ["featurePracticeY", customDraft.yFeature]] as const) fillSelect(element<HTMLSelectElement>(`#${id}`), customDraft.features, selected);
   element<HTMLElement>("#featureTrainBars").hidden=true;
-  element('#featureSignalNetwork').innerHTML=signalNetwork(state.model,[state.testInput.x,state.testInput.y],state.classes);
+  renderSignalNetwork(element('#featureSignalNetwork'),state.model,[state.testInput.x,state.testInput.y],state.classes);
   const selected=featureSelectedPoint===null?null:customDraft.rows[featureSelectedPoint];
   element<HTMLElement>("#featureSelectedData").textContent=selected?`${selected.name} · 정답 ${customDraft.classes[selected.label]} · 예상 ${state.classes[best]} · ${selected.values.map((v,i)=>customDraft.features[i]+": "+Number(v.toFixed(2))).join(" / ")}`:featureProbe?`확인점 (${state.testInput.x.toFixed(2)}, ${state.testInput.y.toFixed(2)}) · 정답 미지정 · 예상 ${state.classes[best]}`:"점을 선택하거나 빈 곳에서 확인점을 움직여 보세요.";
   element<HTMLElement>("#featureUseAxisX").textContent = projection.axes[0]; element<HTMLElement>("#featureUseAxisY").textContent = projection.axes[1]; element<HTMLInputElement>("#featureUseX").value = String(state.testInput.x); element<HTMLInputElement>("#featureUseY").value = String(state.testInput.y);
@@ -380,6 +380,7 @@ function render(state: LabState, store: LabStore): void {
   const metrics = evaluate(state.model, state.data); const prediction = forward(state.model, state.testInput.x, state.testInput.y); const preset = PRESETS[state.preset];
   element<HTMLInputElement>("#hiddenUnits").value = String(state.model.config.hiddenUnits);
   element<HTMLOutputElement>("#hiddenUnitsOut").value = `${state.model.config.hiddenUnits}개`;
+  element('#hiddenUnitsOut').setAttribute('aria-label',`은닉 뉴런 ${state.model.config.hiddenUnits}개`);
   element<HTMLSelectElement>("#activation").value = state.model.config.activation;
   element<HTMLInputElement>("#learningRate").value = String(state.model.config.learningRate);
   element<HTMLOutputElement>("#learningRateOut").value = state.model.config.learningRate.toFixed(2);
@@ -406,8 +407,7 @@ function render(state: LabState, store: LabStore): void {
     element<HTMLElement>("#boundarySelectedData").textContent = chosen ? `자료 정답 ${preset.classes[chosen.label]} · 키커 ${chosen.x < 0 ? "왼쪽" : "오른쪽"} / 골키퍼 ${chosen.y < 0 ? "왼쪽" : "오른쪽"}` : boundaryProbe?`확인점 (${state.testInput.x.toFixed(2)}, ${state.testInput.y.toFixed(2)}) · ${ruleTruth}`:"점을 선택하거나 빈 곳에서 확인점을 움직여 보세요.";
     element<HTMLElement>("#boundarySelectedResult").textContent = `예상 ${preset.classes[prediction.probability >= .5 ? 1 : 0]} · 골 가능성 ${(prediction.probability * 100).toFixed(1)}%`;
     element<SVGSVGElement>("#networkSvg").innerHTML = networkGraphMarkup(state.model, prediction.hidden,[state.testInput.x,state.testInput.y]);
-    element('#boundaryLiveCalculation').innerHTML=liveCalculation(penaltyPixelModel(state.model),[state.testInput.x,state.testInput.y],preset.classes);
-    element('#boundarySignalNetwork').innerHTML=signalNetwork(penaltyPixelModel(state.model),[state.testInput.x,state.testInput.y],preset.classes);
+    renderSignalNetwork(element('#boundarySignalNetwork'),penaltyPixelModel(state.model),[state.testInput.x,state.testInput.y],preset.classes);
   }
   if (state.lessonStep === 3 && state.preset!=='xor' && !isPixelPreset(state.preset) && !isCustomPreset(state.preset)) {
     drawDecisionSurface(element<HTMLCanvasElement>("#decisionCanvas"), state.model, state.data, state.testInput, { explanationStep: state.explanationStep, selectedNeuron: state.selectedNeuron, highlightRevealed: state.highlightRevealed });
@@ -461,7 +461,6 @@ export function mountApp(store = createInitialStore()): LabStore {
   tabularLesson = new TabularLesson(element("#customFeatureView"), () => renderCustomLab(store.snapshot), showToast);
   featureTrainingPanels(element("#customTrainingView"), rerender);
   featureTrainingPanels(element("#boundaryTrainingView"), rerender);
-  for(const [svg,id] of [['#networkSvg','boundaryLiveCalculation'],['#featureNetworkSvg','featureLiveCalculation']]){const panel=document.createElement('div');panel.id=id!;element(svg!).after(panel);}
   installSignalNetwork(element('#networkSvg'),'boundarySignalNetwork');installSignalNetwork(element('#featureNetworkSvg'),'featureSignalNetwork');
   document.querySelectorAll<HTMLDetailsElement>('[data-app-page="5"] details').forEach(panel=>panel.open=true);
   const axes = document.createElement("div"); axes.className = "feature-axis-pair practice-axes";

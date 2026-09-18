@@ -8,4 +8,4 @@ export function crossLessonLine(root:HTMLElement,ys:number[]):void {
     emit('pointerdown',-1);emit('pointermove',1);emit('pointerup',1);
   }
 }
-export const SEVEN_HEIGHTS=[-.9,-.6,-.3,0,.3,.6,.9];
+export const THIRTEEN_HEIGHTS=Array.from({length:13},(_,i)=>-.9+i*.15);

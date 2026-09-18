@@ -49,7 +49,7 @@ function lineEndpoints(plane: { constant: number; horizontal: number; vertical: 
   return points.slice(0, 2);
 }
 
-export interface PixelMapOptions { view?: PixelMapView; classColors?: readonly string[]; focusLabel?: string; previousModel?: PixelModel; previousNeuronModel?: PixelModel; highlightAxis?: "horizontal" | "vertical"; showNeuronBoundaries?: boolean; showDecisionBoundary?: boolean; showDataLabels?: boolean; axisLegend?: PixelAxisLegend; onlyNeuron?: number; resolution?: number; classLabels?: string[]; neutralBackground?: boolean; markerColor?: string; }
+export interface PixelMapOptions { view?: PixelMapView; classColors?: readonly string[]; focusLabel?: string; previousModel?: PixelModel; previousNeuronModel?: PixelModel; highlightAxis?: "horizontal" | "vertical"; showNeuronBoundaries?: boolean; showDecisionBoundary?: boolean; showDataLabels?: boolean; axisLegend?: PixelAxisLegend; onlyNeuron?: number; resolution?: number; classLabels?: string[]; neutralBackground?: boolean; markerColor?: string; emphasizeClass?:number; }
 
 export function drawPixelLatentMap(canvas: HTMLCanvasElement, model: PixelModel, data: PixelExample[], focusPixels: number[], projection: PixelProjection, options: PixelMapOptions = {}): void {
   const context = canvas.getContext("2d"); if (!context) return;
@@ -81,7 +81,8 @@ export function drawPixelLatentMap(canvas: HTMLCanvasElement, model: PixelModel,
         const confidence = probabilities[winner] ?? 0; const base = 1 / Math.max(2, probabilities.length); const certainty = Math.max(0, Math.min(1, (confidence - base) / (1 - base)));
         if (options.classLabels && Math.abs(x)<.65 && Math.abs(y)<.68 && confidence>(regionLabels.get(winner)?.confidence??0)
           && !labelObstacles.some(p=>Math.abs(p.x-x)*plotW/2<75&&Math.abs(p.y-y)*plotH/2<38)) regionLabels.set(winner,{x,y,confidence});
-        context.fillStyle = mixWithWhite(colors[winner % colors.length]!, .08 + certainty * .48);
+        const strength = options.emphasizeClass!==undefined && winner!==options.emphasizeClass ? .025 : .08 + certainty * .48;
+        context.fillStyle = mixWithWhite(colors[winner % colors.length]!, strength);
       }
       context.fillRect(margin.left + gx * plotW / cells, margin.top + gy * plotH / cells, plotW / cells + 1, plotH / cells + 1);
     }
@@ -125,7 +126,6 @@ export function drawPixelLatentMap(canvas: HTMLCanvasElement, model: PixelModel,
     const textWidth=context.measureText(text).width;
     const left=Math.max(margin.left+3,Math.min(width-margin.right-textWidth-5,x-textWidth/2));
     const top=Math.max(margin.top+16,y-13);
-    context.fillStyle="rgba(255,255,255,.94)";context.fillRect(left-3,top-14,textWidth+6,19);
     context.fillStyle=color;context.fillText(text,left,top);
   };
   data.forEach((example) => {
@@ -140,7 +140,7 @@ export function drawPixelLatentMap(canvas: HTMLCanvasElement, model: PixelModel,
     context.beginPath();context.arc(p.x,p.y,9,0,Math.PI*2);context.fillStyle="rgba(255,255,255,.9)";context.fill();context.strokeStyle="#111722";context.lineWidth=3;context.stroke();
     pointLabel(options.focusLabel??"이 그림",p.x,p.y,"#111722");
   }
-  regionLabels.forEach((p,c)=>{const x=margin.left+(p.x+1)/2*plotW,y=margin.top+(1-p.y)/2*plotH;context.font="bold 14px sans-serif";context.textAlign="center";context.fillStyle="rgba(255,255,255,.92)";context.fillRect(x-42,y-17,84,24);context.fillStyle=colors[c%colors.length]!;context.fillText(`${options.classLabels![c]}로 예상`,x,y);});
+  regionLabels.forEach((p,c)=>{const x=margin.left+(p.x+1)/2*plotW,y=margin.top+(1-p.y)/2*plotH;context.font="bold 14px sans-serif";context.textAlign="center";context.fillStyle=colors[c%colors.length]!;context.fillText(`${options.classLabels![c]}로 예상`,x,y);});
   const legend = options.axisLegend; const horizontalLabel = legend?.horizontal.title ?? "가로 점수"; const verticalLabel = legend?.vertical.title ?? "세로 점수";
   context.strokeStyle = "#7b8491"; context.lineWidth = 1.1; context.strokeRect(margin.left, margin.top, plotW, plotH); context.fillStyle = "#535e6d"; context.font = "12px sans-serif"; context.textAlign = "center"; context.fillText(horizontalLabel, margin.left + plotW / 2, height - 8); context.save(); context.translate(15, margin.top + plotH / 2); context.rotate(-Math.PI / 2); context.fillText(verticalLabel, 0, 0); context.restore();
 }

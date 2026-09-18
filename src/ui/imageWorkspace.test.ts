@@ -105,9 +105,9 @@ describe("공통 이미지 UI 연결", () => {
     const original=JSON.stringify(workspace.store.snapshot.data),model=JSON.stringify(workspace.store.snapshot.model);
     const canvas=document.getElementById('imageMap') as HTMLCanvasElement;
     canvas.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight'}));
-    const before=document.getElementById('imageLiveCalculation')!.textContent;
+    const before=document.getElementById('imageSignalNetwork')!.textContent;
     canvas.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight'}));
-    expect(document.getElementById('imageLiveCalculation')!.textContent).not.toBe(before);
+    expect(document.getElementById('imageSignalNetwork')!.textContent).not.toBe(before);
     expect(document.getElementById('imageFocusName')!.textContent).toContain('정답 미지정');
     expect(JSON.stringify(workspace.store.snapshot.data)).toBe(original);expect(JSON.stringify(workspace.store.snapshot.model)).toBe(model);
     const select=document.getElementById('imageTrainingClass') as HTMLSelectElement;select.value='2';select.dispatchEvent(new Event('change'));

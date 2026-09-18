@@ -5,7 +5,6 @@ import {PenaltyLesson} from './penaltyLesson';
 import {LabStore} from '../state/labStore';
 import {drawPixelLatentMap} from '../visualization/pixelLatentMap';
 vi.mock('../visualization/pixelLatentMap',()=>({drawPixelLatentMap:vi.fn()}));
-vi.mock('../visualization/graphCallout',()=>({drawGraphCallout:vi.fn()}));
 const click=(s:string)=>document.querySelector<HTMLButtonElement>(s)!.click();
 describe('승부차기 공통 수집·이해 UI',()=>{
   beforeEach(()=>{document.body.innerHTML=readFileSync('index.html','utf8');localStorage.clear();});

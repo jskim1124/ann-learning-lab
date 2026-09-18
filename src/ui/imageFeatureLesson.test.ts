@@ -1,8 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ImageLabStore } from "../state/imageLabStore";
 import { ImageFeatureLesson } from "./imageFeatureLesson";
-import { crossLessonLine, SEVEN_HEIGHTS } from './lessonTestHelpers';
-vi.mock('../visualization/graphCallout',()=>({drawGraphCallout:vi.fn()}));
+import { crossLessonLine, THIRTEEN_HEIGHTS } from './lessonTestHelpers';
 
 vi.mock("../core/imageInput",async original=>({...await original<typeof import("../core/imageInput")>(),drawImagePixels:vi.fn()}));
 vi.mock("../visualization/pixelLatentMap",async original=>({...await original<typeof import("../visualization/pixelLatentMap")>(),drawPixelLatentMap:vi.fn(),drawPixelNeuronMovement:vi.fn()}));
@@ -13,11 +12,24 @@ function finishIntro(root:HTMLElement) {
   const click=(s:string)=>root.querySelector<HTMLButtonElement>(s)!.click();
   for(let i=0;i<5;i++)click("#flAction");
   click('[data-neuron-answer="0"]');
-  click('#flAction');crossLessonLine(root,SEVEN_HEIGHTS);click('#flAction');click('#flAction');crossLessonLine(root,SEVEN_HEIGHTS);click('#flAction');
+  click('#flAction');crossLessonLine(root,THIRTEEN_HEIGHTS);click('#flAction');click('#flAction');crossLessonLine(root,THIRTEEN_HEIGHTS);click('#flAction');
 }
 
 describe("네 단계 특징 탐구",()=>{
   afterEach(()=>{vi.useRealTimers();vi.restoreAllMocks();});
+  it('다음 장면은 설명과 그래프 양쪽에 함께 반영되고 강조하는 출력도 바뀐다',()=>{
+    document.body.innerHTML='<div id="lesson"></div>';
+    const root=document.getElementById('lesson')!,lesson=new ImageFeatureLesson(root,new ImageLabStore('digits'),vi.fn(),vi.fn());lesson.render();
+    root.querySelector<HTMLButtonElement>('[data-fl-step="4"]')!.click();
+    const mapAnimation=vi.fn(),copyAnimation=vi.fn();
+    root.querySelector<HTMLElement>('#flMap')!.animate=mapAnimation;
+    root.querySelector<HTMLElement>('#flCalculation')!.animate=copyAnimation;
+    root.querySelector<HTMLButtonElement>('#flAction')!.click();
+    expect(mapAnimation).toHaveBeenCalledOnce();expect(copyAnimation).toHaveBeenCalledOnce();
+    expect(root.querySelector('#flSelected')!.classList.contains('scene-signal')).toBe(true);
+    expect(root.querySelector('.output-route.is-current strong')!.textContent).toBe('A ?');
+    expect(root.querySelector('#flVisualNote')!.textContent).toBe('');lesson.stop();
+  });
   it("계산·분포·이동·출력 퀴즈를 따라 연습으로 가며, 이전 장면도 다시 볼 수 있다",()=>{
     vi.useFakeTimers();
     document.body.innerHTML='<div id="lesson"></div>';
@@ -68,9 +80,9 @@ describe("네 단계 특징 탐구",()=>{
     const root=document.getElementById("lesson")!,lesson=new ImageFeatureLesson(root,new ImageLabStore("digits"),vi.fn(),vi.fn());lesson.render();
     const click=(selector:string)=>(root.querySelector(selector) as HTMLButtonElement).click();
     click('[data-fl-step="3"]');finishIntro(root);click('#flPlay');vi.advanceTimersByTime(400);
-    const middle=root.querySelector('#flCalculation')!.textContent;
+    const middle=root.querySelector('#flSelected')!.textContent;
     expect(middle).toContain('0.05'); // Interpolated, not merely initial/final snapshots.
-    click('#flPlay');vi.advanceTimersByTime(2000);expect(root.querySelector('#flCalculation')!.textContent).toBe(middle);
+    click('#flPlay');vi.advanceTimersByTime(2000);expect(root.querySelector('#flSelected')!.textContent).toBe(middle);
     click('#flPlay');vi.advanceTimersByTime(200);click('[data-fl-step="4"]');
     const next=root.querySelector('#flCalculation')!.textContent;vi.advanceTimersByTime(2000);
     expect(root.querySelector('#flCalculation')!.textContent).toBe(next);lesson.stop();
@@ -83,13 +95,14 @@ describe("네 단계 특징 탐구",()=>{
     expect(root.querySelector('#flTitle')!.textContent).toContain("작은 계산기");
     expect((root.querySelector('#flPredict') as HTMLElement).hidden).toBe(true);
     click('#flAction');
-    expect(root.querySelector('#flCalculation')!.textContent).toContain("합 = □ + □ + □ = ?");
+    expect(root.querySelector('#flArithmeticFlow .flow-number')!.textContent).toBe('?');
     click('#flAction');
-    expect(root.querySelector('#flCalculation')!.textContent).toContain("합 = 0.2 + □ + □ = ?");
+    expect(root.querySelector('#flCalculation')!.textContent).toContain("가로에서 온 값은 0.2");
     expect(root.querySelector('#flArithmeticFlow animateMotion')!.getAttribute('path')).toBe('M 290 49 L 459 123');
     expect(root.querySelector('#flArithmeticFlow .flow-packet')!.textContent).toBe('0.2');
     click('#flPlay');vi.advanceTimersByTime(15000);
-    expect(root.querySelector('#flCalculation')!.textContent).toContain("합 = 0.2 + 0.1 + 0 = 0.3");
+    expect(root.querySelector('#flArithmeticFlow .flow-number')!.textContent).toBe('0.3');
+    expect(root.querySelector('#flSelected')!.textContent).toBe(''); // No duplicate arithmetic under the graph.
     expect(root.querySelector('#flPlay')!.textContent).toContain("재생");
     expect(root.querySelector<HTMLButtonElement>('#flAction')!.disabled).toBe(true);
     click('[data-neuron-answer="1"]');
@@ -124,7 +137,8 @@ describe("네 단계 특징 탐구",()=>{
     expect(root.querySelector('#flBiasFeedback')!.className).toBe('wrong');
     expect(root.querySelector('#flChoices .correct')).toBeNull();
     slide('.1');
-    expect(root.querySelector('.bias-equation')!.textContent).toContain("0.2 + 0.1 + (0.1) = 0.4");
+    expect(root.querySelector('.neuron-box')!.textContent).toContain("합 0.4");
+    expect(root.querySelector('.neuron-box .bias-value')!.textContent).toBe('0.1');
     expect(root.querySelector('.movement-scores')!.textContent).toContain("처음 0.3 → 0.4");
     expect(root.querySelector('.neuron-inputs')!.textContent).toContain("가로 0.2");
     expect(root.querySelector('.neuron-links')!.textContent).toContain("× 0.5");

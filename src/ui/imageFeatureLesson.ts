@@ -10,6 +10,7 @@ import { workspacePanels } from "./workspacePanels";
 import { LESSON_PROJECTION, NEURON_EXAMPLES, NEURON_INTRO_STEPS } from "../core/neuronLesson";
 import { newNeuronActivity, renderNeuronIntroduction } from "./neuronIntroduction";
 import { OUTPUT_EXAMPLES, OUTPUT_LAST_STAGE, outputCanExplore } from "./outputLesson";
+import { REQUIRED_LINE_HITS } from '../core/neuronTrace';
 
 const esc = (s: string) => s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 const n = (v: number) => Number(v.toFixed(2)).toString();
@@ -141,7 +142,7 @@ export class ImageFeatureLesson {
     click("flAction", () => { this.stop(); this.advance(); });
     click("flPlay", () => {
       if (this.playing) { this.stop(); return this.render(); }
-      if(this.arithmeticPending()||this.outputPending()||this.tracePending())return message(this.tracePending()?"그래프에서 서로 다른 일곱 자리를 먼저 찾아보세요.":"아래 계산 문제를 먼저 풀어 보세요.");
+      if(this.arithmeticPending()||this.outputPending()||this.tracePending())return message(this.tracePending()?`그래프에서 서로 다른 ${REQUIRED_LINE_HITS}자리를 먼저 찾아보세요.`:"아래 계산 문제를 먼저 풀어 보세요.");
       if (this.complete()) { this.reveal = 0; this.frame = 0; this.biasChecked=null; this.activity=newNeuronActivity();this.outputAnswer=null;this.focus=[.2,.2]; }
       this.playing = true; this.play();
     });
@@ -158,6 +159,14 @@ export class ImageFeatureLesson {
   private transition():void {
     if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
     this.el("flCalculation").animate?.([{opacity:.25,transform:"translateY(7px)"},{opacity:1,transform:"translateY(0)"}],{duration:420,easing:"ease-out"});
+    // The same scene change reaches BOTH panes. Do not animate unrelated pointer updates.
+    for(const id of ['flMap','flTiny','flPicture','flSelected']) {
+      const visual=this.el(id);if(visual.hidden)continue;
+      visual.animate?.([{opacity:.35},{opacity:1}],{duration:650,easing:'ease-out'});
+    }
+    this.el('flSelected').classList.remove('scene-signal');
+    void this.el('flSelected').offsetWidth;
+    this.el('flSelected').classList.add('scene-signal');
   }
   private play():void {
     if (!this.playing) return;
@@ -242,7 +251,7 @@ export class ImageFeatureLesson {
     this.el("flPrevious").hidden=this.step===2;
     this.el<HTMLButtonElement>("flPrevious").disabled=this.reveal===0&&this.frame===0;
     this.el<HTMLButtonElement>("flAction").disabled=done||this.arithmeticPending()||this.outputPending()||this.tracePending();
-    if(this.tracePending())this.el('flAction').textContent='그래프에서 7곳 찾기';
+    if(this.tracePending())this.el('flAction').textContent=`그래프에서 ${REQUIRED_LINE_HITS}곳 찾기`;
     this.el("flPlay").hidden=this.step===2;this.el("flPlay").textContent=this.playing?"Ⅱ 멈춤":"▶ 재생";
     this.el("flPlay").setAttribute("aria-label",this.playing?"계산 과정 일시 정지":"계산 과정 자동 재생");
     this.el("flCalculation").setAttribute("aria-live",this.playing?"off":"polite");
