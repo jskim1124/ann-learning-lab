@@ -37,6 +37,9 @@ export class ManualLab {
   muted: number | null=null;
   edits=0;
   calculations=0;
+  outputCalculations=0;
+  predictions=0;
+  compared=false;
   best=0;
   private inGesture=false;
   private gestureEdited=false;
@@ -84,7 +87,7 @@ export class ManualLab {
     this.best=Math.max(this.best,this.score);
   }
   undo(): void {const old=this.history.pop();if(!old)return;this.previous=copyModel(this.model);this.model=copyModel(old);this.muted=null;this.selected=Math.min(this.selected,this.model.hiddenUnits-1);}
-  reset(): void {this.previous=undefined;this.model=copyModel(this.initial);this.selected=0;this.muted=null;this.edits=0;this.calculations=0;this.best=this.score;this.history.length=0;}
+  reset(): void {this.previous=undefined;this.model=copyModel(this.initial);this.selected=0;this.muted=null;this.edits=0;this.calculations=0;this.outputCalculations=0;this.predictions=0;this.compared=false;this.best=this.score;this.history.length=0;}
   choosePoint(point:number[],index:number|null): void {this.point=[...point];this.pointIndex=index;}
   get calculation() {
     const m=this.effective,w=m.inputHidden[this.selected]!,products=w.map((v,i)=>v*this.point[i]!);

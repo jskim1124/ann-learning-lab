@@ -11,6 +11,8 @@ import { LESSON_PROJECTION, NEURON_EXAMPLES, NEURON_INTRO_STEPS } from "../core/
 import { newNeuronActivity, renderNeuronIntroduction } from "./neuronIntroduction";
 import { OUTPUT_EXAMPLES, OUTPUT_LAST_STAGE, outputCanExplore } from "./outputLesson";
 import { REQUIRED_LINE_HITS } from '../core/neuronTrace';
+import { LessonExplorer } from './lessonExplorer';
+import { stabilizeMap } from './stableMap';
 
 const esc = (s: string) => s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 const n = (v: number) => Number(v.toFixed(2)).toString();
@@ -18,6 +20,8 @@ type Choice = { text: string; correct: boolean };
 
 /** Small examples and real data are separate. Animation frames always show real arithmetic. */
 export class ImageFeatureLesson {
+  private explorer:LessonExplorer;
+  private elements=new Map<string,HTMLElement>();
   private step = 1;
   private reveal = 0;
   private sample = 0;
@@ -153,8 +157,14 @@ export class ImageFeatureLesson {
     mask.addEventListener("pointerdown", e=>{ painting=true; mask.setPointerCapture(e.pointerId); paint(e); }); mask.addEventListener("pointermove", paint); mask.addEventListener("pointerup", ()=>painting=false); mask.addEventListener("pointercancel", ()=>painting=false);
     click("flSave", () => { const error = store.addFeature(this.el<HTMLInputElement>("flName").value, this.paint); if (error) this.el("flEditorError").textContent = error; else { this.el<HTMLDialogElement>("flEditor").close(); this.render(); message("추가한 특징을 가로 또는 세로에서 골라 보세요."); } });
     workspacePanels(root, [...root.querySelector(".image-understanding")!.children], ["예제·그래프", "설명·확인"], () => this.render());
+    stabilizeMap(this.el<HTMLCanvasElement>('flMap'));
+    this.explorer=new LessonExplorer(root,[root.querySelector<HTMLElement>('.feature-lesson')!],root.querySelector<HTMLElement>('.image-lesson-tabs')!,'fl-',()=>{this.stop();this.render();},()=>{
+      this.passed.add(this.step);this.stop();
+      if(this.step===4){if(![1,2,3,4].every(s=>this.passed.has(s)))return;if(store.snapshot.task!=='webcam')store.setMode('map');this.next();}
+      else{this.step=4;this.reveal=0;this.frame=0;this.answer=null;this.render();}
+    });
   }
-  private el<T extends HTMLElement=HTMLElement>(id:string):T { return this.root.querySelector(`#${id}`) as T; }
+  private el<T extends HTMLElement=HTMLElement>(id:string):T { let el=this.elements.get(id);if(!el){el=this.root.querySelector<HTMLElement>(`#${id}`)!;this.elements.set(id,el);}return el as T; }
   stop():void { window.clearTimeout(this.timer); window.cancelAnimationFrame(this.animation); this.timer = 0; this.animation = 0; this.playing = false; }
   private transition():void {
     if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
@@ -177,7 +187,7 @@ export class ImageFeatureLesson {
     const tick=(now:number)=>{if(!this.playing)return;const t=Math.min(1,(now-start)/800),ease=t*t*(3-2*t);this.frame=from+(to-from)*ease;this.renderMovement();if(t<1)this.animation=window.requestAnimationFrame(tick);else{this.frame=to;this.render();finish();}};
     this.animation=window.requestAnimationFrame(tick);
   }
-  reset():void { this.stop(); this.step = 1; this.sample = 0; this.reveal = 0; this.frame = 0; this.example = true; this.answer = null; this.biasChecked = null; this.activity=newNeuronActivity();this.outputAnswer=null;this.focus=[.2,.2]; this.passed.clear(); this.signature = ""; }
+  reset():void { this.stop(); this.step = 1; this.sample = 0; this.reveal = 0; this.frame = 0; this.example = true; this.answer = null; this.biasChecked = null; this.activity=newNeuronActivity();this.outputAnswer=null;this.focus=[.2,.2]; this.passed.clear(); this.signature = "";this.explorer.reset(); }
   openFeatures():void { this.stop(); this.step = 2; this.reveal = 0; this.render(); }
   private limit():number { return this.step === 1 ? this.example ? 7 : 3 : this.step === 2 ? 1 : this.step === 4 ? OUTPUT_LAST_STAGE : this.example ? 8 : 30; }
   private intro():boolean { return this.step===3&&this.example&&this.reveal<NEURON_INTRO_STEPS; }
@@ -212,6 +222,7 @@ export class ImageFeatureLesson {
   render():void {
     this.el('flBendControl').hidden=!(this.step===4&&this.reveal===6);
     const s = this.store.snapshot; if (!s.data.length) return;
+    this.explorer.show(this.step===3?'move':this.step===4?'bend':null,this.step===4?'직접 학습하기 →':'뉴런을 더해 보기 →',this.step!==4||[1,2,3].every(step=>this.passed.has(step)));
     this.root.querySelector('.feature-lesson')!.classList.toggle('output-lesson',this.step===4);
     this.sample = Math.min(this.sample, s.data.length - 1);
     const signature = `${s.revision}:${s.xFeature}:${s.yFeature}`;

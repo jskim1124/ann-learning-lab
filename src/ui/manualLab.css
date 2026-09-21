@@ -22,8 +22,8 @@
 .manual-neurons { display:flex;gap:5px;align-items:center;flex-wrap:wrap;flex:none;font-size:15px; }
 .manual-neurons [data-neuron] { border-radius:50%;border-color:var(--neuron);color:var(--neuron);width:32px;height:32px;padding:0; }
 .manual-tabs button { flex:1;padding:6px; }
-#manualControls { display:grid;gap:7px;flex:none;font-size:15px; }
-#manualControls small { color:#626b76;font-size:14px; }
+[data-manual-region="manualControls"] { display:grid;gap:7px;flex:none;font-size:15px; }
+[data-manual-region="manualControls"] small { color:#626b76;font-size:14px; }
 .manual-instruction { margin:0;font-size:14px;line-height:1.5; }
 .manual-slider { display:grid;grid-template-columns:1fr auto;gap:3px;font-size:15px; }
 .manual-slider output { font-weight:700;color:#5324be; }.manual-slider input { grid-column:1/-1;width:100%;margin:0;accent-color:#7446f5; }
@@ -34,9 +34,9 @@
 .manual-arithmetic { display:grid;gap:3px;border-radius:10px;background:#f5f6f8;padding:8px;font-size:16px; }
 .manual-quiz-kind { display:flex;gap:5px; }.manual-quiz-kind button { flex:1;padding:4px; }
 .manual-output-score { margin:0;font-size:15px;background:#f5f6f8;border-radius:9px;padding:7px; }.manual-output-score small { display:block;margin-top:4px;font-size:14px; }
-#manualFeedback { font-size:14px;line-height:1.4;min-height:0; }.manual-lab .wrong { color:#ac2851; }.manual-lab .correct { color:#1255b2; }
-#manualFeedback:empty { display:none; }
-#manualNetwork { margin-top:auto; }.manual-lab .network-overview { padding-top:2px; }.manual-lab .network-headings { height:21px;font-size:14px; }.manual-lab .network-stage { height:var(--manual-network-height,80px)!important; }.manual-lab .network-verdict { display:none; }
+[data-manual-region="manualFeedback"] { font-size:14px;line-height:1.4;min-height:0; }.manual-lab .wrong { color:#ac2851; }.manual-lab .correct { color:#1255b2; }
+[data-manual-region="manualFeedback"]:empty { display:none; }
+[data-manual-region="manualNetwork"] { margin-top:auto; }.manual-lab .network-overview { padding-top:2px; }.manual-lab .network-headings { height:21px;font-size:14px; }.manual-lab .network-stage { height:var(--manual-network-height,80px)!important; }.manual-lab .network-verdict { display:none; }
 .manual-footer { display:flex;align-items:center;gap:12px;flex:none;justify-content:space-between;border-top:1px solid #e5e8ed;padding-top:8px;font-size:14px; }
 .manual-footer>div { display:flex;gap:6px; }.manual-footer details { max-width:40%; }.manual-footer details[open] { position:absolute;bottom:62px;right:18px;background:white;border:1px solid #dce0e7;border-radius:12px;padding:14px;z-index:5;box-shadow:0 6px 30px #20263320; }.manual-footer p { line-height:1.6; }.manual-footer summary { cursor:pointer;color:#626b76; }
 @media(max-width:700px) {
@@ -48,7 +48,7 @@
   .manual-map-tools label { margin-left:auto; }.manual-map-tools button,.manual-map-tools label { font-size:13px; }
   .manual-legend { display:none; }.manual-score strong { font-size:17px; }.manual-point { font-size:14px; }.manual-score { gap:6px; }
   .manual-controls { display:block; }.manual-neurons { margin-bottom:5px; }.manual-tabs { margin-bottom:6px; }
-  #manualNetwork { display:none; }.manual-footer { flex-wrap:wrap;gap:5px; }.manual-footer>span { flex-basis:100%;order:3;font-size:14px; }
+  [data-manual-region="manualNetwork"] { display:none; }.manual-footer { flex-wrap:wrap;gap:5px; }.manual-footer>span { flex-basis:100%;order:3;font-size:14px; }
   .manual-footer button { padding:5px 8px;font-size:14px; }.manual-footer details[open] { max-width:calc(100% - 24px);right:12px; }
 }
 @media(prefers-reduced-motion:no-preference) { .manual-arithmetic span { animation:manual-term .45s ease-out both; }.manual-arithmetic span:nth-child(2) { animation-delay:.12s; }.manual-arithmetic span:nth-child(3) { animation-delay:.24s; } }

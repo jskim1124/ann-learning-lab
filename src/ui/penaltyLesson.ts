@@ -4,6 +4,8 @@ import { drawPixelLatentMap, pixelMapInputAt } from '../visualization/pixelLaten
 import { workspacePanels } from './workspacePanels';
 import { PALETTE } from '../visualization/canvasUtils';
 import './penaltyWorkspace.css';
+import { LessonExplorer } from './lessonExplorer';
+import { stabilizeMap } from './stableMap';
 
 const n=(v:number)=>String(Number(v.toFixed(2)));
 const QUESTIONS=[
@@ -15,6 +17,8 @@ const QUESTIONS=[
 
 /** Manipulate one quantity at a time. Teaching parameters are distinct from actual training. */
 export class PenaltyLesson {
+  private explorer:LessonExplorer;
+  private elements=new Map<string,HTMLElement>();
   readonly root:HTMLElement;
   private step=0;private phase=0;private answer:number|null=null;private passed=new Set<number>();
   private timer=0;private prediction:number|null=null;private point:[number,number]=[1,1];private hidden=2;
@@ -51,10 +55,16 @@ export class PenaltyLesson {
     this.el('plPlay').addEventListener('click',()=>{if(this.timer){this.stop();this.render();}else this.play();});
     this.el('plReplay').addEventListener('click',()=>{this.stop();this.restart();this.render();});
     this.el('plNext').addEventListener('click',()=>{if(!this.passed.has(this.step))return;this.stop();if(this.step===3){if(this.passed.size===4)this.next();}else{this.step++;this.restart();this.render();}});
+    stabilizeMap(this.el<HTMLCanvasElement>('plMap'));
+    this.explorer=new LessonExplorer(this.root,[...this.root.querySelectorAll<HTMLElement>(':scope > .image-panel')],this.root.querySelector<HTMLElement>('.image-lesson-tabs')!,'pl-',()=>{this.stop();this.render();},()=>{
+      this.passed.add(this.step);this.stop();
+      if(this.step===3){if(this.passed.size===4)this.next();}
+      else{this.step++;this.restart();this.render();}
+    });
   }
-  private el<T extends HTMLElement=HTMLElement>(id:string):T{return this.root.querySelector<T>('#'+id)!;}
+  private el<T extends HTMLElement=HTMLElement>(id:string):T{let el=this.elements.get(id);if(!el){el=this.root.querySelector<HTMLElement>('#'+id)!;this.elements.set(id,el);}return el as T;}
   private restart():void{this.phase=0;this.answer=null;this.prediction=null;this.point=this.step===2?[-1,-1]:[1,1];this.hidden=2;}
-  reset():void{this.stop();this.step=0;this.restart();this.passed.clear();}
+  reset():void{this.stop();this.step=0;this.restart();this.passed.clear();this.explorer.reset();}
   stop():void{window.clearTimeout(this.timer);this.timer=0;}
   show(active:boolean):void{this.root.hidden=!active;if(active)this.render();else this.stop();}
   private limit():number{return this.step===3?20:3;}
@@ -62,6 +72,7 @@ export class PenaltyLesson {
   private play():void{if(this.phase===this.limit()||this.step===3&&this.prediction!==0)return;this.phase++;this.render();if(this.phase<this.limit())this.timer=window.setTimeout(()=>{this.timer=0;this.play();},this.step===3?180:1200);this.el('plPlay').textContent=this.timer?'Ⅱ 멈춤':'▶ 재생';}
   render():void{
     if(this.root.hidden)return;
+    this.explorer.show(this.step===2?'bend':this.step===3?'move':null,this.step===3?'직접 학습하기 →':'선 움직임 살펴보기 →',this.step!==3||[0,1,2].every(step=>this.passed.has(step)));
     const step=this.step,phase=this.phase,done=phase===this.limit(),point=step===3?[-1,1]:this.point;
     const model=penaltyTeachingModel(step===1?1:step===2?this.hidden:2);
     if(step===3)model.parameters.hiddenBias=[2-phase/10,0];

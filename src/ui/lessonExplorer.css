@@ -1,0 +1,41 @@
+.lesson-integrated:not([hidden]) { display:flex!important;flex-direction:column!important;gap:8px;min-height:0; }
+.lesson-integrated[hidden],.lesson-explorer-host[hidden],.lesson-explorer-modes[hidden],.lesson-integrated>.image-understanding[hidden],.lesson-integrated>.image-panel[hidden] { display:none!important; }
+.lesson-explorer-bar { display:flex;gap:12px;justify-content:space-between;align-items:center;flex:none; }
+.lesson-explorer-bar>.image-lesson-tabs { flex:1;max-width:680px; }
+.lesson-explorer-modes { display:flex;gap:4px; }
+.lesson-explorer-modes button { padding:7px 11px;border:1px solid #dce0e7;border-radius:9px;background:white;font-size:14px; }
+.lesson-explorer-modes button[aria-pressed=true] { border-color:#7446f5;background:#f2edff;color:#5324be; }
+.lesson-integrated>.image-understanding { flex:1;min-height:0;height:auto; }
+.lesson-integrated.is-exploring>.workspace-pane-tabs { display:none!important; }
+.lesson-explorer-host { flex:1;min-height:0;display:flex;flex-direction:column;gap:8px; }
+.manual-lab.manual-embedded { position:relative;inset:auto;margin:0;width:100%;height:auto;flex:1;min-height:0;border-radius:16px;padding:12px; }
+.manual-embedded>.manual-header,.manual-embedded>.manual-missions { display:none; }
+.manual-embedded>.manual-footer [data-manual-region="manualProgress"] { display:none; }
+.manual-embedded .manual-layout { grid-template-columns:minmax(0,1.45fr) minmax(335px,1fr);gap:14px; }
+.manual-embedded .manual-goal { min-height:36px;padding-right:265px;display:flex;align-items:center;font-size:16px; }
+.manual-embedded>.manual-footer { position:absolute;right:12px;top:10px;border:0;padding:0; }
+.manual-embedded>.manual-footer button { font-size:22px;width:32px;min-height:32px;padding:0; }
+.manual-embedded>.manual-footer details { display:none; }
+.lesson-page:has(.lesson-integrated.is-exploring:not([hidden]))>.page-heading { display:none; }
+.lesson-explorer-footer { display:flex;justify-content:space-between;gap:12px;align-items:center;flex:none; }
+.lesson-explorer-checks { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;font-size:14px;color:#626b76; }
+.lesson-explorer-checks .done { color:#1769d2;font-weight:700; }
+.lesson-integrated.penalty-understanding:not(.is-exploring):not([hidden]) { display:grid!important;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);grid-template-rows:auto minmax(0,1fr); }
+.penalty-understanding>.lesson-explorer-bar { grid-column:1/-1; }
+@media(max-width:900px) {
+  .lesson-explorer-bar { flex-wrap:wrap;gap:5px; }.lesson-explorer-bar>.image-lesson-tabs { flex-basis:100%;max-width:none; }
+  .lesson-explorer-modes { width:100%; }.lesson-explorer-modes button { flex:1; }
+  .lesson-explorer-footer { flex-wrap:wrap;gap:5px; }.lesson-explorer-checks { gap:4px 10px; }
+  .lesson-explorer-footer>button { margin-left:auto; }
+  .lesson-integrated.penalty-understanding:not(.is-exploring):not([hidden]) { display:flex!important; }
+}
+@media(max-width:700px) {
+  .manual-embedded .manual-layout { grid-template-columns:1fr;grid-template-rows:230px minmax(260px,1fr); }
+  .manual-embedded .manual-goal { font-size:14px;min-height:44px;padding-right:78px;margin-top:0; }
+  .manual-embedded>.manual-footer { top:5px; }
+  .manual-embedded [data-manual-region="manualControls"]:has([data-parameter="bias"])>small { display:none; }
+  .lesson-page:has(.lesson-integrated.is-exploring:not([hidden]))>.page-nav { display:none; }
+  .manual-embedded .manual-footer details { margin-left:auto; }
+  .manual-embedded { padding:8px!important; }
+  .lesson-explorer-checks { font-size:13px; }
+}

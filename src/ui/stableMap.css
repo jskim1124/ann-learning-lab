@@ -1,0 +1,17 @@
+.stable-map-slot { position:relative;isolation:isolate;contain:layout size;flex:1 1 0;min-width:0;min-height:120px;width:100%;overflow:hidden; }
+.stable-map-slot > canvas { position:absolute!important;inset:0;width:100%!important;height:100%!important;min-height:0!important;max-height:none!important;max-width:none!important;aspect-ratio:auto!important;display:block;box-sizing:border-box; }
+.stable-map-slot:has(> canvas[hidden]) { display:none; }
+.manual-map-panel { display:grid!important;grid-template-rows:34px minmax(100px,1fr) 24px 28px 44px; }
+.manual-map-panel .manual-map-tools { flex-wrap:nowrap;white-space:nowrap; }
+.manual-map-panel .manual-point,.manual-map-panel .manual-score { flex-wrap:nowrap;overflow:hidden;white-space:nowrap; }
+.manual-map-panel .manual-legend { display:flex;flex-wrap:wrap;column-gap:12px;align-content:start;font-size:13px;line-height:20px; }
+.manual-point span { font-variant-numeric:tabular-nums; }
+.manual-map-panel .stable-map-slot { min-height:0; }
+.feature-lesson .image-lesson-visual:has(#flMap:not([hidden])) .stable-map-slot { flex:0 0 clamp(160px,37dvh,520px); }
+.feature-lesson #flSelected { min-height:0; }
+.feature-lesson #flVisualTitle { min-height:28px; }
+.penalty-lesson-visual .stable-map-slot { flex:0 0 clamp(160px,37dvh,520px); }
+@media(max-width:700px) {
+  .manual-map-panel { grid-template-rows:32px minmax(90px,1fr) 22px 24px; }
+  .manual-map-panel .manual-legend { display:none; }
+}
