@@ -19,7 +19,7 @@ export function drawCoordinateTicks(ctx: CanvasRenderingContext2D, box: PlotBox)
   const origin = coordinatePosition(box, 0, 0);
   ctx.save(); ctx.font = "12px sans-serif"; ctx.textAlign = "center";
   const label = (value: number, x: number, y: number) => {
-    const text = String(value), width = text.length * 7 + 4;
+    const text = value.toFixed(2), width = text.length * 7 + 4;
     ctx.fillStyle = "rgba(255,255,255,.9)"; ctx.fillRect(x - width / 2, y - 11, width, 15);
     ctx.fillStyle = "#344054"; ctx.fillText(text, x, y);
   };

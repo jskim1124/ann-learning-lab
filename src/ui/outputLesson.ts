@@ -9,7 +9,7 @@ import type { SceneQuiz } from "./lessonScenes";
 export const OUTPUT_LAST_STAGE=6;
 export const OUTPUT_EXAMPLES:PixelExample[]=[...NEURON_EXAMPLES,{pixels:[.55,-.1],label:2}].map(e=>({...e,label:lessonTruth(e.pixels,3)}));
 export const outputCanExplore=(stage:number)=>stage===4||stage===6;
-const n=(v:number)=>String(Number(v.toFixed(3)));
+const n=(v:number)=>v.toFixed(2);
 const colors=['#f17605','#df466f','#7446f5'];
 
 /** The check changes only x, from .2 to .3, and uses the same A calculation. */
@@ -70,6 +70,6 @@ export function renderOutputScene(root:HTMLElement,focus:number[],stage:number,h
   if(stage===6)get('flSelected').insertAdjacentHTML('beforeend','<button data-output-percent class="plain-help">점수와 퍼센트는 어떻게 다른가요?</button>');
   drawPixelLatentMap(get('flMap'),model,data,point,LESSON_PROJECTION,{view:'decision',neutralBackground:!linesShown,emphasizeClass:stage===1||stage===2?0:stage===3?1:stage===5?2:undefined,showNeuronBoundaries:linesShown,showDecisionBoundary:linesShown,showDataLabels:true,classLabels:labels,axisLegend:{horizontal:{title:'가로 입력',negative:'',positive:''},vertical:{title:'세로 입력',negative:'',positive:''}},focusLabel:`정답 ${labels[truth]}`});
   // Percent conversion is optional, separate from the middle-school arithmetic path.
-  get('flPercent').innerHTML=`<div class="image-heading"><h2>출력 점수 ≠ 맞힌 비율</h2><form method="dialog"><button aria-label="퍼센트 설명 닫기">닫기</button></form></div><p>퍼센트는 지금 그림에 대한 모델의 예상입니다. 80%라고 해서 실제로 100장 중 80장을 맞혔다는 뜻은 아니에요.</p><p>음수도 가능한 점수를 계산기의 같은 변환으로 양수로 만든 다음, 합으로 나눕니다. 이 추가 변환식은 지금 외울 필요가 없어요.</p><div class="score-conversion">${labels.map((l,i)=>`<span>${l}: 점수 ${n(r.logits[i]!)} → 변환값 ${r.positive[i]!.toFixed(3)}</span>`).join('')}</div><p>B: ${r.positive[1]!.toFixed(3)} ÷ ${r.total.toFixed(3)} × 100 ≈ ${(r.probabilities[1]!*100).toFixed(1)}%</p><details><summary>계산기의 변환 규칙</summary><p>exp(점수)로 바꿉니다. 예: 0 → 1, 0.3 → 약 1.350, 0.7 → 약 2.014. 이 양수들의 합으로 나누는 방법을 softmax라고 합니다. 표시값은 반올림했고 계산은 원래 값으로 합니다.</p></details>`;
+  get('flPercent').innerHTML=`<div class="image-heading"><h2>출력 점수 ≠ 맞힌 비율</h2><form method="dialog"><button aria-label="퍼센트 설명 닫기">닫기</button></form></div><p>퍼센트는 지금 그림에 대한 모델의 예상입니다. 80%라고 해서 실제로 100장 중 80장을 맞혔다는 뜻은 아니에요.</p><p>음수도 가능한 점수를 계산기의 같은 변환으로 양수로 만든 다음, 합으로 나눕니다. 이 추가 변환식은 지금 외울 필요가 없어요.</p><div class="score-conversion">${labels.map((l,i)=>`<span>${l}: 점수 ${n(r.logits[i]!)} → 변환값 ${r.positive[i]!.toFixed(2)}</span>`).join('')}</div><p>B: ${r.positive[1]!.toFixed(2)} ÷ ${r.total.toFixed(2)} × 100 ≈ ${(r.probabilities[1]!*100).toFixed(2)}%</p><details><summary>계산기의 변환 규칙</summary><p>exp(점수)로 바꿉니다. 예: 0 → 1, 0.3 → 약 1.350, 0.7 → 약 2.014. 이 양수들의 합으로 나누는 방법을 softmax라고 합니다. 표시값은 반올림했고 계산은 원래 값으로 합니다.</p></details>`;
   return {question:'뉴런 2를 추가하면 왜 경계가 꺾일까요?',choices:[{text:'위·아래에서 더하는 값이 달라져서',correct:true},{text:'클래스가 하나 더 생겨서',correct:false}],explanation:'C에 아래는 0, 위는 세로 값을 더해요. 모든 뉴런이 늘 이 모양을 만드는 것은 아니에요.'};
 }

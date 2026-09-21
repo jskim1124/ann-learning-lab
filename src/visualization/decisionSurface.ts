@@ -1,6 +1,6 @@
 import { forward } from "../core/neuralNetwork";
 import type { DataPoint, NetworkModel } from "../types";
-import { canvasPoint, PALETTE, probabilityColor } from "./canvasUtils";
+import { canvasPoint, fitSurfaceCanvas, PALETTE, probabilityColor } from "./canvasUtils";
 import { drawCoordinateGrid, drawCoordinateTicks } from "./coordinateGrid";
 
 export { NEURON_COLORS as HIDDEN_COLORS } from "./neuronColors";
@@ -63,7 +63,8 @@ function drawHiddenBoundaries(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasE
     ctx.strokeStyle = HIDDEN_COLORS[index % HIDDEN_COLORS.length] ?? "#7446f5"; ctx.lineWidth = selected ? 4.5 : 2.7; ctx.setLineDash(emphasizeSelected && !selected ? [7, 5] : []);
     ctx.beginPath(); ctx.moveTo(...start); ctx.lineTo(...end); ctx.stroke();
     const mx = (start[0] + end[0]) / 2; const my = (start[1] + end[1]) / 2;
-    const length = Math.hypot(wA, wB) || 1; const nx = (wA / length) * 28; const ny = -(wB / length) * 28;
+    const sx = wA / canvas.width, sy = -wB / canvas.height;
+    const length = Math.hypot(sx, sy) || 1; const nx = (sx / length) * 28; const ny = (sy / length) * 28;
     ctx.setLineDash([]); ctx.beginPath(); ctx.moveTo(mx, my); ctx.lineTo(mx + nx, my + ny); ctx.stroke();
     const angle = Math.atan2(ny, nx); ctx.beginPath(); ctx.moveTo(mx + nx, my + ny); ctx.lineTo(mx + nx - 8 * Math.cos(angle - .45), my + ny - 8 * Math.sin(angle - .45)); ctx.moveTo(mx + nx, my + ny); ctx.lineTo(mx + nx - 8 * Math.cos(angle + .45), my + ny - 8 * Math.sin(angle + .45)); ctx.stroke();
     ctx.font = `700 ${selected ? 17 : 13}px system-ui`; ctx.fillStyle = ctx.strokeStyle; ctx.fillText(`은닉 뉴런 ${index + 1}  큰 쪽`, mx + nx + 5, my + ny - 5);
@@ -72,6 +73,7 @@ function drawHiddenBoundaries(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasE
 }
 
 export function drawDecisionSurface(canvas: HTMLCanvasElement, model: NetworkModel, data: DataPoint[], testInput: { x: number; y: number }, options: SurfaceOptions = {}): void {
+  fitSurfaceCanvas(canvas);
   const ctx = canvas.getContext("2d"); if (!ctx) return;
   const step = options.explanationStep ?? 4; const selectedNeuron = options.selectedNeuron ?? 0;
   const grid = 140; const cellW = canvas.width / grid; const cellH = canvas.height / grid;

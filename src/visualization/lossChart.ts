@@ -14,7 +14,7 @@ export function drawLossChart(canvas:HTMLCanvasElement,history:HistoryPoint[]):v
   if(canvas.width!==w*dpr||canvas.height!==h*dpr){canvas.width=w*dpr;canvas.height=h*dpr;}ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);
   const [min,max]=chartRange(history,state.metric,state.zoom),left=45,right=12,top=12,bottom=22,plotW=w-left-right,plotH=h-top-bottom;
   const value=(p:HistoryPoint)=>state.metric==="loss"?p.loss:p.accuracy;
-  const format=(v:number)=>state.metric==="accuracy"?`${(v*100).toFixed(0)}%`:v.toFixed(max-min<.1?3:2);
+  const format=(v:number)=>state.metric==="accuracy"?`${(v*100).toFixed(2)}%`:v.toFixed(max-min<.1?3:2);
   ctx.font="12px sans-serif";ctx.textAlign="right";
   [min,(min+max)/2,max].forEach(v=>{const y=top+(max-v)/(max-min)*plotH;ctx.strokeStyle="#dde2ea";ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(left,y);ctx.lineTo(w-right,y);ctx.stroke();ctx.fillStyle="#596574";ctx.fillText(format(v),left-5,y+4);});
   const first=history[0]?.epoch??0,last=history.at(-1)?.epoch??0;

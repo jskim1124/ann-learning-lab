@@ -26,6 +26,20 @@ export function featureTrainingPanels(root: HTMLElement, redraw: () => void): vo
   stage.className = "image-panel image-results-panel feature-training-stage";
   const layout = document.createElement("div"); layout.className = "image-train";
   layout.append(stage, controls); root.replaceChildren(layout);
+  movePracticeReadouts(root);
   root.className = `image-workspace ${root.id==='boundaryTrainingView'?'boundary-training':'tabular-training'}`;
   workspacePanels(root, [stage, controls], ["학습 지도", "모델 살펴보기"], redraw);
+}
+
+/** Keep observations beside the graph; the other pane contains just the one network. */
+export function movePracticeReadouts(root:HTMLElement):void {
+  const stage=root.querySelector<HTMLElement>('.image-results-panel')!,model=root.querySelector<HTMLElement>('.image-model-panel')!;
+  const readouts=document.createElement('div');readouts.className='practice-readouts';
+  const hidden=model.querySelector('.image-hidden, label.field');const metrics=model.querySelector('.image-metrics, .mini-metrics');
+  if(hidden)readouts.append(hidden);if(metrics)readouts.append(metrics);
+  stage.prepend(readouts);
+  const focus=model.querySelector<HTMLElement>('#boundarySelectedData, #featureSelectedData, .image-focus');
+  if(focus){focus.classList.add('practice-selected-input');readouts.after(focus);}
+  const heading=model.querySelector('.title-line');if(heading)heading.remove();
+  if(!model.querySelector('summary')){const title=document.createElement('h2');title.textContent='연결 지도';model.prepend(title);}
 }

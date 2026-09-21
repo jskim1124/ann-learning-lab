@@ -1,7 +1,7 @@
 import type { PixelModel } from "../core/pixelNetwork";
 import { neuronCalculation } from "../core/neuronLesson";
 
-const n = (v: number) => String(Number(v.toFixed(3)));
+const n = (v: number) => v.toFixed(2);
 /** One real hidden neuron, with the same weights and values as the map. No decorative connections. */
 export function neuronDiagram(model: PixelModel, point: number[], stage: number, phase?: number): string {
   const r = neuronCalculation(model, point), w = model.inputHidden[0]!;

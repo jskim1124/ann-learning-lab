@@ -7,7 +7,7 @@ import './penaltyWorkspace.css';
 import { LessonExplorer } from './lessonExplorer';
 import { stabilizeMap } from './stableMap';
 
-const n=(v:number)=>String(Number(v.toFixed(2)));
+const n=(v:number)=>v.toFixed(2);
 const QUESTIONS=[
   {text:'공은 오른쪽 끝, 골키퍼는 왼쪽 끝. 좌표는?',formula:'가로 = 공 · 세로 = 골키퍼',choices:['(−1, 1)','(1, −1)','(1, 1)'],answer:1,why:'공의 +1이 가로, 골키퍼의 −1이 세로입니다.'},
   {text:'(1, 1)에서 가로만 −1로 바꾸면 넘기는 숫자는?',formula:'−1 + 1 = ?',choices:['−2','2','0'],answer:2,why:'합이 0이므로 다음 계산에 0을 넘깁니다.'},

@@ -24,6 +24,10 @@
 .network-verdict strong { margin-left:6px; }
 .network-key { text-align:center;margin:5px 0;color:#626b76;font-size:14px; }
 .network-change { text-align:center;color:#626b76;font-size:14px;min-height:20px;margin:4px 0; }
+.retired-network { display:none!important; }
+.network-route-value,.network-wire-value { position:absolute;z-index:2;pointer-events:none;background:white;border-radius:6px;padding:2px 4px;font-size:14px;font-variant-numeric:tabular-nums; }
+.network-route-value { transform:translate(-50%,-50%);color:var(--node-color);min-width:44px;text-align:center;border:1px solid var(--node-color);border-radius:12px; }
+.network-wire-value { transform:translate(-50%,-50%);color:#626b76; }
 .network-calculations { border-top:1px solid #e5e8ed;margin-top:4px;padding-top:7px; }
 .network-calculations>summary { cursor:pointer;color:#626b76;font-size:14px; }
 .network-calculations[open]>summary { margin-bottom:8px; }

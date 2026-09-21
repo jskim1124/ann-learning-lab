@@ -6,7 +6,7 @@ import { drawNeuronTrace } from "../visualization/neuronTrace";
 import { neuronDiagram } from "./neuronDiagram";
 import { neuronArithmeticFlow } from "./neuronArithmeticFlow";
 
-const n = (v: number) => String(Number(v.toFixed(3)));
+const n = (v: number) => v.toFixed(2);
 const identity = { mean:[0,0], horizontal:[1,0], vertical:[0,1], horizontalScale:1, verticalScale:1 };
 const axes = { horizontal:{title:"가로 입력",negative:"",positive:""}, vertical:{title:"세로 입력",negative:"",positive:""} };
 const titles = ["뉴런은 숫자를 계산해서 보내는 작은 계산기예요", "곱한 두 값을 모아서 더해요", "보라선: 합이 0인 점들을 이은 선", "출력은 답마다 점수를 매기는 마지막 계산기예요", "검은 경계: A와 B 점수가 같은 곳"];

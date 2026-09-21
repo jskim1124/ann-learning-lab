@@ -16,15 +16,12 @@ describe("자료에서 연습으로 이어지는 실제 화면 이동",()=>{
   const click=(selector:string)=>document.querySelector<HTMLButtonElement>(selector)!.click();
   it("승부차기에서도 오답만 표시하고 정답이나 해설을 공개하지 않는다",()=>{
     click('[data-preset="xor"]');click('#scenarioNext');click('#dataNext');
-    for(let i=0;i<3;i++)click('#plAdvance');
-    const question=document.getElementById('plQuestion')!.textContent;
-    expect(question).toBeTruthy();
-    const choices=[...document.querySelectorAll<HTMLButtonElement>('#plChoices button')];
-    const wrong=choices.find(b=>b.textContent==='(−1, 1)')!;
-    wrong.click();
-    expect(document.querySelectorAll('#plChoices .wrong')).toHaveLength(1);
-    expect(document.querySelector('#plChoices .correct')).toBeNull();
-    expect(document.getElementById('plFeedback')!.textContent).toBe('오답입니다. 위 계산을 다시 확인해 보세요.');
+    const root=document.getElementById('penaltyUnderstanding')!;
+    expect([...root.querySelectorAll('.journey-nav button')].map(b=>b.textContent)).toEqual(['1 특징 계산','2 분포·선택','3 뉴런·선','4 뉴런·출력']);
+    click('#penaltyUnderstanding [data-journey-cell="0"]');click('#penaltyUnderstanding [data-journey-cell="1"]');click('#penaltyUnderstanding [data-journey-answer="0"]');
+    expect(root.querySelectorAll('.is-wrong')).toHaveLength(1);expect(root.querySelector('.correct')).toBeNull();
+    expect(root.querySelector('.journey-summary')!.hasAttribute('hidden')).toBe(true);
+    expect(root.querySelector('[role=status]')!.textContent).toContain('오답');
   },20000);
   it("자율 숫자 문제는 이해 없이 연습으로 가고, 특징을 바꿔도 그 화면에 남는다",()=>{
     click('[data-preset="custom"]');click("#scenarioNext");click("#customLoadExample");click("#dataNext");

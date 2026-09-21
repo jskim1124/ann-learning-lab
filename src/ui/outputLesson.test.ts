@@ -71,7 +71,7 @@ describe('연결값·정답·출력의 의미',()=>{
     expect(root.querySelector('.output-route strong')!.textContent).toBe('A ?');
     click('#flAction');expect(root.querySelector('.output-equation')!.textContent).toContain('-0.3');
     expect(root.querySelector('.output-route strong')!.textContent).toBe('A ?');
-    click('#flAction');expect(root.querySelector('.output-route strong')!.textContent).toBe('A 0.7');
+    click('#flAction');expect(root.querySelector('.output-route strong')!.textContent).toBe('A 0.70');
     click('#flPlay');vi.advanceTimersByTime(15000);
     expect(root.querySelector('#flPlay')!.textContent).toContain('재생');
     expect(root.querySelector<HTMLButtonElement>('#flAction')!.disabled).toBe(true);
@@ -80,7 +80,7 @@ describe('연결값·정답·출력의 의미',()=>{
     expect(root.querySelector('.arithmetic-check [role=status]')!.textContent).not.toContain('0.6');
     click('[data-output-answer="0"]');click('#flAction');click('#flAction');
     expect(root.querySelectorAll('.output-route')).toHaveLength(3);
-    expect(root.querySelector('#flSelected')!.textContent).toContain('0.15 + 0.3 = 0.45');
+    expect(root.querySelector('#flSelected')!.textContent).toContain('0.15 + 0.30 = 0.45');
     click('#flAction');click('[data-output-neurons="2"]');
     expect(root.querySelectorAll('.output-signals > span')).toHaveLength(2);
     expect(root.querySelectorAll('.output-route')).toHaveLength(3);
@@ -97,8 +97,8 @@ describe('연결값·정답·출력의 의미',()=>{
   it('탐색 좌표와 표시된 점수로 같은 계산을 재현할 수 있다',()=>{
     const {root,lesson}=setup();
     renderOutputScene(root,[.36001,.26998],4,1);
-    expect(root.querySelector('.output-signals b')!.textContent).toBe('0.495');
-    expect(root.querySelector('.output-route strong')!.textContent).toBe('A 0.505');
+    expect(root.querySelector('.output-signals b')!.textContent).toBe('0.49');
+    expect(root.querySelector('.output-route strong')!.textContent).toBe('A 0.51');
     expect(root.querySelector('.point-truth')!.textContent).toContain('모델 예상 A');
     renderOutputScene(root,[.36,.28],4,1);
     expect(root.querySelector('.point-truth')!.textContent).toContain('A·B 동점');

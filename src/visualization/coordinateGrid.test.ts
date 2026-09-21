@@ -12,7 +12,7 @@ describe("원점 중심의 실제 좌표 눈금",()=>{
     const ctx={save:vi.fn(),restore:vi.fn(),beginPath:vi.fn(),moveTo:vi.fn(),lineTo:vi.fn(),stroke:vi.fn(),fillRect:vi.fn(),fillText:vi.fn()} as unknown as CanvasRenderingContext2D;
     drawCoordinateGrid(ctx,box);drawCoordinateTicks(ctx,box);
     const labels=vi.mocked(ctx.fillText).mock.calls.map(c=>c[0]);
-    expect(labels).toEqual(["-1","-1","-0.5","-0.5","0","0.5","0.5","1","1"]);
+    expect(labels).toEqual(["-1.00","-1.00","-0.50","-0.50","0.00","0.50","0.50","1.00","1.00"]);
     expect(ctx.stroke).toHaveBeenCalledTimes(10);
   });
 });

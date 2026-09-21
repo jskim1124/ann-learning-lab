@@ -1,7 +1,8 @@
 import { captureImage, drawImagePixels, IMAGE_INPUTS, IMAGE_SIDE } from "../core/imageInput";
 import { imageFeatureLegend } from "../core/imageFeatures";
-import { ImageFeatureLesson } from "./imageFeatureLesson";
-import { revealModelPanel } from "./workspacePanels";
+import { UnderstandingJourney } from "./understandingJourney";
+import { installImageFeatureEditor } from './imageFeatureEditor';
+import { revealModelPanel, movePracticeReadouts } from "./workspacePanels";
 import { OMR_CENTERS } from "../data/pixelDatasets";
 import { downloadBlob, downloadText } from "../export/modelJson";
 import { generateInferenceExtension } from "../export/inferenceExtension";
@@ -32,7 +33,7 @@ export class ImageWorkspace {
   private training = 0;
   private classPage = 0;
   private samplePage = 0;
-  private featureLesson: ImageFeatureLesson;
+  private featureLesson: UnderstandingJourney;
   private canCapture = false;
   private collectionSignature = "";
   private showLines = true;
@@ -56,16 +57,18 @@ export class ImageWorkspace {
       root.prepend(compactTabs);
       document.querySelector(`[data-app-page="${step}"] .page-nav`)!.before(root); this.roots.set(Number(step), root);
     });
-    this.featureLesson = new ImageFeatureLesson(this.roots.get(3)!, this.store, () => this.go(4), this.message);
+    this.featureLesson = new UnderstandingJourney(this.roots.get(3)!, {context:()=>this.store.snapshot.task==='omr'?'OMR: 실제 연습에서는 마킹 그림의 특징을 골라요':this.store.snapshot.task==='webcam'?'웹캠: 실제 연습에서는 사진의 모든 칸을 입력해요':'숫자: 실제 연습에서는 손글씨 그림의 특징을 골라요',complete:()=>this.go(4)});
     const axisBar = document.createElement("div"); axisBar.className = "feature-axis-pair practice-axes";
     axisBar.innerHTML = '<label>가로 특징<select id="imagePracticeX"></select></label><label>세로 특징<select id="imagePracticeY"></select></label><span>특징을 바꾸면 분포가 바뀌고 학습은 처음부터 시작합니다.</span>';
     this.el("imageChooseFeatures").replaceWith(axisBar);
+    installImageFeatureEditor(axisBar,this.store,this.message);
     this.el("imageNetwork").closest("details")!.open = true;
     this.el('imageExportSb3').closest('details')!.open=true;
     installSignalNetwork(this.el('imageNetwork'),'imageSignalNetwork');
     const classChoice=document.createElement('label');classChoice.className='practice-class-choice';classChoice.innerHTML='자료 클래스 선택<select id="imageTrainingClass" aria-label="연습에서 살펴볼 클래스"></select>';
     this.el('imageFocus').parentElement!.before(classChoice);
     this.el('imageTrainingClass').addEventListener('change',()=>{const label=Number(this.el<HTMLSelectElement>('imageTrainingClass').value),row=this.store.snapshot.data.find(d=>d.label===label);this.probe=null;if(row)this.store.selectSample(row.id);});
+    movePracticeReadouts(this.roots.get(4)!);
     this.capture = document.createElement("div"); this.capture.className = "image-capture";
     this.capture.innerHTML = `<div class="image-heading"><h2 id="imageCaptureTitle">그림을 모아 보세요</h2><span id="imageCaptureClass"></span></div><div class="image-input-switch" id="imageInputSwitch"><button data-image-input="drawing">그리기</button><button data-image-input="webcam">웹캠</button></div><div class="image-capture-pair"><figure><div class="image-source"><canvas id="imageDraw" width="420" height="420" aria-label="자유롭게 그림 그리기"></canvas><video id="imageVideo" autoplay playsinline muted hidden aria-label="중앙을 정사각형으로 자른 웹캠"></video><span id="imageCameraEmpty" hidden>카메라를 켜고 손을 보여 주세요</span></div><figcaption id="imageSourceCaption">직접 그린 그림</figcaption></figure><span class="image-convert-arrow" aria-hidden="true">→</span><figure class="image-processed"><canvas id="imageInputPreview" width="224" height="224" aria-label="모델에 실제 입력하는 14×14 흑백 그림"></canvas><figcaption>모델이 받는 14×14칸</figcaption></figure></div><div class="image-capture-buttons"><button id="imageCameraStart" class="button secondary" hidden>카메라 켜기</button><button id="imageCameraStop" class="button secondary" hidden>카메라 끄기</button><button id="imageClear" class="button secondary">지우기</button><button id="imageCaptureAdd" class="button primary">이 그림 추가</button></div><p id="imageCaptureHint">한 칸의 진하기를 0~1로 바꾸어 입력합니다.</p><p id="imagePrivacy" hidden>영상은 이 브라우저에서만 처리됩니다. 배경도 그림에 포함됩니다.</p>`;
     document.querySelector("#imageCollectSlot")!.append(this.capture);
@@ -112,7 +115,7 @@ export class ImageWorkspace {
     if (this.store.snapshot.classes[Number(selected)]) select.value = selected; select.dataset.signature = signature;
   }
   private bars(id: string, probabilities: number[]): void {
-    this.el(id).innerHTML = this.store.snapshot.classes.map((name, i) => `<div class="image-bar" style="--class-color:${COLORS[i % COLORS.length]}"><b title="${escape(name)}">${escape(name)}</b><span><i style="width:${(probabilities[i] ?? 0) * 100}%"></i></span><output>${((probabilities[i] ?? 0) * 100).toFixed(1)}%</output></div>`).join("");
+    this.el(id).innerHTML = this.store.snapshot.classes.map((name, i) => `<div class="image-bar" style="--class-color:${COLORS[i % COLORS.length]}"><b title="${escape(name)}">${escape(name)}</b><span><i style="width:${(probabilities[i] ?? 0) * 100}%"></i></span><output>${((probabilities[i] ?? 0) * 100).toFixed(2)}%</output></div>`).join("");
   }
   private render(): void {
     if (!this.active) return;
@@ -178,7 +181,7 @@ export class ImageWorkspace {
       select.value = value!;
     }
     this.el<HTMLOutputElement>("imageHiddenValue").value = `${s.model.hiddenUnits}개`; this.el<HTMLOutputElement>('imageHiddenValue').setAttribute('aria-label',`은닉 뉴런 ${s.model.hiddenUnits}개`); this.el<HTMLInputElement>("imageHidden").value = String(s.model.hiddenUnits);
-    this.el("imageEpoch").textContent = `${s.model.epoch}번`; this.el("imageAccuracy").textContent = `${(metrics.accuracy * 100).toFixed(0)}%`;
+    this.el("imageEpoch").textContent = `${s.model.epoch}번`; this.el("imageAccuracy").textContent = `${(metrics.accuracy * 100).toFixed(2)}%`;
     this.el<HTMLInputElement>("imageRate").value = String(s.rate); this.el<HTMLOutputElement>("imageRateValue").value = s.rate.toFixed(2);
     this.el("imageAutoTrain").textContent = this.training ? "잠시 멈추기" : "계속 학습";
     drawImagePixels(this.el<HTMLCanvasElement>("imageFocus"), focus.pixels);

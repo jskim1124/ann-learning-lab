@@ -24,7 +24,7 @@ describe('승부차기 공통 수집·이해 UI',()=>{
   });
   it('계산과 예측을 풀어야 진행하며 재생만 눌러서는 연습으로 갈 수 없다',()=>{
     vi.useFakeTimers();const next=vi.fn(),lesson=new PenaltyLesson(next);lesson.show(true);
-    click('[data-pl-step="3"]');click('#plPlay');vi.runAllTimers();expect(document.getElementById('plCalculation')!.textContent).toContain('1 − 2 − 0 = -1');
+    click('[data-pl-step="3"]');click('#plPlay');vi.runAllTimers();expect(document.getElementById('plCalculation')!.textContent).toContain('1 − 2.00 − 0 = -1.00');
     click('[data-pl-predict="1"]');expect(document.querySelector('#plPredict .correct')).toBeNull();
     click('[data-pl-predict="0"]');click('#plPlay');vi.runAllTimers();click('[data-pl-choice="1"]');click('#plNext');expect(next).not.toHaveBeenCalled();
     for(const [step,answer] of [[0,1],[1,2],[2,0]]){click(`[data-pl-step="${step}"]`);click('#plPlay');vi.runAllTimers();

@@ -127,7 +127,7 @@ describe("네 단계 특징 탐구",()=>{
     point('pointerdown',-.5);point('pointermove',.8);point('pointerup',.8);
     expect(root.querySelector('.neuron-inputs')!.textContent).toContain("가로 0.8");
     expect(root.querySelector('.neuron-outputs')!.textContent).toContain("B 0.8");
-    expect(root.querySelector('.trace-result')!.textContent).toContain("(0.5, 0) · A = B = 0.5");
+    expect(root.querySelector('.trace-result')!.textContent).toContain("(0.50, 0.00) · A = B = 0.5");
     expect(store.snapshot.revision).toBe(revision);
     click('#flAction');
     const slider=root.querySelector<HTMLInputElement>('#flBias')!;
@@ -138,7 +138,7 @@ describe("네 단계 특징 탐구",()=>{
     expect(root.querySelector('#flChoices .correct')).toBeNull();
     slide('.1');
     expect(root.querySelector('.neuron-box')!.textContent).toContain("합 0.4");
-    expect(root.querySelector('.neuron-box .bias-value')!.textContent).toBe('0.1');
+    expect(root.querySelector('.neuron-box .bias-value')!.textContent).toBe('0.10');
     expect(root.querySelector('.movement-scores')!.textContent).toContain("처음 0.3 → 0.4");
     expect(root.querySelector('.neuron-inputs')!.textContent).toContain("가로 0.2");
     expect(root.querySelector('.neuron-links')!.textContent).toContain("× 0.5");

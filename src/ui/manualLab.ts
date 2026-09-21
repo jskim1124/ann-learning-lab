@@ -7,7 +7,7 @@ import './manualLab.css';
 import './stableMap.css';
 
 const esc=(s:string)=>s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
-const num=(v:number)=>String(roundManual(v));
+const num=(v:number)=>roundManual(v).toFixed(2);
 const colors=['#f17605','#df466f','#7446f5','#1f6bd6','#1558b7','#a93658'];
 const titles={move:'선을 옮겨 여섯 점을 모두 맞혀 보세요.',bend:'뉴런을 더해 두 방향의 B를 함께 찾아보세요.',data:'고른 두 특징으로 직접 모델을 고쳐 보세요.'};
 const directions=['오른쪽 →','오른쪽 위 ↗','위 ↑','왼쪽 위 ↖','왼쪽 ←','왼쪽 아래 ↙','아래 ↓','오른쪽 아래 ↘'];
@@ -109,7 +109,7 @@ export class ManualLabWorkspace {
     else{
       const r=l.calculation,w=m.inputHidden[h]!,answer=this.quizKind==='hidden'?r.answer:roundManual(r.logits[l.output]!),choices=[answer+.5,answer-.5,answer];
       choices.push(...choices.splice(0,Math.abs(Math.round(r.sum*4)+h)%3));
-      this.el('manualControls').innerHTML=`<div class="manual-quiz-kind"><button data-quiz-kind="hidden" aria-pressed="${this.quizKind==='hidden'}">뉴런의 수</button><button data-quiz-kind="output" aria-pressed="${this.quizKind==='output'}">답의 점수</button></div><p class="manual-instruction">선택한 좌표 (${num(l.point[0]!)}, ${num(l.point[1]!)})</p><div class="manual-arithmetic">${this.quizKind==='hidden'?`<span>${num(l.point[0]!)} × (${num(w[0]!)}) = <b>${num(r.products[0]!)}</b></span><span>${num(l.point[1]!)} × (${num(w[1]!)}) = <b>${num(r.products[1]!)}</b></span><span>두 곱의 합 + (${num(m.hiddenBias[h]!)}) = <b>${num(r.sum)}</b></span>`:r.hidden.map((v,i)=>`<span style="color:${NEURON_COLORS[i]}">뉴런 ${i+1}: ${num(v)} × (${num(l.effective.hiddenOutput[l.output]![i]!)}) = <b>${num(v*l.effective.hiddenOutput[l.output]![i]!)}</b></span>`).join('')+`<span>위 곱을 모두 더하고 (${num(m.outputBias[l.output]!)})를 더해요.</span>`}</div><strong>${this.quizKind==='hidden'?'음수면 0, 양수면 그대로. 넘길 수는?':`${esc(source.classes[l.output]!)}의 답 점수는? (음수도 그대로)`}</strong><div class="manual-answers">${choices.map(v=>`<button data-answer="${num(v)}" ${this.quizSolved?'disabled':''} class="${this.quizSolved&&v===answer?'correct':''}">${num(v)}</button>`).join('')}</div><small>화면 값은 소수 둘째 자리까지 표시해요.</small>`;
+      this.el('manualControls').innerHTML=`<div class="manual-quiz-kind"><button data-quiz-kind="hidden" aria-pressed="${this.quizKind==='hidden'}">뉴런의 수</button><button data-quiz-kind="output" aria-pressed="${this.quizKind==='output'}">답의 점수</button></div><p class="manual-instruction">선택한 좌표 (${num(l.point[0]!)}, ${num(l.point[1]!)})</p><div class="manual-arithmetic">${this.quizKind==='hidden'?`<span>${num(l.point[0]!)} × (${num(w[0]!)}) = <b>${num(r.products[0]!)}</b></span><span>${num(l.point[1]!)} × (${num(w[1]!)}) = <b>${num(r.products[1]!)}</b></span><span>두 곱의 합 + (${num(m.hiddenBias[h]!)}) = <b>${num(r.sum)}</b></span>`:r.hidden.map((v,i)=>`<span style="color:${NEURON_COLORS[i]}">뉴런 ${i+1}: ${num(v)} × (${num(l.effective.hiddenOutput[l.output]![i]!)}) = <b>${num(v*l.effective.hiddenOutput[l.output]![i]!)}</b></span>`).join('')+`<span>위 곱을 모두 더하고 (${num(m.outputBias[l.output]!)})를 더해요.</span>`}</div><strong>${this.quizKind==='hidden'?'음수면 0, 양수면 그대로. 넘길 수는?':`${esc(source.classes[l.output]!)}의 답 점수는? (음수도 그대로)`}</strong><div class="manual-answers">${choices.map(v=>`<button data-answer="${roundManual(v)}" ${this.quizSolved?'disabled':''} class="${this.quizSolved&&v===answer?'correct':''}">${num(v)}</button>`).join('')}</div><small>화면 값은 소수 둘째 자리까지 표시해요.</small>`;
     }
     if(this.tab==='line'){
       const b=m.hiddenBias[h]!,p=l.biasPreview();

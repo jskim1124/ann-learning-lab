@@ -16,6 +16,20 @@ describe("공통 이미지 UI 연결", () => {
     workspace = new ImageWorkspace(vi.fn(), vi.fn(), vi.fn());
   });
   afterEach(() => { workspace.show(false,1); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+  it.each(['digits','omr','webcam'] as const)('%s의 실제 화면이 같은 네 단계 이해 과정을 사용한다',task=>{
+    workspace.configure(task);workspace.show(true,3);
+    const root=document.querySelector('.understanding-journey:not([hidden])')!;
+    expect([...root.querySelectorAll('.journey-nav button')].map(b=>b.textContent)).toEqual(['1 특징 계산','2 분포·선택','3 뉴런·선','4 뉴런·출력']);
+    expect(root.querySelector('#flMap')).toBeNull();expect(root.querySelectorAll('[data-journey-cell]')).toHaveLength(4);
+    expect(root.textContent).not.toContain('원리 설명');expect(root.textContent).not.toContain('직접 고치기');
+  });
+  it('연습 지표·선택 그림은 지도 쪽에, 연결 지도는 한 개만 남긴다',()=>{
+    workspace.configure('omr');workspace.show(true,4);
+    for(const id of ['imageHidden','imageEpoch','imageAccuracy','imageFocusName'])expect(document.getElementById(id)!.closest('.image-results-panel')).not.toBeNull();
+    expect(document.getElementById('imageSignalNetwork')!.querySelectorAll('.network-overview')).toHaveLength(1);
+    expect(document.getElementById('imageSignalNetwork')!.querySelector('.network-calculations')).toBeNull();
+    expect(document.getElementById('imageNetwork')!.classList.contains('retired-network')).toBe(true);
+  });
   it("웹캠에 특징 선택 표가 없고 클래스와 원본·실제 입력을 나란히 보여 준다", () => {
     workspace.configure("webcam"); workspace.show(true,2);
     expect(document.getElementById("imageInputSwitch")!.hidden).toBe(true);
@@ -105,9 +119,9 @@ describe("공통 이미지 UI 연결", () => {
     const original=JSON.stringify(workspace.store.snapshot.data),model=JSON.stringify(workspace.store.snapshot.model);
     const canvas=document.getElementById('imageMap') as HTMLCanvasElement;
     canvas.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight'}));
-    const before=document.getElementById('imageSignalNetwork')!.textContent;
+    const before=document.querySelector('#imageSignalNetwork .answer-track>i')!.getAttribute('style');
     canvas.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight'}));
-    expect(document.getElementById('imageSignalNetwork')!.textContent).not.toBe(before);
+    expect(document.querySelector('#imageSignalNetwork .answer-track>i')!.getAttribute('style')).not.toBe(before);
     expect(document.getElementById('imageFocusName')!.textContent).toContain('정답 미지정');
     expect(JSON.stringify(workspace.store.snapshot.data)).toBe(original);expect(JSON.stringify(workspace.store.snapshot.model)).toBe(model);
     const select=document.getElementById('imageTrainingClass') as HTMLSelectElement;select.value='2';select.dispatchEvent(new Event('change'));

@@ -162,7 +162,7 @@ function drawActualLearning(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasEle
   const current = forward(model,XOR_FOCUS.x,XOR_FOCUS.y);
   drawNodeBadge(ctx, 16, 14, "분홍: 뉴런 2의 선 · 검정: 최종 경계", NEURON_COLORS[1]!);
   drawNodeBadge(ctx, 16, canvas.height*.44, `표시한 골의 뉴런 2 신호: ${before.hidden[1]!.toFixed(2)} → ${current.hidden[1]!.toFixed(2)}`, NEURON_COLORS[1]!);
-  drawNodeBadge(ctx, 16, canvas.height*.44+35, `골 예상: ${(before.probability*100).toFixed(0)}% → ${(current.probability*100).toFixed(0)}% · ${model.epoch}번 학습`, "#253247");
+  drawNodeBadge(ctx, 16, canvas.height*.44+35, `골 예상: ${(before.probability*100).toFixed(2)}% → ${(current.probability*100).toFixed(2)}% · ${model.epoch}번 학습`, "#253247");
 }
 
 export function drawXorLesson(canvas: HTMLCanvasElement, step: 1 | 2 | 3 | 4, revealed: boolean, progress = 1): void {

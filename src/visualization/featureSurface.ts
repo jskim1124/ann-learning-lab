@@ -1,6 +1,6 @@
 import { forwardPixels, type PixelExample, type PixelModel } from "../core/pixelNetwork";
 import { classContours, type ScorePoint } from "./classContours";
-import { canvasPoint } from "./canvasUtils";
+import { canvasPoint, fitSurfaceCanvas } from "./canvasUtils";
 import { drawCoordinateGrid, drawCoordinateTicks } from "./coordinateGrid";
 import { hiddenBoundarySegment, HIDDEN_COLORS } from "./decisionSurface";
 
@@ -18,6 +18,7 @@ function softColor(hex: string, confidence: number): string {
 }
 
 export function drawFeatureSurface(canvas: HTMLCanvasElement, model: PixelModel, data: PixelExample[], testInput: { x: number; y: number }, options: { showNeuronBoundaries?: boolean; showDecisionBoundary?: boolean; showProbe?: boolean; selectedPoint?: number | null } = {}): void {
+  fitSurfaceCanvas(canvas);
   const context = canvas.getContext("2d"); if (!context) return;
   const grid = 120; const cellWidth = canvas.width / grid; const cellHeight = canvas.height / grid;
   context.clearRect(0, 0, canvas.width, canvas.height);
@@ -33,7 +34,8 @@ export function drawFeatureSurface(canvas: HTMLCanvasElement, model: PixelModel,
     const segment = hiddenBoundarySegment(weights[0] ?? 0, weights[1] ?? 0, model.hiddenBias[neuron] ?? 0); if (!segment) return;
     const start = canvasPoint(canvas, ...segment[0]); const end = canvasPoint(canvas, ...segment[1]); const color = HIDDEN_COLORS[neuron % HIDDEN_COLORS.length]!;
     context.save(); context.strokeStyle = color; context.fillStyle = color; context.lineWidth = 2.5; context.globalAlpha = .82; context.beginPath(); context.moveTo(...start); context.lineTo(...end); context.stroke();
-    const middleX = (start[0] + end[0]) / 2; const middleY = (start[1] + end[1]) / 2; const length = Math.hypot(weights[0] ?? 0, weights[1] ?? 0) || 1; const dx = (weights[0] ?? 0) / length * 22; const dy = -(weights[1] ?? 0) / length * 22;
+    const middleX = (start[0] + end[0]) / 2; const middleY = (start[1] + end[1]) / 2;
+    const sx=(weights[0]??0)/canvas.width,sy=-(weights[1]??0)/canvas.height,length=Math.hypot(sx,sy)||1,dx=sx/length*22,dy=sy/length*22;
     context.beginPath(); context.moveTo(middleX, middleY); context.lineTo(middleX + dx, middleY + dy); context.stroke(); context.beginPath(); context.moveTo(middleX+dx,middleY+dy); context.lineTo(middleX+dx*.65-dy*.22,middleY+dy*.65+dx*.22); context.lineTo(middleX+dx*.65+dy*.22,middleY+dy*.65-dx*.22); context.closePath(); context.fill(); context.restore();
   });
   if (options.showDecisionBoundary !== false) {

@@ -3,6 +3,15 @@ export const PALETTE = {
   grid: "#d8dde6", ink: "#253047", test: "#111827",
 };
 
+/** Match the bitmap to the CSS box: circles and text must not stretch with the layout. */
+export function fitSurfaceCanvas(canvas: HTMLCanvasElement): void {
+  const box = canvas.getBoundingClientRect();
+  if (box.width < 1 || box.height < 1) return;
+  const width = Math.round(box.width), height = Math.round(box.height);
+  if (canvas.width !== width) canvas.width = width;
+  if (canvas.height !== height) canvas.height = height;
+}
+
 export function canvasPoint(canvas: HTMLCanvasElement, x: number, y: number): [number, number] {
   return [((x + 1) / 2) * canvas.width, ((1 - y) / 2) * canvas.height];
 }
