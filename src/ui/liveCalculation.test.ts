@@ -1,10 +1,17 @@
 import { describe,it,expect } from 'vitest';
 import { installSignalNetwork,networkArithmetic,renderSignalNetwork,signalNetwork } from './liveCalculation';
 import { forwardPixels,initializePixelModel,trainPixelModel } from '../core/pixelNetwork';
-import { responseInk } from './networkOverview';
+import { networkOverview,responseInk } from './networkOverview';
 import { neuronLessonModel } from '../core/neuronLesson';
 
 describe('연결지도에 놓인 실제 곱셈·덧셈·확률',()=>{
+  it('답 하나만 살펴봐도 확률의 분모는 전체 클래스로 계산한다',()=>{
+    const m=initializePixelModel(2,2,5),p=[.5,.5],panel=document.createElement('div');
+    panel.innerHTML=networkOverview(m,p,['A','B','C','D','E'],true,0,4,{onlyOutput:4});
+    expect(panel.querySelectorAll('[data-network-output]')).toHaveLength(1);
+    expect(panel.querySelector('[data-network-output="4"]')).not.toBeNull();
+    expect(parseFloat(panel.querySelector<HTMLElement>('.answer-track>i')!.style.width)).toBeCloseTo(forwardPixels(m,p).probabilities[4]!*100);
+  });
   it('OMR 다섯 클래스와 승부차기 출력 색이 각각 그래프와 일치한다',()=>{
     const panel=document.createElement('div');
     panel.innerHTML=signalNetwork(initializePixelModel(2,1,5),[0,0],['①','②','③','④','⑤']);

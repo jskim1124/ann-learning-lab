@@ -49,7 +49,7 @@ function lineEndpoints(plane: { constant: number; horizontal: number; vertical: 
   return points.slice(0, 2);
 }
 
-export interface PixelMapOptions { view?: PixelMapView; classColors?: readonly string[]; focusLabel?: string; previousModel?: PixelModel; previousNeuronModel?: PixelModel; highlightAxis?: "horizontal" | "vertical"; showNeuronBoundaries?: boolean; showDecisionBoundary?: boolean; showDataLabels?: boolean; axisLegend?: PixelAxisLegend; onlyNeuron?: number; resolution?: number; classLabels?: string[]; neutralBackground?: boolean; markerColor?: string; emphasizeClass?:number; }
+export interface PixelMapOptions { view?: PixelMapView; classColors?: readonly string[]; focusLabel?: string; previousModel?: PixelModel; previousNeuronModel?: PixelModel; highlightAxis?: "horizontal" | "vertical"; showNeuronBoundaries?: boolean; showDecisionBoundary?: boolean; showDataLabels?: boolean; axisLegend?: PixelAxisLegend; onlyNeuron?: number; resolution?: number; classLabels?: string[]; neutralBackground?: boolean; markerColor?: string; emphasizeClass?:number; neutralTies?:boolean; }
 
 export function drawPixelLatentMap(canvas: HTMLCanvasElement, model: PixelModel, data: PixelExample[], focusPixels: number[], projection: PixelProjection, options: PixelMapOptions = {}): void {
   const context = canvas.getContext("2d"); if (!context) return;
@@ -79,10 +79,11 @@ export function drawPixelLatentMap(canvas: HTMLCanvasElement, model: PixelModel,
         const probabilities = forwardPixels(planeModel, [x,y]).probabilities; const winner = probabilities.indexOf(Math.max(...probabilities)); row.push(winner);
         if (oldPlaneModel) { const oldProbabilities = forwardPixels(oldPlaneModel, [x,y]).probabilities; previousRow.push(oldProbabilities.indexOf(Math.max(...oldProbabilities))); }
         const confidence = probabilities[winner] ?? 0; const base = 1 / Math.max(2, probabilities.length); const certainty = Math.max(0, Math.min(1, (confidence - base) / (1 - base)));
-        if (options.classLabels && Math.abs(x)<.65 && Math.abs(y)<.68 && confidence>(regionLabels.get(winner)?.confidence??0)
+        const tie=options.neutralTies&&probabilities.filter(v=>Math.abs(v-confidence)<1e-9).length>1;
+        if (!tie && options.classLabels && Math.abs(x)<.65 && Math.abs(y)<.68 && confidence>(regionLabels.get(winner)?.confidence??0)
           && !labelObstacles.some(p=>Math.abs(p.x-x)*plotW/2<75&&Math.abs(p.y-y)*plotH/2<38)) regionLabels.set(winner,{x,y,confidence});
         const strength = options.emphasizeClass!==undefined && winner!==options.emphasizeClass ? .025 : .08 + certainty * .48;
-        context.fillStyle = mixWithWhite(colors[winner % colors.length]!, strength);
+        context.fillStyle = tie?'#f0f1f3':mixWithWhite(colors[winner % colors.length]!, strength);
       }
       context.fillRect(margin.left + gx * plotW / cells, margin.top + gy * plotH / cells, plotW / cells + 1, plotH / cells + 1);
     }

@@ -8,6 +8,8 @@ import { forwardPixels } from "./core/pixelNetwork";
 import { penaltyPixelModel } from "./core/penalty";
 import { renderSignalNetwork, installSignalNetwork } from "./ui/liveCalculation";
 import { bindPracticeProbe } from "./ui/practiceProbe";
+import { ManualLabWorkspace } from './ui/manualLab';
+import { projectPixels } from './core/pixelProjection';
 import { PRESETS } from "./data/presets";
 import { addCustomClass, centroidAccuracy, createCustomDraft, createCustomExample, projectCustomDataset, removeCustomClass, textFeatures, validateCustomDataset, type CustomDatasetDraft, type CustomInputKind } from "./data/customDataset";
 import type { PixelTaskName } from "./data/pixelDatasets";
@@ -457,6 +459,21 @@ export function mountApp(store = createInitialStore()): LabStore {
   penaltyLesson=new PenaltyLesson(()=>store.beginPractice());
   workspacePanels(element("#customDataView"), [...element("#customDataView .image-collection").children], ["클래스·자료", "자료 수집"], () => renderCustomLab(store.snapshot));
   const featureStore = new FeatureLabStore(); featureUiStore = featureStore;
+  const manualLab = new ManualLabWorkspace(() => {
+    stopFeatureAuto();store.stopAuto();imageWorkspace.pauseTraining();
+    if(usesImages(store.snapshot.preset)){
+      const s=imageWorkspace.store.snapshot;
+      return {data:s.data.map(row=>{const p=projectPixels(s.projection,row.pixels);return {pixels:[p.x,p.y],label:row.label};}),classes:[...s.classes],axes:[`${s.features.find(f=>f.id===s.xFeature)!.name} (평균 0)`,`${s.features.find(f=>f.id===s.yFeature)!.name} (평균 0)`] as [string,string],note:'지금 고른 두 특징의 지도 좌표만 가져온 별도 모델입니다. 각 특징의 평균을 0에 놓고 크기를 줄인 지도값으로 계산합니다. 그림 196칸 전체를 학습하는 모델과는 달라요.'};
+    }
+    if(isCustomPreset(store.snapshot.preset)){
+      const projection=projectCustomDataset(customDraft);
+      return {data:featureStore.snapshot.data,classes:featureStore.snapshot.classes,axes:projection.axes.map(axis=>`${axis} (지도값)`) as [string,string],note:'지금 선택한 두 특징과 자료로 직접 고치는 별도 모델입니다. 원래 값의 최솟값은 −0.9, 최댓값은 0.9에 놓고 같은 비율로 줄인 지도값을 계산에 씁니다. 값이 모두 같으면 0에 놓습니다.'};
+    }
+    const s=store.snapshot;
+    return {data:s.data.map(row=>({pixels:[row.x,row.y],label:row.label})),classes:[...PRESETS[s.preset].classes],axes:PRESETS[s.preset].axes,note:'지금 모은 자료로 직접 고치는 별도 모델입니다. 자동 학습한 모델은 그대로 남습니다.'};
+  });
+  const manualButton=document.createElement('button');manualButton.className='manual-launch';manualButton.textContent='내가 모델이 되어 보기';manualButton.addEventListener('click',()=>manualLab.open());
+  element('[data-app-page="4"] .page-heading').append(manualButton);
   if (isCustomPreset(store.snapshot.preset)) { const projection = projectCustomDataset(customDraft); featureStore.setDataset(projection.points, projection.classes); }
   const rerender = () => render(store.snapshot, store);
   tabularLesson = new TabularLesson(element("#customFeatureView"), () => renderCustomLab(store.snapshot), showToast);
