@@ -1,6 +1,7 @@
 import { describe,it,expect } from 'vitest';
-import { networkArithmetic,renderSignalNetwork,signalNetwork } from './liveCalculation';
-import { forwardPixels,initializePixelModel } from '../core/pixelNetwork';
+import { installSignalNetwork,networkArithmetic,renderSignalNetwork,signalNetwork } from './liveCalculation';
+import { forwardPixels,initializePixelModel,trainPixelModel } from '../core/pixelNetwork';
+import { responseInk } from './networkOverview';
 import { neuronLessonModel } from '../core/neuronLesson';
 
 describe('연결지도에 놓인 실제 곱셈·덧셈·확률',()=>{
@@ -48,5 +49,69 @@ describe('연결지도에 놓인 실제 곱셈·덧셈·확률',()=>{
   it('아직 고른 자료가 없으면 임의의 계산을 학생의 결과처럼 표시하지 않는다',()=>{
     const html=signalNetwork(neuronLessonModel(),[.2,.2],['A','B'],false);
     expect(html).not.toContain('network-path');expect(html).toContain('자료의 점을 눌러');
+  });
+  it('기본 화면에는 소수점과 계산식 없이 실제 예상 비율을 막대로 보여 준다',()=>{
+    const panel=document.createElement('div'),model=neuronLessonModel(),input=[.2,.2];
+    renderSignalNetwork(panel,model,input,['A','B']);
+    const overview=panel.querySelector('.network-overview')!;
+    expect(overview.textContent).not.toMatch(/\d\.\d|%|×|÷/);
+    expect(panel.querySelector<HTMLDetailsElement>('.network-calculations')!.open).toBe(false);
+    const probabilities=forwardPixels(model,input).probabilities;
+    overview.querySelectorAll<HTMLElement>('.answer-track>i').forEach((bar,i)=>expect(parseFloat(bar.style.width)).toBeCloseTo(probabilities[i]!*100,10));
+    expect(overview.querySelector('.network-verdict')!.textContent).toContain('A');
+    expect(panel.querySelector('.network-path')!.closest('details')!.className).toBe('network-calculations');
+  });
+  it('자세히 보기는 선택과 실시간 갱신 후에도 열림 상태를 유지한다',()=>{
+    const panel=document.createElement('div'),model=initializePixelModel(2,4,3);
+    renderSignalNetwork(panel,model,[.1,.2],['A','B','C']);
+    panel.querySelector<HTMLButtonElement>('[data-network-neuron="3"]')!.click();
+    expect(panel.querySelector<HTMLDetailsElement>('.network-calculations')!.open).toBe(false);
+    panel.querySelector<HTMLDetailsElement>('.network-calculations')!.open=true;
+    renderSignalNetwork(panel,model,[.8,.2],['A','B','C']);
+    expect(panel.querySelector<HTMLDetailsElement>('.network-calculations')!.open).toBe(true);
+  });
+  it('입력만 움직일 때 학습했다고 표시하지 않고 실제 갱신된 연결만 강조한다',()=>{
+    const panel=document.createElement('div'),model=initializePixelModel(2,3,2);
+    renderSignalNetwork(panel,model,[.1,.2],['A','B']);
+    renderSignalNetwork(panel,model,[.8,.2],['A','B']);
+    expect(panel.querySelectorAll('.is-changed')).toHaveLength(0);
+    expect(panel.querySelectorAll('.is-reacting').length).toBeGreaterThan(0);
+    const trained=trainPixelModel(model,[{pixels:[.8,.2],label:1}],1,.1);
+    renderSignalNetwork(panel,trained,[.8,.2],['A','B']);
+    expect(panel.querySelectorAll('path.is-changed').length).toBeGreaterThan(0);
+    expect(panel.querySelector('.network-change')!.textContent).toContain('학습');
+    renderSignalNetwork(panel,trained,[.8,.2],['A','B']);
+    expect(panel.querySelectorAll('.is-changed,.is-reacting')).toHaveLength(0);
+  });
+  it('16개 뉴런과 모든 출력이 남고 음수 반응과 같은 예상도 구분한다',()=>{
+    const panel=document.createElement('div'),model=initializePixelModel(196,16,6);
+    model.hiddenBias[0]=-1;model.hiddenOutput=model.hiddenOutput.map(row=>row.map(()=>0));
+    renderSignalNetwork(panel,model,Array(196).fill(0),['A','B','C','D','E','F']);
+    expect(panel.querySelectorAll('[data-network-neuron]')).toHaveLength(16);
+    expect(panel.querySelectorAll('[data-network-output]')).toHaveLength(6);
+    expect(panel.querySelector('[data-network-neuron="0"] small')!.textContent).toBe('−');
+    expect(panel.querySelector('.network-verdict')!.textContent).toContain('같아요');
+    expect(responseInk(-.5,'tanh')).toBe(responseInk(.5,'tanh'));
+    expect(responseInk(0,'relu')).toBe(0);expect(responseInk(100,'relu')).toBeLessThan(1);
+  });
+  it('전체 연결선은 상세 보기 안에 보관하고 입력을 바꿔도 SVG와 열림 상태를 보존한다',()=>{
+    const host=document.createElement('div');host.innerHTML='<svg id="testWires"></svg>';
+    const svg=host.querySelector('svg')!;installSignalNetwork(svg,'testOverview');
+    const panel=host.querySelector<HTMLElement>('#testOverview')!,model=neuronLessonModel();
+    renderSignalNetwork(panel,model,[0,0],['A','B'],false);
+    expect(svg.closest('.network-calculations')).not.toBeNull();
+    const wires=svg.closest('details')!;wires.open=true;
+    renderSignalNetwork(panel,model,[.1,.2],['A','B']);
+    expect(host.querySelector('#testWires')).toBe(svg);expect(wires.open).toBe(true);
+    expect(host.querySelector<HTMLDetailsElement>('.network-calculations')!.open).toBe(false);
+  });
+  it('더할 값만 바뀌면 노드를 강조하며 그대로인 연결선은 바뀌었다고 표시하지 않는다',()=>{
+    const panel=document.createElement('div'),model=initializePixelModel(2,2,2);
+    renderSignalNetwork(panel,model,[.1,.2],['A','B']);
+    model.hiddenBias[1]=.1;model.outputBias[0]=.2;model.epoch++;
+    renderSignalNetwork(panel,model,[.1,.2],['A','B']);
+    expect(panel.querySelectorAll('path.is-changed')).toHaveLength(0);
+    expect(panel.querySelector('[data-network-neuron="1"].is-changed')).not.toBeNull();
+    expect(panel.querySelector('[data-network-output="0"].is-changed')).not.toBeNull();
   });
 });

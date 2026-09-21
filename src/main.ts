@@ -348,7 +348,7 @@ function renderFeatureLab(lab: LabState, state: FeatureLabState): void {
   element<HTMLElement>("#featureTrainBars").hidden=true;
   renderSignalNetwork(element('#featureSignalNetwork'),state.model,[state.testInput.x,state.testInput.y],state.classes);
   const selected=featureSelectedPoint===null?null:customDraft.rows[featureSelectedPoint];
-  element<HTMLElement>("#featureSelectedData").textContent=selected?`${selected.name} · 정답 ${customDraft.classes[selected.label]} · 예상 ${state.classes[best]} · ${selected.values.map((v,i)=>customDraft.features[i]+": "+Number(v.toFixed(2))).join(" / ")}`:featureProbe?`확인점 (${state.testInput.x.toFixed(2)}, ${state.testInput.y.toFixed(2)}) · 정답 미지정 · 예상 ${state.classes[best]}`:"점을 선택하거나 빈 곳에서 확인점을 움직여 보세요.";
+  element<HTMLElement>("#featureSelectedData").textContent=selected?`${selected.name} · 정답 ${customDraft.classes[selected.label]}`:featureProbe?'새 입력 · 정답 미지정':"점을 선택하거나 빈 곳에서 확인점을 움직여 보세요.";
   element<HTMLElement>("#featureUseAxisX").textContent = projection.axes[0]; element<HTMLElement>("#featureUseAxisY").textContent = projection.axes[1]; element<HTMLInputElement>("#featureUseX").value = String(state.testInput.x); element<HTMLInputElement>("#featureUseY").value = String(state.testInput.y);
   if (lab.lessonStep === 5) { renderProbabilityBars("#featureUseBars", state, probabilities); element<HTMLElement>("#featurePredictionAnswer").textContent = state.model.epoch ? `모델의 답: ${state.classes[best] ?? "?"}` : "먼저 모델을 연습시켜 주세요"; }
 }
@@ -406,6 +406,7 @@ function render(state: LabState, store: LabStore): void {
     const ruleTruth=state.testInput.x===0||state.testInput.y===0?'가운데는 정답 미지정':`규칙의 정답 ${preset.classes[Number((state.testInput.x<0)!==(state.testInput.y<0))]}`;
     element<HTMLElement>("#boundarySelectedData").textContent = chosen ? `자료 정답 ${preset.classes[chosen.label]} · 키커 ${chosen.x < 0 ? "왼쪽" : "오른쪽"} / 골키퍼 ${chosen.y < 0 ? "왼쪽" : "오른쪽"}` : boundaryProbe?`확인점 (${state.testInput.x.toFixed(2)}, ${state.testInput.y.toFixed(2)}) · ${ruleTruth}`:"점을 선택하거나 빈 곳에서 확인점을 움직여 보세요.";
     element<HTMLElement>("#boundarySelectedResult").textContent = `예상 ${preset.classes[prediction.probability >= .5 ? 1 : 0]} · 골 가능성 ${(prediction.probability * 100).toFixed(1)}%`;
+    element<HTMLElement>("#boundarySelectedResult").hidden = true; // The shared network now shows this prediction visually.
     element<SVGSVGElement>("#networkSvg").innerHTML = networkGraphMarkup(state.model, prediction.hidden,[state.testInput.x,state.testInput.y]);
     renderSignalNetwork(element('#boundarySignalNetwork'),penaltyPixelModel(state.model),[state.testInput.x,state.testInput.y],preset.classes);
   }

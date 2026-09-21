@@ -14,25 +14,6 @@
 .scene-signal .output-route.is-current { animation:signal-travel 850ms ease-out both; }
 @keyframes signal-travel { from { opacity:.2;transform:translateX(-9px); } to { opacity:1;transform:none; } }
 .network-flow { font-size:14px;line-height:1.35;font-variant-numeric:tabular-nums; }
-.network-flow .live-network { grid-template-columns:64px 8px minmax(0,1fr);gap:3px;padding:3px 0; }
-.network-flow .live-network:has(.live-hidden>button:nth-child(5)) { grid-template-columns:1fr; }
-.network-flow .live-network:has(.live-hidden>button:nth-child(5))>span { display:none; }
-.network-flow .live-network:has(.live-hidden>button:nth-child(5))>div:has(.live-hidden) { display:grid;grid-template-columns:65px 1fr;align-items:center;gap:4px; }
-.network-flow .live-network:has(.live-hidden>button:nth-child(5)) .live-hidden { grid-template-columns:repeat(8,minmax(0,1fr));gap:3px; }
-.network-flow .live-network:has(.live-hidden>button:nth-child(5)) .live-hidden>button { min-height:26px; }
-.network-flow .live-network:has(.live-hidden>button:nth-child(5)) .live-hidden b { display:none; }
-.network-flow .live-network:has(.live-hidden>button:nth-child(5)) .live-outputs { flex-wrap:nowrap;align-items:center; }
-.network-flow .live-network:has(.live-hidden>button:nth-child(5)) .live-outputs>strong { width:65px;flex:none; }
-.network-flow .live-network:has(.live-hidden>button:nth-child(5)) .live-outputs>button { min-width:0;padding:1px; }
-.network-flow .live-inputs,.network-flow .live-inputs+span { display:none; }
-.network-flow .live-outputs { display:flex;flex-wrap:wrap;gap:3px; }
-.network-flow .live-outputs>strong { width:100%;margin:0; }
-.network-flow .live-outputs>button { flex:1;min-width:44px;flex-direction:column; }
-.network-flow .live-hidden>button { display:flex!important;justify-content:center;gap:3px; }
-.network-flow .live-hidden>button { display:grid;place-items:center;min-height:32px;padding:2px;border:1px solid var(--node-color);border-radius:8px;color:var(--node-color);background:white; }
-.network-flow .live-hidden>button[aria-pressed=true] { background:color-mix(in srgb,var(--node-color) 12%,white);outline:1px solid var(--node-color); }
-.network-flow .live-outputs>button { display:flex;justify-content:space-between;gap:3px;min-height:28px;padding:3px 5px;font-size:14px;color:var(--class-color);border:1px solid transparent; }
-.network-flow .live-outputs>button[aria-pressed=true] { border-color:var(--class-color);background:color-mix(in srgb,var(--class-color) 8%,white); }
 .network-path { display:grid;gap:3px; }
 .network-path section { display:grid;gap:1px;border:1px solid #dfe2e8;border-radius:10px;padding:4px 6px; }
 .path-hidden>strong { color:var(--node-color); }.path-output>strong { color:var(--class-color); }

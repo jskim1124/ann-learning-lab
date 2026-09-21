@@ -164,7 +164,7 @@ export class ImageWorkspace {
     this.options(this.el<HTMLSelectElement>('imageTrainingClass'));this.el<HTMLSelectElement>('imageTrainingClass').value=String(focus.label);
     this.el("imageResultGrid").hidden = true; this.el("imageResultPager").hidden = true;
     this.el("imageMap").hidden = false; this.el("imageMapControls").hidden = !map;
-    this.el("imageResultTitle").textContent = map?"점을 움직이며 계산 확인":"그림을 골라 계산 확인";
+    this.el("imageResultTitle").textContent = map?"점을 움직이며 반응 살펴보기":"그림을 골라 반응 살펴보기";
     this.el("imageModelTag").textContent = map ? "고른 두 특징으로 학습" : "그림 전체로 학습";
     this.el<HTMLSelectElement>("imageMode").value = s.mode;
     this.el("imageModeNote").textContent = map ? "점 색 = 정답 · 배경색 = 예상 · 검은 선 = 최종 경계" : "점은 두 특징의 요약입니다. 그림 전체 모델의 경계는 이 평면으로 모두 표현할 수 없습니다.";
@@ -181,7 +181,7 @@ export class ImageWorkspace {
     this.el<HTMLInputElement>("imageRate").value = String(s.rate); this.el<HTMLOutputElement>("imageRateValue").value = s.rate.toFixed(2);
     this.el("imageAutoTrain").textContent = this.training ? "잠시 멈추기" : "계속 학습";
     drawImagePixels(this.el<HTMLCanvasElement>("imageFocus"), focus.pixels);
-    this.el("imageFocusName").textContent = probe?`새 좌표 (${coordinate.x.toFixed(2)}, ${coordinate.y.toFixed(2)}) · 정답 미지정 · 예상 ${predicted}`:s.selectedSample === null ? "점을 누르거나 누른 채 움직여 보세요. 학습 자료는 이동하지 않습니다." : `고른 그림 · 정답 ${s.classes[focus.label]} · 예상 ${predicted}`;
+    this.el("imageFocusName").textContent = probe?'새 입력 · 정답 미지정':s.selectedSample === null ? "점을 누르거나 누른 채 움직여 보세요." : `고른 그림 · 정답 ${s.classes[focus.label]}`;
     if(selected)this.bars("imageTrainBars", result.probabilities);
     this.el("imageNetwork").innerHTML = pixelNetworkGraphMarkup(map?mapModel:s.model, s.classes, selected?result.hidden:[], selected?result.probabilities:[], map ? [`가로 ${coordinate.x.toFixed(2)}`,`세로 ${coordinate.y.toFixed(2)}`] : undefined);
     renderSignalNetwork(this.el('imageSignalNetwork'),map?mapModel:s.model,map?[coordinate.x,coordinate.y]:input,s.classes,selected);

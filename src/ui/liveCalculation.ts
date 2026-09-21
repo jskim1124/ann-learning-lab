@@ -1,5 +1,6 @@
 import { forwardPixels, type PixelModel } from '../core/pixelNetwork';
 import { NEURON_COLORS } from '../visualization/neuronColors';
+import { networkOverview } from './networkOverview';
 
 const n=(v:number)=>String(Number(v.toFixed(3)));
 const esc=(s:string)=>s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
@@ -29,20 +30,25 @@ export function signalNetwork(model:PixelModel,input:number[],labels:readonly st
   const fixedReference=model.classCount===2&&model.hiddenOutput[0]!.every(v=>v===0)&&model.outputBias[0]===0;
   const colors=fixedReference?['#1f6bd6','#f17605']:COLORS;
   return `<div class="network-flow" aria-label="입력에서 확률까지 실제 계산 연결지도">
-    <div class="live-network"><div class="live-inputs"><strong>입력</strong>${model.inputSize===2?`<span>가로 <b>${value(input[0]!)}</b></span><span>세로 <b>${value(input[1]!)}</b></span>`:`<span>그림 ${model.inputSize}칸</span>`}</div><span aria-hidden="true">→</span><div><strong>은닉 ${model.hiddenUnits}개</strong><div class="live-hidden" style="--node-columns:${Math.min(4,model.hiddenUnits)}">${r.hidden.map((v,i)=>`<button type="button" data-network-neuron="${i}" aria-label="뉴런 ${i+1} 계산 보기" aria-pressed="${i===neuron}" style="--node-color:${NEURON_COLORS[i%NEURON_COLORS.length]}"><small>${i+1}</small><b>${value(v)}</b></button>`).join('')}</div></div><span aria-hidden="true">→</span><div class="live-outputs"><strong>${fixedReference?"비교할 답":"출력"} ${labels.length}개</strong>${labels.map((label,i)=>`<button type="button" data-network-output="${i}" aria-label="${esc(label)} 출력 계산 보기" aria-pressed="${i===output}" style="--class-color:${colors[i%colors.length]}">${esc(label)} <b>${selected?(r.probabilities[i]!*100).toFixed(1)+'%':'—'}</b></button>`).join('')}</div></div>
-    ${selected?`<div class="network-path" style="--node-color:${NEURON_COLORS[neuron%NEURON_COLORS.length]};--class-color:${colors[output%colors.length]}">
+    ${networkOverview(model,input,labels,selected,neuron,output)}
+    ${selected?`<details class="network-calculations"><summary>계산값 자세히 보기</summary><p class="network-guide">뉴런이나 답을 누르면 아래 계산이 바뀝니다. 원은 진할수록 반응의 크기가 크고, +/−는 값의 부호입니다. 큰 반응이 꼭 정답을 뜻하지는 않아요. 연결선은 경로만 보여 줍니다.</p><div class="network-path" style="--node-color:${NEURON_COLORS[neuron%NEURON_COLORS.length]};--class-color:${colors[output%colors.length]}">
       <section class="path-hidden"><strong>뉴런 ${neuron+1}로 들어가는 길</strong><div class="flow-terms">${terms}${model.inputSize>2?`<span>나머지 ${model.inputSize-2}칸의 곱을 더하면 <b>${n(rest)}</b></span>`:''}</div><div class="flow-join">곱한 값들 + <mark>${n(model.hiddenBias[neuron]!)}</mark> → 합 <b>${n(r.sum)}</b></div><div class="flow-transfer"><span>${activation}</span><b>↓ ${n(r.hidden[neuron]!)}</b></div></section>
       <section class="path-output"><strong>${esc(labels[output]??String(output))} 출력으로 가는 길</strong>${shown.map(({v,i})=>`<span class="flow-term"><small>뉴런 ${i+1}</small><span>${n(r.hidden[i]!)} <em>× (${n(model.hiddenOutput[output]![i]!)})</em> → <b>${n(v)}</b></span></span>`).join('')}${outputTerms.length>2?`<span>나머지 ${outputTerms.length-2}개 곱의 합 <b>${n(remaining)}</b></span>`:''}<div class="flow-join">곱한 값들 + <mark>${n(model.outputBias[output]!)}</mark> → 점수 <b>${n(r.logits[output]!)}</b></div></section>
       <div class="flow-probability"><span>양수로 바꾼 뒤, 이 답의 값 ÷ 전체 합</span><b>${n(r.positive[output]!)} ÷ ${n(r.total)} × 100 ≈ ${(r.probabilities[output]!*100).toFixed(1)}%</b></div>
       <details class="probability-rule"><summary>변환 규칙${fixedReference?' · 막힘은 기준 점수 0':''}</summary><p>각 점수에서 가장 큰 점수 ${n(r.maximum)}를 뺀 뒤 exp로 양수로 바꿉니다. 이 양수들의 합으로 나누어 퍼센트를 구해요. 점수 자체가 확률인 것은 아닙니다.</p><p>${labels.map((label,i)=>`${esc(label)}: ${n(r.logits[i]!)} → ${n(r.positive[i]!)}`).join(' · ')}</p><p>계산은 원래 값으로 하며 화면 숫자는 반올림합니다.${fixedReference?' 막힘의 0은 비교 기준으로 고정되어 있고, 골 점수와 비교합니다.':''}</p></details>
-    </div>`:'<p>자료의 점을 눌러 계산을 확인하세요.</p>'}
+    </div></details>`:'<details class="network-calculations"><summary>계산값 자세히 보기</summary><p class="network-guide">자료의 점을 고르면 실제 계산도 볼 수 있어요.</p></details>'}
   </div>`;
 }
 
-type Frame={model:PixelModel;input:number[];labels:readonly string[];selected:boolean};
+type Frame={model:PixelModel;input:number[];labels:readonly string[];selected:boolean;hidden:number[];parameters:string;incoming:string[];outgoing:string[][];hiddenBias:number[];outputBias:number[];epoch:number};
 const frames=new WeakMap<HTMLElement,Frame>();
 export function renderSignalNetwork(panel:HTMLElement,model:PixelModel,input:number[],labels:readonly string[],selected=true):void {
-  const first=!frames.has(panel);frames.set(panel,{model,input,labels,selected});
+  const previous=frames.get(panel),first=!previous;
+  const incoming=model.inputHidden.map(row=>JSON.stringify(row));
+  const outgoing=model.hiddenOutput.map(row=>row.map(w=>String(w)));
+  const parameters=JSON.stringify([incoming,outgoing,model.hiddenBias,model.outputBias]),hidden=forwardPixels(model,input).hidden;
+  const frame={model,input:[...input],labels,selected,hidden,parameters,incoming,outgoing,hiddenBias:[...model.hiddenBias],outputBias:[...model.outputBias],epoch:model.epoch};
+  frames.set(panel,frame);
   const neuron=Math.min(Number(panel.dataset.neuron??0),model.hiddenUnits-1);
   const defaultOutput=model.classCount===2&&model.hiddenOutput[0]!.every(v=>v===0)&&model.outputBias[0]===0?1:0;
   const output=Math.min(Number(panel.dataset.output??defaultOutput),model.classCount-1);
@@ -50,8 +56,23 @@ export function renderSignalNetwork(panel:HTMLElement,model:PixelModel,input:num
   const focused=panel.querySelector(':focus') as HTMLElement|null;
   const focusSelector=focused?.matches('[data-network-neuron]')?`[data-network-neuron="${focused.dataset.networkNeuron}"]`:focused?.matches('[data-network-output]')?`[data-network-output="${focused.dataset.networkOutput}"]`:null;
   const ruleOpen=panel.querySelector<HTMLDetailsElement>('.probability-rule')?.open??false;
+  const calculationsOpen=panel.querySelector<HTMLDetailsElement>('.network-calculations')?.open??false;
+  // Keep the legacy graph mounted (and its disclosure state) inside the one advanced view.
+  const wires=panel.querySelector('.network-wires')??(panel.nextElementSibling?.matches('.network-wires')?panel.nextElementSibling:null);
+  wires?.remove();
   panel.innerHTML=signalNetwork(model,input,labels,selected,neuron,output);
+  const calculations=panel.querySelector<HTMLDetailsElement>('.network-calculations');if(calculations)calculations.open=calculationsOpen;
+  if(wires)calculations?.append(wires);
   const rule=panel.querySelector<HTMLDetailsElement>('.probability-rule');if(rule)rule.open=ruleOpen;
+  const learned=previous&&model.epoch>previous.epoch&&parameters!==previous.parameters&&hidden.length===previous.hidden.length;
+  if(learned){
+    incoming.forEach((value,h)=>{if(value!==previous.incoming[h])panel.querySelector(`[data-input-wire="${h}"]`)?.classList.add('is-changed');});
+    outgoing.forEach((row,c)=>row.forEach((value,h)=>{if(value!==previous.outgoing[c]?.[h])panel.querySelector(`[data-output-wire="${h}-${c}"]`)?.classList.add('is-changed');}));
+    model.hiddenBias.forEach((value,h)=>{if(value!==previous.hiddenBias[h])panel.querySelector(`[data-network-neuron="${h}"]`)?.classList.add('is-changed');});
+    model.outputBias.forEach((value,c)=>{if(value!==previous.outputBias[c])panel.querySelector(`[data-network-output="${c}"]`)?.classList.add('is-changed');});
+    panel.querySelector('.network-change')!.textContent='학습으로 바뀐 곳을 표시했어요.';
+  }
+  if(selected&&previous?.selected)hidden.forEach((value,h)=>{if(Math.abs(value-(previous.hidden[h]??value))>1e-6)panel.querySelector(`[data-network-neuron="${h}"]`)?.classList.add('is-reacting');});
   if(focusSelector)panel.querySelector<HTMLElement>(focusSelector)?.focus({preventScroll:true});
   if(first)panel.addEventListener('click',e=>{
     const target=(e.target as HTMLElement).closest<HTMLElement>('[data-network-neuron],[data-network-output]');if(!target)return;
@@ -65,4 +86,5 @@ export function installSignalNetwork(svg:Element,id:string):void {
   const detail=document.createElement('details');detail.className='network-wires';
   const summary=document.createElement('summary');summary.textContent='전체 연결선 보기';
   svg.before(detail);detail.append(summary,svg);
+  const legend=svg.closest('.connection-panel')?.querySelector('.weight-legend');if(legend)detail.append(legend);
 }

@@ -89,7 +89,7 @@
             <div class="trainer"><div class="train-buttons"><button class="button secondary" id="trainOne" type="button">1번</button><button class="button secondary" id="trainTen" type="button">10번</button><button class="button primary" id="trainHundred" type="button">100번 연습</button><button class="button ink" id="autoTrain" type="button">계속 연습</button></div><div class="progress-copy"><span>지금까지</span><strong><span id="epochNow">0</span> / <span id="epochGoal">1000</span>번</strong><div class="progress"><i id="progressBar"></i></div></div></div>
             <div class="loss-strip"><div><strong>오차</strong></div><canvas id="lossCanvas" width="600" height="120" aria-label="연습하면서 오차가 변한 모습"></canvas></div>
           </article>
-          <aside class="connection-panel"><div class="title-line"><h2>연결 지도</h2><span>굵기 = 영향</span></div><p id="boundarySelectedData">그래프의 점을 선택해 보세요.</p><div id="boundarySelectedResult" class="probability-bars"></div><svg id="networkSvg" viewBox="0 0 330 230" role="img" aria-label="현재 모델의 연결과 영향 크기"></svg><div class="weight-legend"><span><i class="positive"></i><b id="weightPositive"></b> 쪽</span><span><i class="negative"></i><b id="weightNegative"></b> 쪽</span></div></aside>
+          <aside class="connection-panel"><div class="title-line"><h2>연결 지도</h2></div><p id="boundarySelectedData">그래프의 점을 선택해 보세요.</p><div id="boundarySelectedResult" class="probability-bars"></div><svg id="networkSvg" viewBox="0 0 330 230" role="img" aria-label="현재 모델의 연결과 영향 크기"></svg><div class="weight-legend"><span><i class="positive"></i><b id="weightPositive"></b> 쪽</span><span><i class="negative"></i><b id="weightNegative"></b> 쪽</span></div></aside>
         </div>
 
         <div class="training-layout tabular-training" id="customTrainingView" hidden>
@@ -107,7 +107,7 @@
             <div class="trainer"><div class="train-buttons"><button class="button secondary" id="featureTrainOne" type="button">1번</button><button class="button secondary" id="featureTrainTen" type="button">10번</button><button class="button primary" id="featureTrainHundred" type="button">100번 연습</button><button class="button ink" id="featureAutoTrain" type="button">계속 연습</button></div><div class="progress-copy"><span>지금까지</span><strong><span id="featureEpochNow">0</span> / 1000번</strong><div class="progress"><i id="featureProgressBar"></i></div></div></div>
             <div class="loss-strip"><div><strong>오차</strong></div><canvas id="featureLossCanvas" width="600" height="120"></canvas></div>
           </article>
-          <aside class="connection-panel"><div class="title-line"><h2>연결 지도</h2><span>선 굵기 = 영향</span></div><p id="featureSelectedData">그래프의 점을 선택해 보세요.</p><svg id="featureNetworkSvg" viewBox="0 0 330 300" role="img" aria-label="두 특징과 은닉 뉴런과 여러 출력 클래스의 연결"></svg><div id="featureTrainBars" class="probability-bars compact-side-bars"></div></aside>
+          <aside class="connection-panel"><div class="title-line"><h2>연결 지도</h2></div><p id="featureSelectedData">그래프의 점을 선택해 보세요.</p><svg id="featureNetworkSvg" viewBox="0 0 330 300" role="img" aria-label="두 특징과 은닉 뉴런과 여러 출력 클래스의 연결"></svg><div id="featureTrainBars" class="probability-bars compact-side-bars"></div></aside>
         </div>
         <footer class="page-nav"><button class="button back" data-back type="button">← 원리 다시 보기</button><button class="button primary" id="modelNext" type="button">새 값에 써 보기 →</button></footer>
       </section>
