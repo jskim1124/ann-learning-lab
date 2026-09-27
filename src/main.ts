@@ -1,5 +1,5 @@
 import "./styles.css";
-import { workspacePanels, featureTrainingPanels, revealModelPanel } from "./ui/workspacePanels";
+import { workspacePanels, featureTrainingPanels, revealModelPanel, organizePracticeStage } from "./ui/workspacePanels";
 import { generateInferenceExtension } from "./export/inferenceExtension";
 import { TabularLesson } from "./ui/tabularLesson";
 import { importSpreadsheet } from "./data/spreadsheetImport";
@@ -32,6 +32,7 @@ import { drawMediaSample, mediaSampleText, playSoundSample, toggleMediaPixel } f
 import { networkGraphMarkup } from "./visualization/networkGraph";
 import { pixelNetworkGraphMarkup } from "./visualization/pixelNetworkGraph";
 import './ui/tabletLayout.css';
+import './ui/practiceLayout.css';
 
 function element<T extends Element>(selector: string): T {
   const found = document.querySelector<T>(selector);
@@ -487,6 +488,8 @@ export function mountApp(store = createInitialStore()): LabStore {
   installSignalNetwork(element('#networkSvg'),'boundarySignalNetwork');installSignalNetwork(element('#featureNetworkSvg'),'featureSignalNetwork');
   installTrainingMotion(element('#modelCanvas'),element('#boundarySignalNetwork'),rerender);
   installTrainingMotion(element('#featureModelCanvas'),element('#featureSignalNetwork'),rerender);
+  organizePracticeStage(element('#customTrainingView'));
+  organizePracticeStage(element('#boundaryTrainingView'));
   document.querySelectorAll<HTMLDetailsElement>('[data-app-page="5"] details').forEach(panel=>panel.open=true);
   const axes = document.createElement("div"); axes.className = "feature-axis-pair practice-axes";
   axes.innerHTML = '<label>가로 특징<select id="featurePracticeX"></select></label><label>세로 특징<select id="featurePracticeY"></select></label><span>바꾸면 좌표·분포가 바뀌고 학습이 초기화됩니다.</span>';

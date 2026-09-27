@@ -8,8 +8,35 @@ export function workspacePanels(root: HTMLElement, panels: Element[], labels: st
 }
 
 export function revealModelPanel(root: HTMLElement): void {
-  const compactLimit=root.querySelector('.image-train')?1366:900;
-  if (window.innerWidth <= compactLimit) root.querySelectorAll<HTMLButtonElement>(".workspace-pane-tabs > button, .image-compact-tabs > button")[1]?.click();
+  const tabs=root.querySelector<HTMLElement>('.workspace-pane-tabs, .image-compact-tabs');
+  // Follow the actual layout, including short desktop windows and browser zoom.
+  if (tabs && getComputedStyle(tabs).display !== 'none') tabs.querySelectorAll<HTMLButtonElement>('button')[1]?.click();
+}
+
+/** Give the plot its own space. Moving existing nodes preserves listeners and canvas state. */
+export function organizePracticeStage(root: HTMLElement): void {
+  const stage=root.querySelector<HTMLElement>('.image-results-panel');
+  if(!stage || stage.querySelector('.practice-plot-area'))return;
+  stage.classList.add('practice-stage');
+  const plot=document.createElement('div');plot.className='practice-plot-area';
+  const rail=document.createElement('aside');rail.className='practice-control-rail';rail.setAttribute('aria-label','학습 상태');
+  const motion=stage.querySelector('.training-motion');
+  const move=(target:HTMLElement,selector:string)=>stage.querySelectorAll(selector).forEach(node=>target.append(node));
+  move(plot,'.stage-toolbar, #imageMapControls');
+  // Both kinds of map use the same sized plot viewport, rather than a flex remainder.
+  const viewport=stage.querySelector<HTMLElement>('.model-canvas')??document.createElement('div');
+  viewport.classList.add('practice-plot-viewport');
+  if(!viewport.parentElement){viewport.append(...stage.querySelectorAll('#imageMap, #imageResultGrid, #imageResultPager'));}
+  plot.append(viewport);
+  move(plot,'.trainer, .image-trainer');
+  move(rail,'.practice-readouts, .practice-selected-input');
+  if(motion)rail.append(motion);
+  move(rail,'.loss-strip, .image-loss');
+  const observations=document.createElement('div');observations.className='practice-observations';
+  observations.append(...rail.querySelectorAll('.practice-readouts, .practice-selected-input'));
+  const history=document.createElement('div');history.className='practice-history';
+  history.append(...rail.children);rail.append(observations,history);
+  stage.append(plot,rail);
 }
 
 /** Keep the same graph / model composition for numeric and image activities. */

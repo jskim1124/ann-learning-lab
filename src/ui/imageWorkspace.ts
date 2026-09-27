@@ -2,7 +2,7 @@ import { captureImage, drawImagePixels, IMAGE_INPUTS, IMAGE_SIDE } from "../core
 import { imageFeatureLegend } from "../core/imageFeatures";
 import { UnderstandingJourney } from "./understandingJourney";
 import { installImageFeatureEditor } from './imageFeatureEditor';
-import { revealModelPanel, movePracticeReadouts } from "./workspacePanels";
+import { revealModelPanel, movePracticeReadouts, organizePracticeStage } from "./workspacePanels";
 import { OMR_CENTERS } from "../data/pixelDatasets";
 import { downloadBlob, downloadText } from "../export/modelJson";
 import { generateInferenceExtension } from "../export/inferenceExtension";
@@ -72,6 +72,7 @@ export class ImageWorkspace {
     classChoice.before(this.el('imageMode').closest('.image-training-choice')!);
     this.el('imageTrainingClass').addEventListener('change',()=>{const label=Number(this.el<HTMLSelectElement>('imageTrainingClass').value),row=this.store.snapshot.data.find(d=>d.label===label);this.probe=null;if(row)this.store.selectSample(row.id);});
     movePracticeReadouts(this.roots.get(4)!);
+    organizePracticeStage(this.roots.get(4)!);
     this.capture = document.createElement("div"); this.capture.className = "image-capture";
     this.capture.innerHTML = `<div class="image-heading"><h2 id="imageCaptureTitle">그림을 모아 보세요</h2><span id="imageCaptureClass"></span></div><div class="image-input-switch" id="imageInputSwitch"><button data-image-input="drawing">그리기</button><button data-image-input="webcam">웹캠</button></div><div class="image-capture-pair"><figure><div class="image-source"><canvas id="imageDraw" width="420" height="420" aria-label="자유롭게 그림 그리기"></canvas><video id="imageVideo" autoplay playsinline muted hidden aria-label="중앙을 정사각형으로 자른 웹캠"></video><span id="imageCameraEmpty" hidden>카메라를 켜고 손을 보여 주세요</span></div><figcaption id="imageSourceCaption">직접 그린 그림</figcaption></figure><span class="image-convert-arrow" aria-hidden="true">→</span><figure class="image-processed"><canvas id="imageInputPreview" width="224" height="224" aria-label="모델에 실제 입력하는 14×14 흑백 그림"></canvas><figcaption>모델이 받는 14×14칸</figcaption></figure></div><div class="image-capture-buttons"><button id="imageCameraStart" class="button secondary" hidden>카메라 켜기</button><button id="imageCameraStop" class="button secondary" hidden>카메라 끄기</button><button id="imageClear" class="button secondary">지우기</button><button id="imageCaptureAdd" class="button primary">이 그림 추가</button></div><p id="imageCaptureHint">한 칸의 진하기를 0~1로 바꾸어 입력합니다.</p><p id="imagePrivacy" hidden>영상은 이 브라우저에서만 처리됩니다. 배경도 그림에 포함됩니다.</p>`;
     document.querySelector("#imageCollectSlot")!.append(this.capture);

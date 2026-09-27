@@ -30,7 +30,7 @@ export function drawTrainingMotion(canvas:HTMLCanvasElement,model:PixelModel,rec
   view.history.record(model);view.selected=Math.min(view.selected,model.hiddenUnits-1);
   const frames=view.history.frames,old=frames.at(-2),now=frames.at(-1)!;
   const status=view.bar.querySelector('span')!;
-  status.textContent=!linesVisible?'분류선을 켜면 이동 흔적도 보여요.':!old?`뉴런 ${view.selected+1} · 1번 또는 10번 학습하며 다음 이동을 예상해 보세요.`:`뉴런 ${view.selected+1} · ${old.epoch} → ${now.epoch}회 · 점선 → 실선 · 화살표는 실제 이동`;
+  status.textContent=!linesVisible?'분류선을 켜면 이동 흔적도 보여요.':!old?`뉴런 ${view.selected+1} · 다음 이동을 예상해 보세요.`:`뉴런 ${view.selected+1} · ${old.epoch} → ${now.epoch}회 · 점선 → 실선 · 화살표는 실제 이동`;
   view.bar.title='화살표는 두 학습 시점 사이의 선 위치 변화를 보여줍니다. 값이 커지는 방향 화살표와 다릅니다. 다음 학습에서는 방향이 달라지거나 선이 거의 움직이지 않을 수 있습니다.';
   if(!old||!view.enabled||!linesVisible)return;
   const ctx=canvas.getContext('2d');if(!ctx)return;
