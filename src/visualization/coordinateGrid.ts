@@ -17,16 +17,16 @@ export function drawCoordinateGrid(ctx: CanvasRenderingContext2D, box: PlotBox):
 
 export function drawCoordinateTicks(ctx: CanvasRenderingContext2D, box: PlotBox): void {
   const origin = coordinatePosition(box, 0, 0);
-  ctx.save(); ctx.font = "12px sans-serif"; ctx.textAlign = "center";
+  ctx.save(); ctx.font = "15px sans-serif"; ctx.textAlign = "center";
   const label = (value: number, x: number, y: number) => {
-    const text = value.toFixed(2), width = text.length * 7 + 4;
-    ctx.fillStyle = "rgba(255,255,255,.9)"; ctx.fillRect(x - width / 2, y - 11, width, 15);
+    const text = value.toFixed(2), width = text.length * 8.5 + 4;
+    ctx.fillStyle = "rgba(255,255,255,.9)"; ctx.fillRect(x - width / 2, y - 14, width, 19);
     ctx.fillStyle = "#344054"; ctx.fillText(text, x, y);
   };
   for (const value of COORDINATE_TICKS) {
     const p = coordinatePosition(box, value, value);
-    label(value, Math.max(box.left + 12, Math.min(box.left + box.width - 12, p.x)) + (value === 0 ? -10 : 0), origin.y + 17);
-    if (value !== 0) label(value, origin.x - 17, Math.max(box.top + 12, Math.min(box.top + box.height - 4, p.y + 4)));
+    label(value, Math.max(box.left + 20, Math.min(box.left + box.width - 20, p.x)) + (value === 0 ? -24 : 0), origin.y + 21);
+    if (value !== 0) label(value, origin.x - 24, Math.max(box.top + 15, Math.min(box.top + box.height - 4, p.y + 4)));
   }
   ctx.restore();
 }

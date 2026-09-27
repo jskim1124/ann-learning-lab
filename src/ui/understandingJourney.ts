@@ -1,7 +1,7 @@
 import { JOURNEY_ROWS, journeyPoint, journeyModel, journeyPrediction, journeyScore, decimal as n } from '../core/understandingJourney';
 import { LESSON_CHAPTERS, CHAPTER_STARTS, lessonChapter, lessonMovement } from '../core/lessonMovement';
 import { forwardPixels } from '../core/pixelNetwork';
-import { renderJourneyPlot } from './journeyPlot';
+import { renderJourneyPlot, journeyCoordinate } from './journeyPlot';
 import './understandingJourney.css';
 
 interface JourneyOptions { context:()=>string; complete:()=>void; }
@@ -29,7 +29,7 @@ export class UnderstandingJourney {
     this.el('.journey-stage').addEventListener('pointerdown',event=>{
       if(this.scene!==3||this.done.has(3)||this.busy)return;
       const svg=this.root.querySelector('svg');if(!svg)return;const r=svg.getBoundingClientRect();
-      this.cursor=[Math.max(0,Math.min(1,(event.clientX-r.left-48)/(r.width-72))),Math.max(0,Math.min(1,(r.height-42-(event.clientY-r.top))/(r.height-66)))];this.locate();
+      this.cursor=journeyCoordinate(event.clientX-r.left,event.clientY-r.top,r.width,r.height);this.locate();
     });
     root.addEventListener('keydown',event=>{
       const point=(event.target as Element).closest<HTMLElement>('[data-journey-point]');

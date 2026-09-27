@@ -31,6 +31,7 @@ import { drawLossChart } from "./visualization/lossChart";
 import { drawMediaSample, mediaSampleText, playSoundSample, toggleMediaPixel } from "./visualization/mediaSample";
 import { networkGraphMarkup } from "./visualization/networkGraph";
 import { pixelNetworkGraphMarkup } from "./visualization/pixelNetworkGraph";
+import './ui/tabletLayout.css';
 
 function element<T extends Element>(selector: string): T {
   const found = document.querySelector<T>(selector);
@@ -489,7 +490,7 @@ export function mountApp(store = createInitialStore()): LabStore {
   document.querySelectorAll<HTMLDetailsElement>('[data-app-page="5"] details').forEach(panel=>panel.open=true);
   const axes = document.createElement("div"); axes.className = "feature-axis-pair practice-axes";
   axes.innerHTML = '<label>가로 특징<select id="featurePracticeX"></select></label><label>세로 특징<select id="featurePracticeY"></select></label><span>바꾸면 좌표·분포가 바뀌고 학습이 초기화됩니다.</span>';
-  element("#customTrainingView .feature-training-stage .stage-toolbar").after(axes);
+  element("#customTrainingView .image-model-panel").prepend(axes);
   for (const [id, axis] of [["featurePracticeX", "xFeature"], ["featurePracticeY", "yFeature"]] as const) element(id === "featurePracticeX" ? "#featurePracticeX" : "#featurePracticeY").addEventListener("change", event => {
     const value = Number((event.target as HTMLSelectElement).value), other = axis === "xFeature" ? customDraft.yFeature : customDraft.xFeature;
     if (value === other) { showToast("두 축에는 서로 다른 특징을 골라 주세요."); return rerender(); }

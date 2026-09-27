@@ -8,7 +8,8 @@ export function workspacePanels(root: HTMLElement, panels: Element[], labels: st
 }
 
 export function revealModelPanel(root: HTMLElement): void {
-  if (window.innerWidth <= 900) root.querySelectorAll<HTMLButtonElement>(".workspace-pane-tabs > button, .image-compact-tabs > button")[1]?.click();
+  const compactLimit=root.querySelector('.image-train')?1366:900;
+  if (window.innerWidth <= compactLimit) root.querySelectorAll<HTMLButtonElement>(".workspace-pane-tabs > button, .image-compact-tabs > button")[1]?.click();
 }
 
 /** Keep the same graph / model composition for numeric and image activities. */
