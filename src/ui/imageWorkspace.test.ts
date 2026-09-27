@@ -16,12 +16,13 @@ describe("공통 이미지 UI 연결", () => {
     workspace = new ImageWorkspace(vi.fn(), vi.fn(), vi.fn());
   });
   afterEach(() => { workspace.show(false,1); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
-  it.each(['digits','omr','webcam'] as const)('%s의 실제 화면이 같은 네 단계 이해 과정을 사용한다',task=>{
+  it.each(['digits','omr','webcam'] as const)('%s는 실제 자료로 같은 네 단계 탐구 과정을 사용한다',task=>{
     workspace.configure(task);workspace.show(true,3);
     const root=document.querySelector('.understanding-journey:not([hidden])')!;
-    expect([...root.querySelectorAll('.journey-nav button')].map(b=>b.textContent)).toEqual(['1 특징 계산','2 분포·선택','3 뉴런·선','4 뉴런·출력']);
-    expect(root.querySelector('#flMap')).toBeNull();expect(root.querySelectorAll('[data-journey-ink]')).toHaveLength(1);
-    expect(root.textContent).not.toContain('원리 설명');expect(root.textContent).not.toContain('직접 고치기');
+    expect([...root.querySelectorAll('.explore-nav button')].map(b=>b.textContent)).toEqual(['1 자료를 숫자로','2 분포 살피기','3 뉴런 고치기','4 답 합치기']);
+    expect(root.querySelector('[data-journey-ink]')).toBeNull();
+    expect(root.querySelector('.explore-network')).not.toBeNull();
+    expect(root.querySelectorAll('[data-explore-chapter]:disabled')).toHaveLength(0);
   });
   it('연습 지표·선택 그림은 지도 쪽에, 연결 지도는 한 개만 남긴다',()=>{
     workspace.configure('omr');workspace.show(true,4);

@@ -21,6 +21,7 @@ import { createInitialStore, type LabState, type LabStore } from "./state/labSto
 import { ImageWorkspace } from "./ui/imageWorkspace";
 import { PenaltyCollection } from "./ui/penaltyCollection";
 import { UnderstandingJourney } from "./ui/understandingJourney";
+import { penaltyExplorationSource } from './core/explorationSource';
 import { FeatureLabStore, type FeatureLabState } from "./state/featureLabStore";
 import type { ActivationName, Label, PresetName } from "./types";
 import { drawDecisionSurface, HIDDEN_COLORS } from "./visualization/decisionSurface";
@@ -33,6 +34,7 @@ import { networkGraphMarkup } from "./visualization/networkGraph";
 import { pixelNetworkGraphMarkup } from "./visualization/pixelNetworkGraph";
 import './ui/tabletLayout.css';
 import './ui/practiceLayout.css';
+import './ui/explorationLayout.css';
 
 function element<T extends Element>(selector: string): T {
   const found = document.querySelector<T>(selector);
@@ -462,7 +464,7 @@ export function mountApp(store = createInitialStore()): LabStore {
   imageWorkspace.configure(isPixelPreset(store.snapshot.preset) ? store.snapshot.preset : store.snapshot.preset === "webcam" ? "webcam" : "custom");
   penaltyCollection=new PenaltyCollection(store,showToast);
   const penaltyLessonRoot=document.createElement('div');penaltyLessonRoot.id='penaltyUnderstanding';penaltyLessonRoot.hidden=true;element('[data-app-page="3"] .page-nav').before(penaltyLessonRoot);
-  penaltyLesson=new UnderstandingJourney(penaltyLessonRoot,{context:()=> '승부차기: 실제 연습에서는 공·골키퍼의 좌우가 두 입력이에요',complete:()=>store.beginPractice()});
+  penaltyLesson=new UnderstandingJourney(penaltyLessonRoot,{source:()=>penaltyExplorationSource(store.snapshot.data,[...PRESETS.xor.classes]),context:()=> '승부차기: 공·골키퍼의 좌우가 두 입력이에요',complete:()=>store.beginPractice(),back:()=>store.setLessonStep(2)});
   workspacePanels(element("#customDataView"), [...element("#customDataView .image-collection").children], ["클래스·자료", "자료 수집"], () => renderCustomLab(store.snapshot));
   const featureStore = new FeatureLabStore(); featureUiStore = featureStore;
   const manualLab = new ManualLabWorkspace(() => {
@@ -478,7 +480,12 @@ export function mountApp(store = createInitialStore()): LabStore {
     const s=store.snapshot;
     return {data:s.data.map(row=>({pixels:[row.x,row.y],label:row.label})),classes:[...PRESETS[s.preset].classes],axes:PRESETS[s.preset].axes,note:'지금 모은 자료로 직접 고치는 별도 모델입니다. 자동 학습한 모델은 그대로 남습니다.'};
   });
-  const manualButton=document.createElement('button');manualButton.className='manual-launch';manualButton.textContent='내가 모델이 되어 보기';manualButton.addEventListener('click',()=>manualLab.open());
+  const manualButton=document.createElement('button');manualButton.className='manual-launch';manualButton.textContent='값을 직접 바꾸며 탐구';manualButton.addEventListener('click',()=>{
+    stopFeatureAuto();store.stopAuto();imageWorkspace.pauseTraining();
+    if(store.snapshot.preset==='xor'){store.setLessonStep(3);penaltyLesson.goTo(2);}
+    else if(store.snapshot.preset!=='custom'&&usesImages(store.snapshot.preset)){store.setLessonStep(3);imageWorkspace.explore();}
+    else manualLab.open();
+  });
   element('[data-app-page="4"] .page-heading').append(manualButton);
   if (isCustomPreset(store.snapshot.preset)) { const projection = projectCustomDataset(customDraft); featureStore.setDataset(projection.points, projection.classes); }
   const rerender = () => render(store.snapshot, store);

@@ -1,7 +1,7 @@
-import { forwardPixels, type PixelExample, type PixelModel } from './pixelNetwork';
+import { forwardPixels, trainPixelModel, type PixelExample, type PixelModel } from './pixelNetwork';
 
 export type ManualMission = 'move' | 'bend' | 'data';
-export type ManualParameter = 'bias' | 'direction' | 'connection' | 'outputBias';
+export type ManualParameter = 'bias' | 'direction' | 'connection' | 'outputBias' | 'xWeight' | 'yWeight';
 export interface ManualSource { data: PixelExample[]; classes: string[]; axes: [string, string]; note: string; }
 export const MANUAL_DIRECTIONS: readonly [number, number][] = [[1,0],[1,1],[0,1],[-1,1],[-1,0],[-1,-1],[0,-1],[1,-1]];
 export const copyModel = (m: PixelModel): PixelModel => ({...m,inputHidden:m.inputHidden.map(r=>[...r]),hiddenBias:[...m.hiddenBias],hiddenOutput:m.hiddenOutput.map(r=>[...r]),outputBias:[...m.outputBias]});
@@ -41,13 +41,14 @@ export class ManualLab {
   predictions=0;
   compared=false;
   best=0;
+  parameterLimit=2;
   private inGesture=false;
   private gestureEdited=false;
   readonly history: PixelModel[]=[];
   constructor(readonly mission: ManualMission, source: ManualSource) {
     this.source=manualMissionSource(mission,source);
     const count=this.source.classes.length;
-    this.model={inputSize:2,hiddenUnits:1,classCount:count,epoch:0,activation:'relu',inputHidden:[[1,0]],hiddenBias:[mission==='move'?-.5:0],hiddenOutput:Array.from({length:count},(_,c)=>[c===0?0:1]),outputBias:Array.from({length:count},(_,c)=>c===0?0:-.5*c)};
+    this.model={inputSize:2,hiddenUnits:1,classCount:count,epoch:0,activation:'relu',inputHidden:[[1,0]],hiddenBias:[mission==='move'?-.5:0],hiddenOutput:Array.from({length:count},(_,c)=>[c===0?0:1]),outputBias:Array.from({length:count},(_,c)=>roundManual(-.5*c*Math.min(1,4/Math.max(1,count-1))))};
     if(mission==='move')this.model.hiddenOutput[1]=[2];
     this.initial=copyModel(this.model);this.point=[...this.source.data[0]?.pixels??[.5,.5]];
     this.pointIndex=this.source.data.length?0:null;
@@ -64,14 +65,24 @@ export class ManualLab {
   private record(): void {if(!this.inGesture||!this.gestureEdited){this.previous=copyModel(this.model);this.history.push(this.previous);if(this.history.length>60)this.history.shift();this.edits++;}this.gestureEdited=true;this.model=copyModel(this.model);this.muted=null;}
   edit(parameter: ManualParameter,value: number): void {
     if(!Number.isFinite(value))return;
-    const bounded=roundManual(Math.max(-2,Math.min(2,value)));
+    const bounded=roundManual(Math.max(-this.parameterLimit,Math.min(this.parameterLimit,value)));
     const direction=MANUAL_DIRECTIONS[Math.max(0,Math.min(7,Math.round(value)))]!;
-    if(parameter==='direction'?this.model.inputHidden[this.selected]!.every((v,i)=>v===direction[i]):(parameter==='bias'?this.model.hiddenBias[this.selected]:parameter==='connection'?this.model.hiddenOutput[this.output]![this.selected]:this.model.outputBias[this.output])===bounded)return;
+    const current=parameter==='xWeight'?this.model.inputHidden[this.selected]![0]:parameter==='yWeight'?this.model.inputHidden[this.selected]![1]:parameter==='bias'?this.model.hiddenBias[this.selected]:parameter==='connection'?this.model.hiddenOutput[this.output]![this.selected]:this.model.outputBias[this.output];
+    if(parameter==='direction'?this.model.inputHidden[this.selected]!.every((v,i)=>v===direction[i]):current===bounded)return;
     this.record();
     if(parameter==='bias')this.model.hiddenBias[this.selected]=bounded;
     if(parameter==='direction')this.model.inputHidden[this.selected]=[...direction];
     if(parameter==='connection')this.model.hiddenOutput[this.output]![this.selected]=bounded;
     if(parameter==='outputBias')this.model.outputBias[this.output]=bounded;
+    if(parameter==='xWeight')this.model.inputHidden[this.selected]![0]=bounded;
+    if(parameter==='yWeight')this.model.inputHidden[this.selected]![1]=bounded;
+    this.best=Math.max(this.best,this.score);
+  }
+  trainStep(): void {
+    if(!this.source.data.length)return;
+    this.record();this.model=trainPixelModel(this.model,this.source.data,1,.1);
+    // Keep sliders able to represent values reached by actual gradient updates.
+    this.parameterLimit=Math.max(this.parameterLimit,...[...this.model.inputHidden.flat(),...this.model.hiddenBias,...this.model.hiddenOutput.flat(),...this.model.outputBias].map(v=>Math.ceil(Math.abs(v))));
     this.best=Math.max(this.best,this.score);
   }
   addNeuron(): void {

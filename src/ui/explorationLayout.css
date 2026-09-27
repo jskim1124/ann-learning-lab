@@ -1,0 +1,158 @@
+/* Viewport-owned stages: height must never switch a landscape shelf to a hidden stack. */
+@media (min-width:601px) {
+  body:has(.scenario-page:not([hidden])), body:has(.exploration-journey:not([hidden])) { overflow:hidden; }
+  body:has(.scenario-page:not([hidden])) .topbar, body:has(.exploration-journey:not([hidden])) .topbar { height:60px; }
+  .lesson-shell:has(.scenario-page:not([hidden])), .lesson-shell:has(.exploration-journey:not([hidden])) { height:calc(100dvh - 60px); min-height:0; overflow:hidden; }
+  .scenario-page, .lesson-page:has(.exploration-journey:not([hidden])) { height:100%; min-height:0; padding:14px 20px 12px; overflow:hidden; }
+  .scenario-page .page-heading { flex:none; margin-bottom:12px; min-height:0; }
+  .scenario-page .page-heading h1 { font-size:26px; }
+  .scenario-page .page-kicker { display:none; }
+  .scenario-page .scenario-layout { display:grid; flex:1; min-height:0; grid-template-columns:minmax(260px,.72fr) minmax(0,1.28fr); grid-template-rows:minmax(0,1fr); gap:18px; }
+  .scenario-page .scenario-cards { display:grid; min-height:0; grid-template-columns:1fr; grid-template-rows:repeat(5,minmax(0,1fr)); margin:0; gap:8px; }
+  .scenario-page .scenario-card { min-height:0; padding:10px 14px; grid-template-columns:96px minmax(0,1fr); gap:12px; }
+  .scenario-page .scenario-card .card-visual { width:96px; height:100%; max-height:90px; min-height:50px; }
+  .scenario-page .scenario-card strong { font-size:18px; line-height:1.3; }
+  .scenario-page .scenario-card small { font-size:15px!important; }
+  .scenario-page .scenario-story { display:flex; flex-direction:column; min-width:0; min-height:0; padding:18px 24px; gap:7px; overflow:auto; }
+  .scenario-page .scenario-illustration { flex:1 1 180px; min-height:85px; max-height:260px; height:auto; margin:-18px -24px 3px; }
+  .scenario-page .scenario-story > span { font-size:16px; margin:0; }
+  .scenario-page .scenario-story h2 { font-size:25px; margin:0; }
+  .scenario-page .scenario-story > p { font-size:17px; line-height:1.45; margin:0; }
+  .scenario-page .scenario-motivation, .scenario-page .story-question { margin:0; padding:8px 12px; flex:none; }
+  .scenario-page .scenario-motivation strong, .scenario-page .story-question strong { font-size:17px; line-height:1.45; }
+  .scenario-page #scenarioNext { flex:none; min-height:44px; margin:0; font-size:18px; }
+}
+.lesson-page:has(.exploration-journey:not([hidden])) > .page-heading { display:none; }
+.lesson-page:has(.exploration-journey:not([hidden])) > .page-nav { display:none; }
+.exploration-journey:not([hidden]) { display:flex!important; flex-direction:column; height:100%; min-height:0; gap:10px; color:#242b37; }
+.exploration-journey [hidden] { display:none!important; }
+.explore-nav { display:flex; gap:8px; flex:none; }
+.exploration-journey button, .exploration-journey select { font-size:16px; min-height:40px; border:1px solid #dce0e8; border-radius:12px; background:white; padding:7px 10px; color:#293343; cursor:pointer; }
+.exploration-journey button:disabled { opacity:.4; cursor:default; }
+.explore-nav button { flex:1; border:0; display:flex; justify-content:center; align-items:center; gap:10px; font-size:18px; }
+.explore-nav button span { border-radius:50%; width:27px; height:27px; display:grid; place-items:center; background:#f0f1f6; }
+.explore-nav button[aria-current=step] { background:#eee8ff; color:#6936d8; font-weight:750; }
+.explore-nav button[aria-current=step] span { background:#7446f5; color:white; }
+.explore-body { flex:1; min-height:0; display:grid; grid-template-columns:minmax(0,1.3fr) minmax(0,1fr); gap:16px; }
+.explore-visual, .explore-action { border:1px solid #e0e4eb; border-radius:22px; background:white; min-height:0; min-width:0; padding:16px; }
+.explore-visual { display:grid; grid-template-rows:auto minmax(170px,1fr) 64px auto auto; gap:7px; overflow:hidden; }
+.explore-visual > header { display:flex; justify-content:space-between; font-size:18px; }
+.explore-visual > header span { font-size:15px; color:#697383; }
+.explore-map { min-height:0; position:relative; contain:size layout; }
+.explore-map canvas { position:absolute; inset:0; width:100%!important; height:100%!important; aspect-ratio:auto!important; touch-action:none; }
+.explore-point { display:flex; align-items:center; gap:14px; min-height:0; padding:3px 10px; background:#f6f7fa; border-radius:12px; }
+.explore-point .explore-picture { width:58px; height:58px; flex:none; }
+.exploration-journey[data-chapter="0"] .explore-visual:has(.explore-picture) { grid-template-rows:auto minmax(150px,1fr) 110px auto auto; }
+.exploration-journey[data-chapter="0"] .explore-picture { width:104px; height:104px; }
+.explore-point > div > span { font-size:15px; color:#697383; }
+.explore-point strong { display:block; font-size:17px; }
+.explore-goal { position:relative; width:150px; height:54px; flex:none; border:2px solid #b8bdc6; border-bottom:0; border-radius:6px 6px 0 0; background:repeating-linear-gradient(90deg,transparent 0 14px,#eff0f3 14px 15px),repeating-linear-gradient(0deg,transparent 0 14px,#eff0f3 14px 15px); }
+.explore-goal span { position:absolute; transform:translateX(-50%); font-size:13px; font-weight:700; transition:left .15s; }
+.explore-goal .kick { bottom:0; background:#f17605; color:white; border-radius:50%; padding:2px 5px; }
+.explore-goal .keeper { top:4px; color:#7446f5; }
+.explore-network { display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:84px; }
+.explore-network small { display:block; font-size:14px; color:#697383; margin-bottom:5px; }
+.explore-input-node { text-align:center; flex:none; }
+.explore-input-node b { display:block; font-variant-numeric:tabular-nums; font-size:17px; }
+.explore-wire { color:#af97ec; font-size:27px; }
+.explore-hidden-nodes { text-align:center; flex:1; min-width:0; }
+.explore-hidden-nodes > div, .explore-output-nodes > div { display:flex; flex-wrap:wrap; justify-content:center; gap:5px; }
+.explore-hidden-nodes button { border-color:var(--neuron); color:var(--neuron); border-radius:20px; display:flex; gap:5px; align-items:center; min-height:35px; font-size:15px; padding:4px 8px; }
+.explore-hidden-nodes button[aria-pressed=true] { background:color-mix(in srgb,var(--neuron) 10%,white); border-width:2px; }
+.explore-output-nodes { max-width:42%; min-width:100px; text-align:center; }
+.explore-output-nodes > div > span { color:var(--class-color); padding:3px 5px; border-radius:6px; font-size:15px; }
+.explore-output-nodes .winning { background:color-mix(in srgb,var(--class-color) 12%,white); }
+.explore-key { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; font-size:14px; color:#697383; }
+.explore-action { display:flex; flex-direction:column; gap:8px; }
+.explore-content { flex:1; min-height:0; overflow-y:auto; scrollbar-width:thin; }
+.exploration-journey h2 { font-size:23px; line-height:1.3; margin:0 0 6px; }
+.exploration-journey p { margin:6px 0; font-size:16px; line-height:1.45; }
+.explore-instruction { color:#535f70; }
+.explore-controls { display:flex; flex-direction:column; gap:8px; margin:12px 0 8px; }
+.explore-controls label { display:block; font-size:16px; }
+.explore-controls select { width:100%; max-width:100%; }
+.explore-row-choice { display:grid!important; grid-template-columns:auto minmax(0,1fr); align-items:center; gap:12px; }
+.explore-knob { display:grid!important; grid-template-columns:1fr auto; gap:0 12px; }
+.explore-knob output { font-size:19px; color:#6936d8; font-weight:750; font-variant-numeric:tabular-nums; }
+.explore-knob input[type=range] { grid-column:1/-1; width:100%; min-height:26px; margin:0; accent-color:#7446f5; }
+.explore-direction, .explore-toggle, .explore-tools, .explore-class-filter, .explore-neuron-choice { display:flex; align-items:center; gap:7px; flex-wrap:wrap; }
+.explore-direction { justify-content:space-between; font-size:15px; color:#697383; }
+.explore-axes { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:12px; }
+.exploration-journey button[aria-pressed=true] { background:#eee8ff; color:#6936d8; border-color:#b79be9; }
+.explore-class-filter button { color:var(--class-color,#343b49); }
+.explore-class-filter button[aria-pressed=true] { background:color-mix(in srgb,var(--class-color,#7446f5) 12%,white); }
+.explore-tools button { font-size:15px; min-height:36px; }
+.exploration-journey[data-chapter="2"] .explore-controls { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:7px 12px; }
+.exploration-journey[data-chapter="2"] .explore-neuron-choice, .exploration-journey[data-chapter="2"] .explore-tools { grid-column:1/-1; }
+.exploration-journey[data-chapter="2"] .explore-knob { grid-template-columns:1fr; }
+.exploration-journey[data-chapter="2"] .explore-knob output { grid-row:2; }
+.exploration-journey[data-chapter="3"] .explore-controls { display:grid; grid-template-columns:1fr 1fr; gap:7px 12px; }
+.exploration-journey[data-chapter="3"] .explore-neuron-choice, .exploration-journey[data-chapter="3"] .explore-tools { grid-column:1/-1; }
+.exploration-journey[data-chapter="3"] .explore-controls > label:not(.explore-knob) { grid-column:1/-1; display:flex; align-items:center; gap:12px; }
+.exploration-journey[data-chapter="3"] .explore-controls > label:not(.explore-knob) select { flex:1; }
+.lesson-page:has(.exploration-journey:not([hidden])) > .page-nav { min-height:36px; padding:4px 0 0; }
+.lesson-page:has(.exploration-journey:not([hidden])) > .page-nav .plain-button { min-height:32px; padding:4px 10px; }
+.explore-equation { font-size:16px; }
+.explore-calculation { background:#f4f1fc; padding:10px 12px; border-radius:12px; display:flex; flex-direction:column; gap:5px; font-size:17px; font-variant-numeric:tabular-nums; }
+.explore-calculation > strong { font-size:20px; }
+.explore-calculation small { font-size:14px; font-weight:400; }
+.explore-calc-foot { display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:14px; margin:5px 0; }
+.explore-calc-foot button { font-size:14px; min-height:34px; }
+.exploration-journey[data-chapter="0"] .explore-controls > .explore-knob { grid-template-columns:auto 1fr auto; align-items:center; gap:12px; }
+.exploration-journey[data-chapter="0"] .explore-controls > .explore-knob input { grid-column:2; grid-row:1; }
+.exploration-journey[data-chapter="0"] .explore-controls > .explore-knob output { grid-column:3; grid-row:1; }
+.explore-equation details, .explore-observation details { font-size:15px; margin-top:8px; color:#596578; }
+.explore-equation details > strong { font-size:16px; }
+.explore-score { display:flex; gap:7px; flex-wrap:wrap; align-items:center; margin-top:8px; font-size:16px; }
+.explore-score > span { margin-right:auto; }
+.explore-score button { min-height:34px; padding:5px 8px; font-size:14px; }
+.explore-observation > small { font-size:14px!important; color:#687284; line-height:1.35; display:block; margin-top:6px; }
+.explore-log p { font-size:14px; color:#687284; }
+.explore-note { color:#687284; font-size:15px!important; }
+.explore-status { margin:0!important; font-size:15px!important; color:#6342ac; }
+.explore-status:empty { display:none; }
+.explore-action footer { display:flex; justify-content:space-between; gap:10px; flex:none; padding-top:8px; border-top:1px solid #edf0f3; }
+.explore-action footer .primary { color:white; background:#1f6bd6; border-color:#1f6bd6; }
+.exploration-journey[data-animation-phase="0"] .phase-input, .exploration-journey[data-animation-phase="1"] .phase-sum, .exploration-journey[data-animation-phase="2"] .phase-result { color:#6936d8; background:#e4dafa; border-radius:6px; }
+.exploration-journey[data-animation-phase="0"] .explore-input-node, .exploration-journey[data-animation-phase="1"] .explore-hidden-nodes, .exploration-journey[data-animation-phase="2"] .explore-output-nodes { background:#f0e9ff; border-radius:10px; }
+@media (min-width:901px) and (max-height:700px) {
+  .scenario-page .scenario-illustration { min-height:90px; flex-basis:120px; }
+  .scenario-page .scenario-story { padding:14px 20px; gap:5px; }
+  .scenario-page .scenario-illustration { margin:-14px -20px 2px; }
+  .scenario-page .scenario-story > span { display:none; }
+  .scenario-page .scenario-motivation, .scenario-page .story-question { padding:6px 10px; }
+  .explore-body { grid-template-columns:minmax(0,1.2fr) minmax(0,1fr); gap:12px; }
+  .explore-visual, .explore-action { padding:12px; }
+  .explore-controls { margin-top:8px; gap:5px; }
+  .explore-visual { grid-template-rows:auto minmax(160px,1fr) 58px auto auto; gap:5px; }
+  .explore-network { min-height:70px; }
+  .exploration-journey h2 { font-size:22px; }
+}
+@media (min-width:601px) and (max-width:900px) {
+  .scenario-page .scenario-layout { grid-template-columns:1fr; grid-template-rows:130px minmax(0,1fr); }
+  .scenario-page .scenario-cards { display:flex; overflow-x:auto; gap:10px; padding-bottom:6px; }
+  .scenario-page .scenario-card { flex:0 0 235px; grid-template-columns:75px minmax(0,1fr); }
+  .scenario-page .scenario-card .card-visual { width:75px; }
+  .scenario-page .scenario-story { gap:10px; }
+  .explore-body { grid-template-columns:1fr; grid-template-rows:minmax(310px,1fr) minmax(350px,1fr); gap:12px; }
+  .explore-nav button { font-size:16px; padding:7px; gap:5px; }
+  .explore-visual { grid-template-rows:auto minmax(140px,1fr) 58px auto; }
+  .explore-key { display:none; }
+  .explore-network { min-height:66px; }
+  .explore-content { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:5px 14px; align-content:start; }
+  .explore-content h2, .explore-instruction { grid-column:1/-1; }
+  .explore-controls { grid-column:1; grid-row:3/6; margin:0; }
+  .explore-equation, .explore-observation, .explore-feature-tools { grid-column:2; }
+}
+@media (max-width:600px), (max-height:520px) {
+  /* Last-resort access: never trap a control outside an unscrollable viewport. */
+  body, html { overflow:auto!important; }
+  .lesson-shell:has(.scenario-page:not([hidden])), .lesson-shell:has(.exploration-journey:not([hidden])) { height:auto; overflow:visible; }
+  .scenario-page, .lesson-page:has(.exploration-journey:not([hidden])) { height:auto; overflow:visible; }
+  .scenario-page .scenario-story { min-height:420px; }
+  .exploration-journey:not([hidden]) { height:auto; }
+  .explore-body { display:flex; flex-direction:column; }
+  .explore-visual { min-height:420px; }
+  .explore-action { min-height:400px; }
+  .explore-nav { flex-wrap:wrap; }.explore-nav button { flex-basis:40%; }
+}

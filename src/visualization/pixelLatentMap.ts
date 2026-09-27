@@ -74,7 +74,10 @@ export function drawPixelLatentMap(canvas: HTMLCanvasElement, model: PixelModel,
         // A neuron lesson shows its signed sum, not a misleading final-class background.
         const n = options.onlyNeuron, weights = planeModel.inputHidden[n]!;
         const sum = weights[0]! * x + weights[1]! * y + planeModel.hiddenBias[n]!;
-        context.fillStyle = mixWithWhite(sum >= 0 ? HIDDEN[0]! : colors[0]!, .04 + Math.abs(Math.tanh(sum)) * .34);
+        // ReLU's zero output stays white; other existing lessons retain their signed-sum view.
+        context.fillStyle = model.activation==='relu'
+          ? mixWithWhite(HIDDEN[n % HIDDEN.length]!, Math.max(0,Math.tanh(sum)) * .34)
+          : mixWithWhite(sum >= 0 ? HIDDEN[n % HIDDEN.length]! : colors[0]!, .04 + Math.abs(Math.tanh(sum)) * .34);
       } else {
         const probabilities = forwardPixels(planeModel, [x,y]).probabilities; const winner = probabilities.indexOf(Math.max(...probabilities)); row.push(winner);
         if (oldPlaneModel) { const oldProbabilities = forwardPixels(oldPlaneModel, [x,y]).probabilities; previousRow.push(oldProbabilities.indexOf(Math.max(...oldProbabilities))); }
@@ -132,7 +135,7 @@ export function drawPixelLatentMap(canvas: HTMLCanvasElement, model: PixelModel,
   data.forEach((example) => {
     const point=projectPixels(projection,example.pixels),p=mapCanvasPoint(point,plotW,plotH);
     context.beginPath();context.arc(p.x,p.y,4.7,0,Math.PI*2);context.fillStyle=options.markerColor??colors[example.label%colors.length]!;
-    context.globalAlpha=view==="placement"?.65:1;context.fill();context.globalAlpha=1;context.strokeStyle="#fff";context.lineWidth=1.2;context.stroke();
+    context.globalAlpha=options.emphasizeClass!==undefined&&options.emphasizeClass!==example.label?.15:view==="placement"?.85:1;context.fill();context.globalAlpha=1;context.strokeStyle="#fff";context.lineWidth=1.2;context.stroke();
     const focused=focusPixels.length===example.pixels.length&&example.pixels.every((v,i)=>Math.abs(v-focusPixels[i]!)<1e-8);
     if(options.showDataLabels&&!focused)pointLabel(`정답 ${options.classLabels?.[example.label]??example.label}`,p.x,p.y,colors[example.label%colors.length]!);
   });

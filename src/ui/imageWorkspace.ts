@@ -1,6 +1,7 @@
 import { captureImage, drawImagePixels, IMAGE_INPUTS, IMAGE_SIDE } from "../core/imageInput";
 import { imageFeatureLegend } from "../core/imageFeatures";
 import { UnderstandingJourney } from "./understandingJourney";
+import { imageExplorationSource } from '../core/explorationSource';
 import { installImageFeatureEditor } from './imageFeatureEditor';
 import { revealModelPanel, movePracticeReadouts, organizePracticeStage } from "./workspacePanels";
 import { OMR_CENTERS } from "../data/pixelDatasets";
@@ -58,7 +59,8 @@ export class ImageWorkspace {
       root.prepend(compactTabs);
       document.querySelector(`[data-app-page="${step}"] .page-nav`)!.before(root); this.roots.set(Number(step), root);
     });
-    this.featureLesson = new UnderstandingJourney(this.roots.get(3)!, {context:()=>this.store.snapshot.task==='omr'?'OMR: 실제 연습에서는 마킹 그림의 특징을 골라요':this.store.snapshot.task==='webcam'?'웹캠: 실제 연습에서는 사진의 모든 칸을 입력해요':'숫자: 실제 연습에서는 손글씨 그림의 특징을 골라요',complete:()=>this.go(4)});
+    this.featureLesson = new UnderstandingJourney(this.roots.get(3)!, {source:()=>imageExplorationSource(this.store.snapshot),context:()=>this.store.snapshot.task,
+      setAxes:(x,y)=>this.store.setAxes(x,y),featureEditor:host=>installImageFeatureEditor(host,this.store,this.message),complete:()=>this.go(4),back:()=>this.go(2)});
     const axisBar = document.createElement("div"); axisBar.className = "feature-axis-pair practice-axes";
     axisBar.innerHTML = '<label>가로 특징<select id="imagePracticeX"></select></label><label>세로 특징<select id="imagePracticeY"></select></label><span>특징을 바꾸면 분포가 바뀌고 학습은 처음부터 시작합니다.</span>';
     this.el("imageChooseFeatures").replaceWith(axisBar);
@@ -95,6 +97,7 @@ export class ImageWorkspace {
   }
   private el<T extends HTMLElement = HTMLElement>(id: string): T { return document.getElementById(id) as T; }
   pauseTraining(): void { this.stopTraining(); if(this.active&&this.step===4)this.renderTraining(); }
+  explore(): void { this.featureLesson.goTo(2); }
   configure(task: ImageTask, kind: CaptureKind = task === "webcam" ? "webcam" : "drawing", classes?: string[]): void {
     this.probe=null;
     this.stopCamera(); this.stopTraining(); this.featureLesson.stop(); this.kind = kind; this.classPage = 0; this.samplePage = 0; this.collectionSignature = ""; this.featureLesson.reset();

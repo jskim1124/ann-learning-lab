@@ -14,14 +14,17 @@ describe("자료에서 연습으로 이어지는 실제 화면 이동",()=>{
   });
   afterEach(()=>{vi.restoreAllMocks();vi.unstubAllGlobals();});
   const click=(selector:string)=>document.querySelector<HTMLButtonElement>(selector)!.click();
-  it("승부차기에서도 오답만 표시하고 정답이나 해설을 공개하지 않는다",()=>{
+  it("승부차기는 방향 데이터로 탐구하고 연습의 직접 고치기도 같은 과정으로 돌아온다",()=>{
     click('[data-preset="xor"]');click('#scenarioNext');click('#dataNext');
     const root=document.getElementById('penaltyUnderstanding')!;
-    expect([...root.querySelectorAll('.journey-nav button')].map(b=>b.textContent)).toEqual(['1 특징 계산','2 분포·선택','3 뉴런·선','4 뉴런·출력']);
-    const ink=root.querySelector<HTMLInputElement>('[data-journey-ink]')!;ink.value='1';ink.dispatchEvent(new Event('input',{bubbles:true}));click('#penaltyUnderstanding [data-journey-answer="0"]');
-    expect(root.querySelectorAll('.is-wrong')).toHaveLength(1);expect(root.querySelector('.correct')).toBeNull();
-    expect(root.querySelector('.journey-summary')).toBeNull();
-    expect(root.querySelector('.journey-feedback')!.textContent).toContain('오답');
+    expect(root.textContent).toContain('두 방향을 숫자로 기록');
+    expect(root.querySelector('[data-journey-ink]')).toBeNull();
+    click('#penaltyUnderstanding [data-explore-chapter="2"]');
+    const bias=root.querySelector<HTMLInputElement>('[data-knob="bias"]')!;bias.value='.5';bias.dispatchEvent(new Event('input',{bubbles:true}));
+    click('#penaltyUnderstanding [data-explore-chapter="3"]');click('#penaltyUnderstanding [data-explore-next]');
+    expect(document.querySelector<HTMLElement>('[data-app-page="4"]')!.hidden).toBe(false);
+    click('.manual-launch');expect(root.hidden).toBe(false);expect(root.dataset.chapter).toBe('2');
+    expect(root.querySelector<HTMLInputElement>('[data-knob="bias"]')!.value).toBe('0.5');
   },20000);
   it("자율 숫자 문제는 이해 없이 연습으로 가고, 특징을 바꿔도 그 화면에 남는다",()=>{
     click('[data-preset="custom"]');click("#scenarioNext");click("#customLoadExample");click("#dataNext");
