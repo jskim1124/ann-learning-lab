@@ -116,6 +116,7 @@ export class UnderstandingJourney {
       [1,2,5,7].includes(this.scene)?'<button class="journey-play" data-journey-play>▶ 계산 따라 보기</button>':
       this.scene===4?`<div class="journey-segmented"><button data-journey-feature="0" aria-pressed="${this.separated===0}">전체 평균</button><button data-journey-feature="1" aria-pressed="${this.separated===1}">두 줄 따로</button></div>`:
       this.scene===6?`<label>① 빼는 값을 골라요</label><div class="journey-segmented">${[0,.25,.5].map(v=>`<button data-journey-threshold="${v}" aria-pressed="${v===this.target}" ${v===this.threshold?'disabled':''}>${n(v)}</button>`).join('')}</div><div class="journey-move-order"><span class="${this.movePhase==='number'?'active':''}">② 새 자리 계산</span><span class="${this.movePhase==='direction'?'active':''}">③ 방향 예상</span><span class="${this.movePhase==='result'?'active':''}">④ 확인</span></div>${this.movePhase==='direction'&&this.predicted?'<button class="journey-play" data-journey-run>▶ 예상한 이동 확인</button>':''}`:'';
+    if(this.scene===6&&this.predicted&&this.movePhase==='direction')this.el('.journey-controls').innerHTML=`<div>빼는 값 <b>${n(this.threshold)} → ${n(this.target)}</b></div><button class="journey-play" data-journey-run>▶ 예상한 이동 확인</button>`;
     this.el('.journey-stage').tabIndex=this.scene===3?0:-1;
     this.renderVisual();this.renderQuestion();
   }
