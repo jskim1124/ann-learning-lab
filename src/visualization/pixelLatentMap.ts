@@ -49,7 +49,7 @@ function lineEndpoints(plane: { constant: number; horizontal: number; vertical: 
   return points.slice(0, 2);
 }
 
-export interface PixelMapOptions { view?: PixelMapView; classColors?: readonly string[]; focusLabel?: string; previousModel?: PixelModel; previousNeuronModel?: PixelModel; highlightAxis?: "horizontal" | "vertical"; showNeuronBoundaries?: boolean; showDecisionBoundary?: boolean; showDataLabels?: boolean; axisLegend?: PixelAxisLegend; onlyNeuron?: number; resolution?: number; classLabels?: string[]; neutralBackground?: boolean; markerColor?: string; emphasizeClass?:number; neutralTies?:boolean; }
+export interface PixelMapOptions { showValueDirection?:boolean; view?: PixelMapView; classColors?: readonly string[]; focusLabel?: string; previousModel?: PixelModel; previousNeuronModel?: PixelModel; highlightAxis?: "horizontal" | "vertical"; showNeuronBoundaries?: boolean; showDecisionBoundary?: boolean; showDataLabels?: boolean; axisLegend?: PixelAxisLegend; onlyNeuron?: number; resolution?: number; classLabels?: string[]; neutralBackground?: boolean; markerColor?: string; emphasizeClass?:number; neutralTies?:boolean; }
 
 export function drawPixelLatentMap(canvas: HTMLCanvasElement, model: PixelModel, data: PixelExample[], focusPixels: number[], projection: PixelProjection, options: PixelMapOptions = {}): void {
   const context = canvas.getContext("2d"); if (!context) return;
@@ -100,7 +100,7 @@ export function drawPixelLatentMap(canvas: HTMLCanvasElement, model: PixelModel,
     const plane = hiddenPlane(source, projection, neuron); const points = lineEndpoints(plane); if (points.length < 2) return;
     context.strokeStyle = color; context.lineWidth = lineWidth; context.setLineDash(dashed ? [7, 5] : []); context.beginPath();
     points.forEach((point, index) => { const px = margin.left + (point.x + 1) / 2 * plotW; const py = margin.top + (1 - (point.y + 1) / 2) * plotH; if (index === 0) context.moveTo(px, py); else context.lineTo(px, py); }); context.stroke(); context.setLineDash([]);
-    if (!dashed) {
+    if (!dashed && options.showValueDirection !== false) {
       const first = points[0]!; const second = points[1]!; const place = .22 + neuron % 4 * .18; const x = first.x + (second.x - first.x) * place; const y = first.y + (second.y - first.y) * place;
       const length = Math.hypot(plane.horizontal, plane.vertical) || 1; const dx = plane.horizontal / length * 22; const dy = -plane.vertical / length * 22; const px = margin.left + (x + 1) / 2 * plotW; const py = margin.top + (1 - (y + 1) / 2) * plotH;
       context.strokeStyle = color; context.fillStyle = color; context.lineWidth = 2; context.beginPath(); context.moveTo(px, py); context.lineTo(px + dx, py + dy); context.stroke(); const angle = Math.atan2(dy, dx); context.beginPath(); context.moveTo(px + dx, py + dy); context.lineTo(px + dx - 7 * Math.cos(angle - .5), py + dy - 7 * Math.sin(angle - .5)); context.lineTo(px + dx - 7 * Math.cos(angle + .5), py + dy - 7 * Math.sin(angle + .5)); context.closePath(); context.fill();

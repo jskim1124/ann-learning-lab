@@ -24,6 +24,7 @@ import { UnderstandingJourney } from "./ui/understandingJourney";
 import { FeatureLabStore, type FeatureLabState } from "./state/featureLabStore";
 import type { ActivationName, Label, PresetName } from "./types";
 import { drawDecisionSurface, HIDDEN_COLORS } from "./visualization/decisionSurface";
+import { installTrainingMotion, drawTrainingMotion } from './visualization/trainingMotion';
 import { CLASS_COLORS, drawFeatureSurface } from "./visualization/featureSurface";
 import { XOR_LESSON } from "./visualization/xorLesson";
 import { drawLossChart } from "./visualization/lossChart";
@@ -344,11 +345,12 @@ function renderFeatureLab(lab: LabState, state: FeatureLabState): void {
   element<HTMLInputElement>("#featureHiddenUnits").value = String(state.model.hiddenUnits); element<HTMLOutputElement>("#featureHiddenOut").value = `${state.model.hiddenUnits}개`; element<HTMLSelectElement>("#featureActivation").value = state.model.activation; element<HTMLInputElement>("#featureLearningRate").value = String(state.learningRate); element<HTMLOutputElement>("#featureLearningRateOut").value = state.learningRate.toFixed(2);
   element<HTMLElement>("#featureEpoch").textContent = String(state.model.epoch); element<HTMLElement>("#featureEpochNow").textContent = String(state.model.epoch); element<HTMLElement>("#featureProgressBar").style.width = `${Math.min(100, state.model.epoch / 10)}%`; element<HTMLElement>("#featureLoss").textContent = metrics ? metrics.loss.toFixed(2) : "—"; element<HTMLElement>("#featureAccuracy").textContent = metrics ? `${(metrics.accuracy * 100).toFixed(2)}%` : "—"; element<HTMLElement>("#featureTrainCount").textContent = `${state.data.length}개`; element<HTMLButtonElement>("#featureAutoTrain").textContent = featureAutoTimer ? "잠시 멈추기" : "계속 연습";
   element<HTMLInputElement>("#featureNeuronLayer").checked = state.showNeuronBoundaries; element<HTMLInputElement>("#featureDecisionLayer").checked = state.showDecisionBoundary; element<HTMLElement>("#featureTrainAxisX").textContent = projection.axes[0]; element<HTMLElement>("#featureTrainAxisY").textContent = projection.axes[1];
-  if (lab.lessonStep === 4) { drawFeatureSurface(element<HTMLCanvasElement>("#featureModelCanvas"), state.model, state.data, state.testInput, { ...state, showProbe: featureProbe, selectedPoint: featureSelectedPoint }); drawLossChart(element<HTMLCanvasElement>("#featureLossCanvas"), state.history); const result = forwardPixels(state.model, [state.testInput.x, state.testInput.y]); element<SVGSVGElement>("#featureNetworkSvg").innerHTML = pixelNetworkGraphMarkup(state.model, state.classes, result.hidden, result.probabilities, [projection.axes[0], projection.axes[1]]); renderProbabilityBars("#featureTrainBars", state, result.probabilities); }
+  if (lab.lessonStep === 4) { drawFeatureSurface(element<HTMLCanvasElement>("#featureModelCanvas"), state.model, state.data, state.testInput, { ...state, showValueDirection:false, showProbe: featureProbe, selectedPoint: featureSelectedPoint }); drawLossChart(element<HTMLCanvasElement>("#featureLossCanvas"), state.history); const result = forwardPixels(state.model, [state.testInput.x, state.testInput.y]); element<SVGSVGElement>("#featureNetworkSvg").innerHTML = pixelNetworkGraphMarkup(state.model, state.classes, result.hidden, result.probabilities, [projection.axes[0], projection.axes[1]]); renderProbabilityBars("#featureTrainBars", state, result.probabilities); }
   element<SVGSVGElement>("#featureNetworkSvg").removeAttribute("hidden");
   for (const [id, selected] of [["featurePracticeX", customDraft.xFeature], ["featurePracticeY", customDraft.yFeature]] as const) fillSelect(element<HTMLSelectElement>(`#${id}`), customDraft.features, selected);
   element<HTMLElement>("#featureTrainBars").hidden=true;
   renderSignalNetwork(element('#featureSignalNetwork'),state.model,[state.testInput.x,state.testInput.y],state.classes);
+  if(lab.lessonStep===4)drawTrainingMotion(element('#featureModelCanvas'),state.model,undefined,true,state.showNeuronBoundaries);
   const selected=featureSelectedPoint===null?null:customDraft.rows[featureSelectedPoint];
   element<HTMLElement>("#featureSelectedData").textContent=selected?`${selected.name} · 정답 ${customDraft.classes[selected.label]}`:featureProbe?'새 입력 · 정답 미지정':"점을 선택하거나 빈 곳에서 확인점을 움직여 보세요.";
   element<HTMLElement>("#featureUseAxisX").textContent = projection.axes[0]; element<HTMLElement>("#featureUseAxisY").textContent = projection.axes[1]; element<HTMLInputElement>("#featureUseX").value = String(state.testInput.x); element<HTMLInputElement>("#featureUseY").value = String(state.testInput.y);
@@ -401,7 +403,7 @@ function render(state: LabState, store: LabStore): void {
     }
   }
   if (state.lessonStep === 4 && !isPixelPreset(state.preset) && !isCustomPreset(state.preset)) {
-    drawDecisionSurface(element<HTMLCanvasElement>("#modelCanvas"), state.model, state.data, state.testInput, { explanationStep: 4, selectedNeuron: state.selectedNeuron, showNeuronBoundaries: state.showNeuronBoundaries, showDecisionBoundary: state.showDecisionBoundary, showProbe: boundaryProbe, selectedPoint: boundarySelectedPoint });
+    drawDecisionSurface(element<HTMLCanvasElement>("#modelCanvas"), state.model, state.data, state.testInput, { explanationStep: 4, showValueDirection:false, selectedNeuron: state.selectedNeuron, showNeuronBoundaries: state.showNeuronBoundaries, showDecisionBoundary: state.showDecisionBoundary, showProbe: boundaryProbe, selectedPoint: boundarySelectedPoint });
     drawLossChart(element<HTMLCanvasElement>("#lossCanvas"), state.history);
     element<SVGSVGElement>("#networkSvg").setAttribute("hidden", "");
     const chosen = boundarySelectedPoint === null ? null : state.data[boundarySelectedPoint];
@@ -411,6 +413,7 @@ function render(state: LabState, store: LabStore): void {
     element<HTMLElement>("#boundarySelectedResult").hidden = true; // The shared network now shows this prediction visually.
     element<SVGSVGElement>("#networkSvg").innerHTML = networkGraphMarkup(state.model, prediction.hidden,[state.testInput.x,state.testInput.y]);
     renderSignalNetwork(element('#boundarySignalNetwork'),penaltyPixelModel(state.model),[state.testInput.x,state.testInput.y],preset.classes);
+    drawTrainingMotion(element('#modelCanvas'),penaltyPixelModel(state.model),undefined,true,state.showNeuronBoundaries);
   }
   if (state.lessonStep === 3 && state.preset!=='xor' && !isPixelPreset(state.preset) && !isCustomPreset(state.preset)) {
     drawDecisionSurface(element<HTMLCanvasElement>("#decisionCanvas"), state.model, state.data, state.testInput, { explanationStep: state.explanationStep, selectedNeuron: state.selectedNeuron, highlightRevealed: state.highlightRevealed });
@@ -481,6 +484,8 @@ export function mountApp(store = createInitialStore()): LabStore {
   featureTrainingPanels(element("#customTrainingView"), rerender);
   featureTrainingPanels(element("#boundaryTrainingView"), rerender);
   installSignalNetwork(element('#networkSvg'),'boundarySignalNetwork');installSignalNetwork(element('#featureNetworkSvg'),'featureSignalNetwork');
+  installTrainingMotion(element('#modelCanvas'),element('#boundarySignalNetwork'),rerender);
+  installTrainingMotion(element('#featureModelCanvas'),element('#featureSignalNetwork'),rerender);
   document.querySelectorAll<HTMLDetailsElement>('[data-app-page="5"] details').forEach(panel=>panel.open=true);
   const axes = document.createElement("div"); axes.className = "feature-axis-pair practice-axes";
   axes.innerHTML = '<label>가로 특징<select id="featurePracticeX"></select></label><label>세로 특징<select id="featurePracticeY"></select></label><span>바꾸면 좌표·분포가 바뀌고 학습이 초기화됩니다.</span>';

@@ -14,6 +14,7 @@ export interface SurfaceOptions {
   showDecisionBoundary?: boolean;
   showProbe?: boolean;
   selectedPoint?: number | null;
+  showValueDirection?: boolean;
 }
 
 export type Segment = [[number, number], [number, number]];
@@ -54,7 +55,7 @@ function drawGrid(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement): voi
   drawCoordinateGrid(ctx, {left:0, top:0, width:canvas.width, height:canvas.height});
 }
 
-function drawHiddenBoundaries(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, model: NetworkModel, selectedNeuron: number, emphasizeSelected: boolean): void {
+function drawHiddenBoundaries(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, model: NetworkModel, selectedNeuron: number, emphasizeSelected: boolean, arrows=true): void {
   model.parameters.inputHidden.forEach(([wA, wB], index) => {
     const segment = hiddenBoundarySegment(wA, wB, model.parameters.hiddenBias[index] ?? 0); if (!segment) return;
     const [start, end] = segment.map(([x, y]) => canvasPoint(canvas, x, y)) as [[number, number], [number, number]];
@@ -62,6 +63,7 @@ function drawHiddenBoundaries(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasE
     ctx.save(); ctx.globalAlpha = emphasizeSelected ? (selected ? 1 : .42) : .78;
     ctx.strokeStyle = HIDDEN_COLORS[index % HIDDEN_COLORS.length] ?? "#7446f5"; ctx.lineWidth = selected ? 4.5 : 2.7; ctx.setLineDash(emphasizeSelected && !selected ? [7, 5] : []);
     ctx.beginPath(); ctx.moveTo(...start); ctx.lineTo(...end); ctx.stroke();
+    if(!arrows){ctx.restore();return;}
     const mx = (start[0] + end[0]) / 2; const my = (start[1] + end[1]) / 2;
     const sx = wA / canvas.width, sy = -wB / canvas.height;
     const length = Math.hypot(sx, sy) || 1; const nx = (sx / length) * 28; const ny = (sy / length) * 28;
@@ -85,7 +87,7 @@ export function drawDecisionSurface(canvas: HTMLCanvasElement, model: NetworkMod
     if (step >= 3 && row < grid && col < grid) { ctx.fillStyle = probabilityColor(probability); ctx.fillRect(col * cellW, row * cellH, Math.ceil(cellW) + 1, Math.ceil(cellH) + 1); }
   }
   drawGrid(ctx, canvas);
-  if (step >= 2 && options.showNeuronBoundaries !== false) drawHiddenBoundaries(ctx, canvas, model, selectedNeuron, step !== 4);
+  if (step >= 2 && options.showNeuronBoundaries !== false) drawHiddenBoundaries(ctx, canvas, model, selectedNeuron, step !== 4,options.showValueDirection!==false);
   if (step === 4 && options.showDecisionBoundary !== false) {
     ctx.strokeStyle = "#111827"; ctx.lineWidth = 3; ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.setLineDash([]); ctx.beginPath();
     for (let row = 0; row < grid; row += 1) for (let col = 0; col < grid; col += 1) {

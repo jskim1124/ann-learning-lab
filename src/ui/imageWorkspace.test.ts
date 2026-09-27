@@ -20,7 +20,7 @@ describe("공통 이미지 UI 연결", () => {
     workspace.configure(task);workspace.show(true,3);
     const root=document.querySelector('.understanding-journey:not([hidden])')!;
     expect([...root.querySelectorAll('.journey-nav button')].map(b=>b.textContent)).toEqual(['1 특징 계산','2 분포·선택','3 뉴런·선','4 뉴런·출력']);
-    expect(root.querySelector('#flMap')).toBeNull();expect(root.querySelectorAll('[data-journey-cell]')).toHaveLength(4);
+    expect(root.querySelector('#flMap')).toBeNull();expect(root.querySelectorAll('[data-journey-ink]')).toHaveLength(1);
     expect(root.textContent).not.toContain('원리 설명');expect(root.textContent).not.toContain('직접 고치기');
   });
   it('연습 지표·선택 그림은 지도 쪽에, 연결 지도는 한 개만 남긴다',()=>{

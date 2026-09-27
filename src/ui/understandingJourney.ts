@@ -1,137 +1,147 @@
-import { JOURNEY_ROWS, JOURNEY_FEATURES, journeyPoint, journeyFeature, journeyModel, journeyPrediction, journeyScore, decimal as n, type JourneyFeature } from '../core/understandingJourney';
+import { JOURNEY_ROWS, journeyPoint, journeyModel, journeyPrediction, journeyScore, decimal as n } from '../core/understandingJourney';
+import { LESSON_CHAPTERS, CHAPTER_STARTS, lessonChapter, lessonMovement } from '../core/lessonMovement';
 import { forwardPixels } from '../core/pixelNetwork';
-import { classContours } from '../visualization/classContours';
+import { renderJourneyPlot } from './journeyPlot';
 import './understandingJourney.css';
 
-const names=['특징 계산','분포·선택','뉴런·선','뉴런·출력'];
-const colors=['#f17605','#df466f'];
-const esc=(s:string)=>s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
 interface JourneyOptions { context:()=>string; complete:()=>void; }
+const titles=['그림도 숫자로 읽을 수 있어요','윗줄을 숫자 하나로 줄여 볼까요?','아랫줄도 같은 방법으로','두 숫자가 그림의 자리가 돼요','어떤 숫자를 골라야 구별될까요?','뉴런은 작은 계산기예요','숫자를 바꾸면 선은 어디로 갈까요?','뉴런의 숫자로 답을 골라요','반대쪽도 보는 뉴런을 연결해요','내가 만든 계산 길을 따라가요'];
+const hints=['검정은 1.00, 흰색은 0.00. 회색은 그 사이예요.','두 칸을 더한 뒤, 칸 수인 2로 나누면 평균이에요.','같은 그림의 아랫줄을 계산해 보세요.','가로는 윗줄 평균, 세로는 아랫줄 평균이에요.','정답 A는 두 줄이 같고, B는 달라요. 이 7장을 나눠 봅시다.','이 예제는 윗줄에서 아랫줄을 빼요. 음수는 0.00으로 보내요.','이번에는 마지막에 0.50을 더 빼고 시작해요. 계산이 0.00인 선을 세로 0.25에서 찾아봐요.','비교를 위해 빼는 값을 0.00으로 되돌렸어요. A는 비교용으로 정한 점수 0.25, B는 뉴런이 보낸 숫자예요.','첫 뉴런은 윗줄이 진할 때만 반응했어요. 둘째는 반대 차이를 계산해요.','점을 눌러 같은 계산이 다른 그림에서도 어떻게 작동하는지 보세요.'];
+const summaries=['색의 진하기를 숫자로 바꾸었어요.','윗줄 평균 0.75를 찾았어요. 이것이 첫 번째 특징이에요.','아랫줄 평균은 0.25. 이제 그림 한 장에 숫자가 두 개 생겼어요.','그림은 그대로인데, 두 특징이 그래프 위의 자리를 정해 줘요.','전체 평균에서 사라진 차이가 두 줄을 따로 보니 드러났어요.','뉴런은 선 자체가 아니라 계산기예요. 선은 음수를 0으로 바꾸기 전, 계산이 0.00인 자리예요.','이번 계산에서는 빼는 값이 작아지면 왼쪽 위, 커지면 오른쪽 아래로 갔어요. 실제 학습은 다른 수도 바꾸므로 선이 회전할 수도 있어요.','검은 선은 A와 B 점수가 같아지는 자리예요. 보라 선과는 역할이 달라요.','새 뉴런을 연결하니 반대쪽 B도 찾았어요. 연결하지 않으면 답은 그대로예요.','출력은 답의 종류마다 하나예요. 이 7장은 맞혔지만 새 그림도 확인해야 해요. 연습에서는 컴퓨터가 정답과 예상을 비교해 계산에 쓰는 수를 고칩니다.'];
 
-/** One guided experience, not two unrelated explain/explore modes. */
+/** A shared sequence of short predict → act → observe scenes for all guided tasks. */
 export class UnderstandingJourney {
   readonly root:HTMLElement;
-  private step=0;private reached=0;private done=new Set<number>();private picked=new Set<number>();
-  private x:JourneyFeature='all';private y:JourneyFeature='all';private distributions=new Set<string>();
-  private selected=0;private probe:[number,number]|null=null;private bias=-.5;private predicted=false;
-  private second=false;private connection=0;private muted=false;private compared=false;private vertical=false;
-  private outputCalculated=false;private feedback='';private wrong:number|null=null;private controlKey='';private timer=0;private calcFrame=0;private calcRow=0;
+  private scene=0;private reached=0;private done=new Set<number>();
+  private ink=.5;private touched=false;private frame=0;private played=false;private separated=0;
+  private threshold=.5;private target=.25;private oldThreshold:number|null=null;
+  private movePhase:'number'|'direction'|'result'='number';private directions=new Set<string>();private predicted=false;
+  private connection=0;private selected=0;private wrong:number|null=null;private message='';
+  private timer=0;private busy=false;private animationCancel:(()=>void)|null=null;
+  private cursor:[number,number]=[0,0];
   constructor(root:HTMLElement,private options:JourneyOptions) {
     this.root=root;root.className='image-workspace understanding-journey';
-    root.innerHTML=`<nav class="journey-nav" aria-label="이해 순서">${names.map((name,i)=>`<button data-journey-step="${i}">${i+1} ${name}</button>`).join('')}</nav>
-      <div class="journey-context"></div><div class="journey-body"><section class="journey-visual"><div class="journey-visual-heading"><strong></strong><span></span></div><div class="journey-picture"></div><div class="journey-plot" hidden></div><div class="journey-key" hidden>● 점은 정답 · 바탕색은 예상 · 검은 경계에서는 A = B</div><div class="journey-sample-row"></div><div class="journey-live"></div><div class="journey-network"></div></section>
-      <section class="journey-action"><h2></h2><div class="journey-controls"></div><div class="journey-question" aria-live="polite"></div><div class="journey-summary" hidden></div><footer><button data-journey-restart>이 장면 다시</button><button class="button primary" data-journey-next>다음 →</button></footer></section></div>`;
+    root.innerHTML=`<nav class="journey-nav" aria-label="이해 순서">${LESSON_CHAPTERS.map((name,i)=>`<button data-journey-step="${i}"><span>${i+1}</span> ${name}</button>`).join('')}</nav>
+      <div class="journey-body"><section class="journey-visual"><header><strong class="journey-visual-title"></strong><span class="journey-counter"></span></header><div class="journey-stage"></div><div class="journey-network"></div><div class="journey-legend"></div></section>
+      <section class="journey-action"><div class="journey-scene-count"></div><h2></h2><p class="journey-hint"></p><div class="journey-controls"></div><div class="journey-question"></div><div class="journey-feedback" role="status" aria-live="polite"></div><footer><button data-journey-back>← 이전</button><button class="button primary" data-journey-next>다음 →</button></footer><details class="journey-context"><summary>내 문제와 어떻게 이어지나요?</summary><p></p></details></section></div>`;
     root.addEventListener('click',event=>this.click(event));
-    root.addEventListener('keydown',event=>{const point=(event.target as Element).closest<SVGElement>('g[data-journey-point]');if(point&&(event.key==='Enter'||event.key===' ')){event.preventDefault();this.selected=Number(point.dataset.journeyPoint);this.probe=null;this.render();}});
-    root.addEventListener('change',event=>{const t=event.target as HTMLSelectElement;if(t.dataset.journeyAxis){this[t.dataset.journeyAxis as 'x'|'y']=t.value as JourneyFeature;this.distributions.add(`${this.x}/${this.y}`);this.done.delete(1);this.wrong=null;this.feedback='';this.render();}if(t.dataset.journeyDirection){this.vertical=t.value==='vertical';this.render();}});
-    root.addEventListener('input',event=>{const t=event.target as HTMLInputElement;if(t.dataset.journeyBias!==undefined){this.bias=Number(t.value);this.done.delete(2);}else if(t.dataset.journeyConnection!==undefined)this.connection=Number(t.value);else return;this.wrong=null;this.feedback='';this.render();});
-    const plot=this.el('.journey-plot');let dragging=false;
-    const move=(event:PointerEvent)=>{if(!dragging||this.step<2)return;const svg=plot.querySelector('svg')!,r=svg.getBoundingClientRect();const x=event.clientX-r.left,y=event.clientY-r.top,w=r.width-70,h=r.height-55;if(x<50||x>r.width-20||y<15||y>r.height-40)return;this.probe=[Math.round((x-50)/w*100)/100,Math.round((r.height-40-y)/h*100)/100];this.wrong=null;this.feedback='';this.renderVisual();this.renderQuestion();};
-    plot.addEventListener('pointerdown',e=>{if((e.target as Element).closest('[data-journey-point]'))return;dragging=true;plot.setPointerCapture?.(e.pointerId);move(e);});plot.addEventListener('pointermove',move);for(const type of ['pointerup','pointercancel'])plot.addEventListener(type,()=>dragging=false);
-    if(typeof ResizeObserver!=='undefined')new ResizeObserver(()=>{if(!this.root.hidden&&this.step>0)this.renderVisual();}).observe(plot);
+    root.addEventListener('input',event=>{const input=event.target as HTMLInputElement;if(input.matches('[data-journey-ink]')){this.ink=Number(input.value);this.touched=true;this.renderVisual();this.renderQuestion();}});
+    this.el('.journey-stage').addEventListener('pointerdown',event=>{
+      if(this.scene!==3||this.done.has(3)||this.busy)return;
+      const svg=this.root.querySelector('svg');if(!svg)return;const r=svg.getBoundingClientRect();
+      this.cursor=[Math.max(0,Math.min(1,(event.clientX-r.left-48)/(r.width-72))),Math.max(0,Math.min(1,(r.height-42-(event.clientY-r.top))/(r.height-66)))];this.locate();
+    });
+    root.addEventListener('keydown',event=>{
+      const point=(event.target as Element).closest<HTMLElement>('[data-journey-point]');
+      if(point&&(event.key==='Enter'||event.key===' ')){event.preventDefault();this.selected=Number(point.dataset.journeyPoint);this.renderVisual();return;}
+      if(this.scene!==3||!(event.target as Element).closest('.journey-stage'))return;
+      const moves:Record<string,[number,number]>={ArrowLeft:[-.25,0],ArrowRight:[.25,0],ArrowUp:[0,.25],ArrowDown:[0,-.25]};
+      if(moves[event.key]){event.preventDefault();this.cursor=this.cursor.map((v,i)=>Math.max(0,Math.min(1,v+moves[event.key]![i]!))) as [number,number];this.locate();}
+    });
+    if(typeof ResizeObserver!=='undefined')new ResizeObserver(()=>{if(!root.hidden)this.renderVisual();}).observe(this.el('.journey-stage'));
     this.render();
   }
-  private el<T extends HTMLElement=HTMLElement>(selector:string):T {return this.root.querySelector<T>(selector)!;}
-  stop():void {window.clearInterval(this.timer);this.timer=0;}
-  reset():void {this.stop();this.step=0;this.reached=0;this.done.clear();this.picked.clear();this.x='all';this.y='all';this.distributions.clear();this.selected=0;this.probe=null;this.bias=-.5;this.predicted=false;this.second=false;this.connection=0;this.muted=false;this.compared=false;this.vertical=false;this.outputCalculated=false;this.feedback='';this.wrong=null;this.controlKey='';this.calcFrame=0;this.calcRow=0;}
+  private el<T extends HTMLElement=HTMLElement>(s:string):T{return this.root.querySelector<T>(s)!;}
+  stop():void {window.clearInterval(this.timer);this.timer=0;this.busy=false;this.animationCancel?.();this.animationCancel=null;}
+  reset():void {this.stop();this.scene=0;this.reached=0;this.done.clear();this.prepare();}
   show(visible:boolean):void {this.root.hidden=!visible;if(visible)this.render();else this.stop();}
-  private get point():[number,number] {return this.probe??journeyPoint(JOURNEY_ROWS[this.selected]!.cells);}
-  private get model(){return journeyModel(this.bias,this.step===3&&this.second,this.muted?0:this.connection,this.vertical);}
+  private prepare():void {
+    this.frame=this.done.has(this.scene)?3:0;this.played=this.done.has(this.scene);this.wrong=null;this.message='';this.selected=0;
+    if(this.scene===0){this.ink=.5;this.touched=false;}
+    if(this.scene===3)this.cursor=this.done.has(3)?[.75,.25]:[0,0];
+    if(this.scene===4)this.separated=this.done.has(4)?1:0;
+    if(this.scene===6){this.threshold=.5;this.target=.25;this.oldThreshold=null;this.movePhase='number';this.predicted=false;this.directions.clear();this.done.delete(6);}
+    if(this.scene>=7)this.threshold=0;
+    if(this.scene===8){this.connection=this.done.has(8)?1:0;this.selected=1;}
+    if(this.scene===9)this.connection=1;
+  }
+  private navigate(scene:number):void {this.stop();this.scene=scene;this.reached=Math.max(this.reached,scene);this.prepare();this.render();}
+  private animate(duration:number,update:(t:number)=>void,end:()=>void,cancel:()=>void=()=>{}):void {
+    this.stop();this.busy=true;this.animationCancel=cancel;this.renderQuestion();
+    let elapsed=0;const finish=()=>{window.clearInterval(this.timer);this.timer=0;this.busy=false;this.animationCancel=null;update(1);end();this.render();};
+    if(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches){finish();return;}
+    this.timer=window.setInterval(()=>{elapsed+=40;const t=Math.min(1,elapsed/duration),oldFrame=this.frame;update(t*t*(3-2*t));if(![1,2,5,7].includes(this.scene)||oldFrame!==this.frame)this.renderVisual();if(t===1)finish();},40);
+  }
+  private play():void {this.played=false;this.frame=0;this.animate(1800,t=>this.frame=Math.min(3,Math.floor(t*4)),()=>this.played=true);}
+  private locate():void {
+    const hit=Math.abs(this.cursor[0]-.75)<.06&&Math.abs(this.cursor[1]-.25)<.06;
+    if(hit){this.cursor=[.75,.25];this.done.add(3);this.message='';}else this.message=`지금 (${n(this.cursor[0])}, ${n(this.cursor[1])}) · 가로 0.75, 세로 0.25를 찾아요.`;
+    this.renderVisual();this.renderQuestion();
+  }
   private click(event:MouseEvent):void {
-    const button=(event.target as HTMLElement).closest<HTMLElement>('button,[data-journey-point]');if(!button)return;const d=button.dataset;
-    if(d.journeyStep!==undefined&&Number(d.journeyStep)<=this.reached&&Array.from({length:Number(d.journeyStep)},(_,i)=>i).every(i=>this.done.has(i))){this.stop();this.step=Number(d.journeyStep);this.feedback='';this.wrong=null;this.controlKey='';this.probe=null;}
-    if(d.journeyCell!==undefined){this.picked.add(Number(d.journeyCell));this.calcFrame=this.picked.size;}
-    if(d.journeyPlay!==undefined){this.stop();this.picked.clear();this.calcFrame=0;this.timer=window.setInterval(()=>{this.picked.add(this.calcFrame+this.calcRow*2);this.calcFrame++;if(this.calcFrame>=2)this.stop();this.render();},650);}
-    if(d.journeyPoint!==undefined){this.selected=Number(d.journeyPoint);this.probe=null;}
-    if(d.journeyPredict!==undefined){this.selected=0;this.probe=null;this.predicted=Number(d.journeyPredict)===1;this.wrong=this.predicted?null:9;this.feedback=this.predicted?'예상했어요. 이제 더할 값을 0.00까지 바꿔 확인하세요.':'오답이에요. 같은 두 수에 더하는 값만 커집니다.';}
-    if(d.journeyAdd!==undefined){this.second=true;this.connection=0;this.selected=1;this.probe=null;}
-    if(d.journeyCompare!==undefined){this.muted=!this.muted;if(this.connection>0)this.compared=true;}
-    if(d.journeyAnswer!==undefined&&this.ready()){const answer=Number(d.journeyAnswer);if(answer===this.question().correct){this.wrong=null;this.feedback='';if(this.step===0&&this.calcRow===0){this.calcRow=1;this.picked.clear();this.calcFrame=0;}else if(this.step===3&&!this.outputCalculated){this.outputCalculated=true;}else this.done.add(this.step);}else{this.wrong=answer;this.feedback='오답이에요. 왼쪽의 같은 색 부분을 다시 살펴보세요.';}}
-    if(d.journeyRestart!==undefined){this.done.delete(this.step);this.feedback='';this.wrong=null;if(this.step===0){this.picked.clear();this.calcFrame=0;this.calcRow=0;}if(this.step===1){this.distributions=new Set(['all/all']);this.x=this.y='all';}if(this.step===2){this.bias=-.5;this.predicted=false;}if(this.step===3){this.second=false;this.connection=0;this.compared=false;this.outputCalculated=false;this.muted=false;this.vertical=false;}}
-    if(d.journeyNext!==undefined&&this.done.has(this.step)&&this.ready()){this.stop();if(this.step===3){if(this.done.size===4)this.options.complete();}else{this.step++;this.reached=Math.max(this.reached,this.step);this.feedback='';this.wrong=null;this.selected=0;this.probe=null;this.controlKey='';if(this.step===1)this.distributions.add('all/all');}}
-    this.render();
-  }
-  private ready():boolean {
-    return this.step===0?this.picked.has(this.calcRow*2)&&this.picked.has(this.calcRow*2+1):this.step===1?this.distributions.has('all/all')&&this.x==='top'&&this.y==='bottom':this.step===2?this.predicted&&Math.abs(this.bias)<1e-9:this.bias===0&&this.second&&this.connection===1&&this.compared&&!this.muted&&!this.vertical;
-  }
-  private question(){const p=this.point,r=forwardPixels(this.model,p),answer=r.logits[1]!;return [
-    this.calcRow===0?{title:'윗줄 두 칸의 평균은?',choices:['0.50','0.75','1.50'],correct:1}:{title:'같은 그림의 아랫줄: 두 칸의 평균은?',choices:['0.00','0.25','0.50'],correct:1},
-    {title:'전체 평균이 같아도 두 줄을 따로 보면?',choices:['같은 자리에 있던 A와 B를 구별할 수 있다','어떤 자료든 반드시 완벽히 나눌 수 있다'],correct:0},
-    {title:`선택한 점: ${n(p[0])} × 1.00 + ${n(p[1])} × (−1.00) + (${n(this.bias)}). 음수는 0.00으로 바꾸면?`,choices:[n(r.hidden[0]!+.5),n(r.hidden[0]!+.25),n(r.hidden[0]!)],correct:2},
-    this.outputCalculated?{title:'은닉 뉴런을 1개에서 2개로 늘려도, A·B 출력은?',choices:['2개 — 클래스마다 하나','3개 — 뉴런 수만큼 늘어남'],correct:0}:{title:`선택한 점: 뉴런 1은 ${n(r.hidden[0]!)}, 뉴런 2는 ${n(r.hidden[1]??0)}. 두 수를 더한 B 점수는?`,choices:[n(answer+.5),n(answer+.25),n(answer)],correct:2},
-  ][this.step]!;}
-  render():void {
-    this.root.querySelectorAll<HTMLButtonElement>('[data-journey-step]').forEach((b,i)=>{b.disabled=i>this.reached||Array.from({length:i},(_,j)=>j).some(j=>!this.done.has(j));b.setAttribute('aria-pressed',String(i===this.step));b.classList.toggle('is-done',this.done.has(i));});
-    this.el('.journey-context').textContent=`${this.options.context()} · 이해에서는 같은 2×2 예제를 끝까지 사용합니다. 실제 학습 모델과는 별개예요.`;
-    const titles=['두 칸을 더하고, 칸 수로 나눠요','같은 그림도 고른 특징에 따라 자리가 달라져요','뉴런 하나를 고쳐 한쪽 B를 찾아요','두 뉴런의 숫자를 모아 답을 골라요'];
-    this.el('.journey-action h2').textContent=titles[this.step]!;
-    const key=JSON.stringify([this.step,this.predicted,this.second,this.outputCalculated,this.calcRow]);
-    if(this.controlKey!==key){this.controlKey=key;const options=Object.entries(JOURNEY_FEATURES).map(([value,label])=>`<option value="${value}">${label}</option>`).join('');
-      this.el('.journey-controls').innerHTML=[
-        `<div class="journey-operation"><span>① ${this.calcRow?'아랫줄':'윗줄'} 칸 두 개를 눌러요</span><span>② 선택한 값을 더해요</span><span>③ 두 칸이므로 2.00으로 나눠요</span></div><button data-journey-play>▶ 두 칸 따라 보기</button><p>흰 칸 0.00 · 검정 칸 1.00 · 회색은 그 사이</p>`,
-        `<label>가로 특징<select data-journey-axis="x">${options}</select></label><label>세로 특징<select data-journey-axis="y">${options}</select></label><p>먼저 전체 평균끼리 비교한 뒤, 가로는 윗줄·세로는 아랫줄로 바꿔 보세요.</p>`,
-        `<div class="journey-fixed"><span>가로 × <b>1.00</b> 그대로 더하기</span><span>세로 × <b>−1.00</b> 빼기</span></div><p>윗줄에서 아랫줄을 빼도록 정한 예제예요. 마지막에 더할 값만 고쳐 봐요.</p>${!this.predicted?'<p>첫 B 그림에서 더할 값을 −0.50 → 0.00으로 올리면 뉴런 값은?</p><div class="journey-choices"><button data-journey-predict="1">커진다</button><button data-journey-predict="0">작아진다</button></div>':''}<label>뉴런 1에 더할 값 <output data-bias-value></output><input aria-label="뉴런 1에 더할 값" data-journey-bias type="range" min="-.5" max="0" step=".05" ${this.predicted?'':'disabled'}></label>`,
-        `<div class="journey-count"><span>은닉 뉴런 <b>${this.second?'2':'1'}개</b></span><span>출력 <b>A · B, 2개</b></span></div>${!this.second?'<button class="button primary" data-journey-add>+ 반대 차이를 보는 뉴런 추가</button>':`<label>뉴런 2를 B에 얼마나 더할까요? <output data-connection-value></output><input aria-label="뉴런 2의 출력 연결값" data-journey-connection type="range" min="0" max="1" step=".25"></label><button data-journey-compare></button><label>뉴런 2가 보는 차이<select data-journey-direction="true"><option value="opposite">아랫줄 − 윗줄</option><option value="vertical">아랫줄 − 0.50 (다른 방향 시험)</option></select></label>`}<p>A 점수는 비교 기준 0.25. B는 뉴런들이 넘긴 수를 더해요. 검은 선은 두 점수가 같은 자리예요.</p>`,
-      ][this.step]!;
+    const button=(event.target as Element).closest<HTMLButtonElement>('button,[data-journey-point]');if(!button||button.disabled||this.busy)return;
+    const d=button.dataset;
+    if(d.journeyStep!==undefined){const start=CHAPTER_STARTS[Number(d.journeyStep)]!;if(start<=this.reached)this.navigate(start);return;}
+    if(d.journeyBack!==undefined){if(this.scene)this.navigate(this.scene-1);return;}
+    if(d.journeyNext!==undefined){if(!this.done.has(this.scene))return;if(this.scene===9)this.options.complete();else this.navigate(this.scene+1);return;}
+    if(d.journeyPlay!==undefined){this.play();return;}
+    if(d.journeyPoint!==undefined&&this.scene===9){this.selected=Number(d.journeyPoint);this.renderVisual();return;}
+    if(d.journeyFeature!==undefined){const target=Number(d.journeyFeature),start=this.separated;this.animate(1000,t=>this.separated=start+(target-start)*t,()=>{this.played=true;});return;}
+    if(d.journeyThreshold!==undefined){this.target=Number(d.journeyThreshold);this.done.delete(6);this.movePhase='number';this.predicted=false;this.wrong=null;this.message='';this.render();return;}
+    if(d.journeyRun!==undefined&&this.predicted){
+      const from=this.threshold,to=this.target;this.oldThreshold=from;
+      this.animate(1800,t=>this.threshold=from+(to-from)*t,()=>{this.directions.add(lessonMovement(from,to).direction);this.movePhase='result';if(this.directions.size>=2)this.done.add(6);},()=>{this.threshold=from;this.movePhase='direction';});return;
     }
-    this.root.querySelectorAll<HTMLSelectElement>('[data-journey-axis]').forEach(s=>s.value=this[s.dataset.journeyAxis as 'x'|'y']);
-    const bias=this.root.querySelector<HTMLInputElement>('[data-journey-bias]');if(bias){bias.value=String(this.bias);this.el('[data-bias-value]').textContent=n(this.bias);}
-    const connection=this.root.querySelector<HTMLInputElement>('[data-journey-connection]');if(connection){connection.value=String(this.connection);this.el('[data-connection-value]').textContent=n(this.connection);this.el('[data-journey-compare]').textContent=this.muted?'뉴런 2 다시 연결':'뉴런 2 없이 비교';this.el<HTMLSelectElement>('[data-journey-direction]').value=this.vertical?'vertical':'opposite';}
-    this.renderQuestion();this.renderVisual();
+    if(d.journeyAnswer!==undefined){
+      const q=this.question(),answer=Number(d.journeyAnswer);if(!q.ready)return;
+      if(answer!==q.correct){this.wrong=answer;this.message='오답이에요. 표시된 계산과 위치를 다시 확인해 보세요.';this.renderQuestion();return;}
+      this.wrong=null;this.message='';
+      if(this.scene===6){if(this.movePhase==='number')this.movePhase='direction';else {this.message='예상했어요. 이제 선을 움직여 확인하세요.';this.predicted=true;}this.render();return;}
+      if(this.scene===8&&!this.played){this.animate(1800,t=>this.connection=t,()=>{this.played=true;this.done.add(8);},()=>this.connection=0);return;}
+      this.done.add(this.scene);this.render();
+    }
+  }
+  private question():{title:string;choices:string[];correct:number;ready:boolean} {
+    const movement=lessonMovement(this.threshold,this.target);
+    return [
+      {title:'완전히 검은 칸은 어떤 숫자일까요?',choices:['0.00','0.50','1.00'],correct:2,ready:this.touched},
+      {title:'1.50을 두 칸에 똑같이 나누면?',choices:['0.50','0.75','1.50'],correct:1,ready:this.played},
+      {title:'0.50 ÷ 2 = 아랫줄 평균은?',choices:['0.00','0.25','0.50'],correct:1,ready:this.played},
+      {title:'그래프에 직접 자리를 찍어 보세요.',choices:[],correct:0,ready:false},
+      {title:'전체 평균이 같던 A와 B를 구별하려면?',choices:['전체 평균만 보기','윗줄과 아랫줄을 따로 보기'],correct:1,ready:this.played&&this.separated===1},
+      {title:'0.75 − 0.25. 뉴런이 보낼 숫자는?',choices:['0.00','0.50','1.00'],correct:1,ready:this.played},
+      this.movePhase==='number'?{title:`새 선의 가로 자리: 세로 0.25 + 빼는 값 ${n(this.target)} = ?`,choices:['0.25','0.50','0.75'],correct:Math.round((movement.afterX-.25)/.25),ready:this.threshold!==this.target}:this.movePhase==='direction'?{title:`가로 ${n(movement.beforeX)} → ${n(movement.afterX)}. 선은 어디로 이동할까요?`,choices:['↖ 왼쪽 위','↘ 오른쪽 아래'],correct:movement.direction==='left-up'?0:1,ready:true}:{title:'이번에는 반대 방향도 예상해 보세요.',choices:[],correct:0,ready:false},
+      {title:'A는 0.25, B는 0.50. 더 큰 점수의 답은?',choices:['A · 두 줄이 같음','B · 두 줄이 다름'],correct:1,ready:this.played},
+      {title:'둘째 뉴런의 0.50을 1.00배 해서 B에 더하면? (첫째는 0.00)',choices:['B 점수 0.00','B 점수 0.50','B 점수 1.00'],correct:1,ready:true},
+      {title:'은닉 뉴런을 더 늘려도 답이 A·B라면 출력은?',choices:['2개 — 답의 종류만큼','은닉 뉴런 수만큼'],correct:0,ready:true},
+    ][this.scene]!;
+  }
+  render():void {
+    const chapter=lessonChapter(this.scene);this.root.dataset.scene=String(this.scene);
+    this.root.querySelectorAll<HTMLButtonElement>('[data-journey-step]').forEach((b,i)=>{b.disabled=CHAPTER_STARTS[i]!>this.reached;b.setAttribute('aria-pressed',String(i===chapter));});
+    this.el('.journey-scene-count').textContent=`${LESSON_CHAPTERS[chapter]} · ${this.scene-CHAPTER_STARTS[chapter]!+1} / ${(CHAPTER_STARTS[chapter+1]??10)-CHAPTER_STARTS[chapter]!}`;
+    this.el('h2').textContent=titles[this.scene]!;this.el('.journey-hint').textContent=hints[this.scene]!;
+    this.el('.journey-context p').textContent=`${this.options.context()}. 원리는 모든 문제에서 같습니다. 여기서는 실제 자료와 별개인 작은 2×2 그림 7장으로 계산을 익힙니다.`;
+    this.el('.journey-controls').innerHTML=this.scene===0?`<label>칸의 진하기를 바꿔 보세요<input data-journey-ink aria-label="칸의 진하기" type="range" min="0" max="1" step=".5" value="${this.ink}"></label>`:
+      [1,2,5,7].includes(this.scene)?'<button class="journey-play" data-journey-play>▶ 계산 따라 보기</button>':
+      this.scene===4?`<div class="journey-segmented"><button data-journey-feature="0" aria-pressed="${this.separated===0}">전체 평균</button><button data-journey-feature="1" aria-pressed="${this.separated===1}">두 줄 따로</button></div>`:
+      this.scene===6?`<label>① 빼는 값을 골라요</label><div class="journey-segmented">${[0,.25,.5].map(v=>`<button data-journey-threshold="${v}" aria-pressed="${v===this.target}" ${v===this.threshold?'disabled':''}>${n(v)}</button>`).join('')}</div><div class="journey-move-order"><span class="${this.movePhase==='number'?'active':''}">② 새 자리 계산</span><span class="${this.movePhase==='direction'?'active':''}">③ 방향 예상</span><span class="${this.movePhase==='result'?'active':''}">④ 확인</span></div>${this.movePhase==='direction'&&this.predicted?'<button class="journey-play" data-journey-run>▶ 예상한 이동 확인</button>':''}`:'';
+    this.el('.journey-stage').tabIndex=this.scene===3?0:-1;
+    this.renderVisual();this.renderQuestion();
   }
   private renderQuestion():void {
-    const q=this.question(),ready=this.ready(),complete=this.done.has(this.step)&&ready;
-    this.el('.journey-question').innerHTML=complete?'':`<small>직접 확인</small><strong>${q.title}</strong><div class="journey-choices">${q.choices.map((s,i)=>`<button data-journey-answer="${i}" ${ready?'':'disabled'} class="${this.wrong===i?'is-wrong':''}">${s}</button>`).join('')}</div><p role="status">${this.feedback||(!ready?[`${this.calcRow?'아랫줄':'윗줄'} 두 칸을 먼저 선택하세요.`,'두 축을 윗줄·아랫줄로 바꿔 보세요.','예상한 뒤 슬라이더를 0.00까지 옮겨 보세요.','연결값 1.00으로 연결하고, 뉴런 2를 껐다 켜서 비교해 보세요.'][this.step]:'')}</p>`;
-    const summaries=['특징은 그림에서 정한 방법으로 계산한 숫자예요. 이 그림의 윗줄 평균은 0.75, 아랫줄 평균은 0.25예요.','윗줄과 아랫줄을 따로 보면 전체 평균이 같던 그림도 구별할 수 있어요. 좋은 특징인지는 다른 자료에서도 확인해야 해요.','뉴런은 두 특징에 곱하고 더한 뒤 숫자 하나를 넘겨요. 이 예제에서는 음수를 0으로 바꿔요. 한쪽 B는 찾았지만 반대쪽 B는 아직 놓쳤어요.','새 뉴런은 연결해야 답에 영향을 줘요. 출력은 클래스마다 하나씩 있고, 가장 큰 점수의 답을 골라요. 뉴런이 늘어도 경계가 항상 꺾이는 것은 아니에요.'];
-    const summary=this.el('.journey-summary');summary.hidden=!complete;summary.innerHTML=`<strong>✓ 내가 확인한 것</strong><p>${summaries[this.step]}</p>`;
-    const next=this.el<HTMLButtonElement>('[data-journey-next]');next.disabled=!complete||(this.step===3&&this.done.size!==4);next.textContent=this.step===3?'내 문제에서 학습하기 →':`${this.step+2} ${names[this.step+1]} →`;
+    const q=this.question(),complete=this.done.has(this.scene);
+    this.el('.journey-question').innerHTML=complete?`<div class="journey-summary"><strong>✓ 확인했어요</strong><p>${summaries[this.scene]}</p></div>`:this.scene===6&&this.predicted&&this.movePhase==='direction'?`<div class="journey-prediction">예상: ${this.target<this.threshold?'↖ 왼쪽 위':'↘ 오른쪽 아래'}<small>재생해서 숫자와 선을 함께 확인하세요.</small></div>`:`<strong>${q.title}</strong><div class="journey-choices">${q.choices.map((choice,i)=>`<button data-journey-answer="${i}" class="${i===this.wrong?'is-wrong':''}" ${!q.ready||this.busy?'disabled':''}>${choice}</button>`).join('')}</div>`;
+    this.el('.journey-feedback').textContent=this.busy?'계산과 그림이 함께 바뀌는 중이에요…':this.message||(!q.ready&&!complete?this.scene===0?'슬라이더로 색을 먼저 바꿔 보세요.':[1,2,5,7].includes(this.scene)?'재생한 뒤 직접 계산해 보세요.':this.scene===4?'두 줄 따로 보기를 눌러 위치를 비교하세요.':'':'');
+    const next=this.el<HTMLButtonElement>('[data-journey-next]');next.disabled=!complete||this.busy;next.textContent=this.scene===9?'내 문제에서 학습하기 →':'다음 장면 →';this.el<HTMLButtonElement>('[data-journey-back]').disabled=this.scene===0||this.busy;
+    this.root.querySelectorAll<HTMLButtonElement>('.journey-controls button').forEach(b=>{if(this.busy)b.disabled=true;});
   }
-  private picture(cells:number[],clickable=false):string {return `<div class="journey-pixels">${cells.map((v,i)=>`<${clickable?'button':'span'} ${clickable?`data-journey-cell="${i}" ${Math.floor(i/2)!==this.calcRow?'disabled':''} aria-label="${i<2?'윗줄':'아랫줄'} ${i%2+1}번째 칸 ${n(v)}"`:''} class="${clickable&&this.picked.has(i)?'is-picked':''}" style="--ink:${v};color:${v>.55?'white':'#202633'}">${n(v)}</${clickable?'button':'span'}>`).join('')}</div>`;}
+  private picture(cells:number[],activeRow=-1):string {
+    return `<div class="journey-pixels">${cells.map((v,i)=>`<span class="${Math.floor(i/2)===activeRow&&this.frame>=i%2?'lit':''}" style="--ink:${v};color:${v>.55?'white':'#202633'}">${n(v)}</span>`).join('')}</div>`;
+  }
+  private get model(){return journeyModel(this.scene===6?-this.threshold:0,this.scene>=8,this.connection);}
   private renderVisual():void {
-    const row=JOURNEY_ROWS[this.selected]!,point=this.point,r=forwardPixels(this.model,point);
-    this.el('.journey-visual-heading strong').textContent=['그림 한 장 → 특징 두 개','정답이 붙은 7장의 위치','보라 선 = 뉴런 합이 0.00','검은 선 = A·B 점수가 같은 곳'][this.step]!;
-    this.el('.journey-visual-heading span').textContent=this.step===0?'같은 그림의 두 줄을 비교해요':this.step===1?'A: 두 줄이 같음 · B: 두 줄이 다름':`${journeyScore(this.model)} / ${JOURNEY_ROWS.length}개 맞힘`;
-    const picture=this.el('.journey-picture'),plot=this.el('.journey-plot');picture.hidden=this.step!==0;plot.hidden=this.step===0;
-    this.el('.journey-key').hidden=this.step<2;
-    if(this.step===0){picture.innerHTML=`${this.picture(JOURNEY_ROWS[0]!.cells,true)}<div class="journey-sum"><span class="${this.picked.has(this.calcRow*2)?'on':''}">${this.calcRow?'0.00':'1.00'}</span> + <span class="${this.picked.has(this.calcRow*2+1)?'on':''}">0.50</span> → <b>${this.picked.size>=2?this.calcRow?'0.50':'1.50':'?'}</b><small>두 칸의 값을 더한 합</small><span>합 ÷ 2.00 = ${this.calcRow?'아랫줄':'윗줄'} 평균 <b>${this.done.has(0)?'0.25':'?'}</b></span>${this.calcRow?'<small>✓ 윗줄 평균 0.75</small>':''}</div>`;}
-    else plot.innerHTML=this.plot();
-    this.el('.journey-sample-row').innerHTML=this.step===0?'':JOURNEY_ROWS.map((r,i)=>`<button data-journey-point="${i}" aria-label="${i+1}번 그림 정답 ${r.label?'B':'A'}" aria-pressed="${i===this.selected&&!this.probe}" style="--class:${colors[r.label]}">${this.picture(r.cells)}<b>정답 ${r.label?'B':'A'}</b></button>`).join('');
-    this.el('.journey-live').innerHTML=this.step===0?'<span>다음 장면에서도 이 그림을 사용해요.</span>':this.step===1?`<span>가로 ${this.featureFormula(row.cells,this.x)}</span><span>세로 ${this.featureFormula(row.cells,this.y)}</span> → <span>좌표 <b>(${n(journeyFeature(row.cells,this.x))}, ${n(journeyFeature(row.cells,this.y))})</b></span>`:`<span>${this.probe?'계산용 좌표':`정답 <b style="color:${colors[row.label]}">${row.label?'B':'A'}</b>`} (${n(point[0])}, ${n(point[1])})</span><span>예상 <b style="color:${colors[journeyPrediction(this.model,point)??0]}">${journeyPrediction(this.model,point)===null?'동점':journeyPrediction(this.model,point)===0?'A':'B'}</b></span>`;
-    const network=this.el('.journey-network');network.hidden=this.step<2;
-    if(this.step>=2){network.innerHTML=`<div class="journey-number-flow"><span>가로 ${n(point[0])}<br>세로 ${n(point[1])}</span><i>→</i><span style="color:#7446f5">뉴런 1<br><b>${n(r.hidden[0]!)}</b>${this.second&&this.step===3?`<br><em style="color:#df466f">뉴런 2 <b>${n(r.hidden[1]!)}</b></em>`:''}</span><i>→</i><span style="color:${colors[0]}">A 점수 <b>0.25</b><small>예제에서 정한 비교 점수</small><br><em style="color:${colors[1]}">B 점수 <b>${n(r.logits[1]!)}</b></em></span></div>${this.step===2?`<div class="journey-equation">${n(point[0])} × 1.00 + ${n(point[1])} × (−1.00) + (${n(this.bias)}) → <b>${n(r.hidden[0]!)}</b><small>음수는 0.00으로 · 넘긴 수 = B 점수</small></div>`:`<div class="journey-equation">B: ${n(r.hidden[0]!)}${this.second?` + ${n(r.hidden[1]!)} × ${n(this.muted?0:this.connection)}`:''} = <b>${n(r.logits[1]!)}</b><small>점수와 확률은 달라요. 여기서는 점수를 비교합니다.</small></div>`}`;}
-  }
-  private featureFormula(cells:number[],feature:JourneyFeature):string {const values=feature==='top'?cells.slice(0,2):feature==='bottom'?cells.slice(2):cells;return `${n(values.reduce((a,b)=>a+b,0))} ÷ ${n(values.length)} = <b>${n(journeyFeature(cells,feature))}</b>`;}
-  private plot():string {
-    const width=this.el('.journey-plot').clientWidth||600,height=this.el('.journey-plot').clientHeight||390;
-    const w=width-70,h=height-55,map=(x:number,y:number)=>({x:50+x*w,y:height-40-y*h}),m=this.model,parts:string[]=[];
-    const blend=(color:string,t:number)=>`rgb(${[1,3,5].map(i=>Math.round(255+(parseInt(color.slice(i,i+2),16)-255)*t)).join(',')})`;
-    if(this.step>=2){
-      const grid=Array.from({length:31},(_,j)=>Array.from({length:31},(_,i)=>({...map(i/30,j/30),scores:forwardPixels(m,[i/30,j/30]).logits})));
-      for(let j=0;j<30;j++)for(let i=0;i<30;i++){
-        const p=forwardPixels(m,[(i+.5)/30,(j+.5)/30]),winner=p.logits[0]!>p.logits[1]!?0:1,position=map(i/30,(j+1)/30);
-        parts.push(`<rect x="${position.x}" y="${position.y}" width="${w/30+.3}" height="${h/30+.3}" fill="${blend(colors[winner]!,.10+Math.abs(p.probabilities[0]!-.5)*.55)}"/>`);
-      }
-      let path='';for(let j=0;j<30;j++)for(let i=0;i<30;i++)classContours([grid[j]![i]!,grid[j]![i+1]!,grid[j+1]![i+1]!,grid[j+1]![i]!]).forEach(([a,b])=>path+=`M${a.x},${a.y}L${b.x},${b.y}`);
-      parts.push(`<path d="${path}" fill="none" stroke="#202633" stroke-width="3"/>`);
-      m.inputHidden.forEach(([a,b],neuron)=>{
-        const c=m.hiddenBias[neuron]!,ends:{x:number;y:number}[]=[];
-        for(const x of [0,1])if(b){const y=-(a!*x+c)/b;if(y>=0&&y<=1)ends.push(map(x,y));}
-        for(const y of [0,1])if(a){const x=-(b!*y+c)/a;if(x>=0&&x<=1)ends.push(map(x,y));}
-        const first=ends[0],last=ends.find(p=>first&&Math.hypot(p.x-first.x,p.y-first.y)>1),color=neuron?'#df466f':'#7446f5';
-        if(first&&last){
-          parts.push(`<line x1="${first.x}" y1="${first.y}" x2="${last.x}" y2="${last.y}" stroke="${color}" stroke-width="2.5" stroke-dasharray="7 4"/>`);
-          const x=first.x*.4+last.x*.6,y=first.y*.4+last.y*.6,length=Math.hypot(a!/w,b!/h),dx=a!/w/length*20,dy=-b!/h/length*20,angle=Math.atan2(dy,dx);
-          parts.push(`<path d="M${x},${y}l${dx},${dy}m${-7*Math.cos(angle-.5)},${-7*Math.sin(angle-.5)}L${x+dx},${y+dy}l${-7*Math.cos(angle+.5)},${-7*Math.sin(angle+.5)}" fill="none" stroke="${color}" stroke-width="2"/>`);
-        }
-      });
+    const stage=this.el('.journey-stage'),cells=JOURNEY_ROWS[0]!.cells;
+    this.el('.journey-visual-title').textContent=this.scene<3?'그림 → 숫자':this.scene<5?'숫자 → 자리':this.scene<7?'계산 → 선':'뉴런 → 답';
+    this.el('.journey-counter').textContent=this.scene>=7?`${journeyScore(this.model)} / 7장 맞힘`:'작은 그림으로 실험';
+    if(this.scene===0)stage.innerHTML=`<div class="journey-ink-demo"><div class="journey-ink" style="--ink:${this.ink}"></div><span class="journey-flow-arrow">→</span><output>${n(this.ink)}</output></div><div class="journey-ink-key"><span>흰색 0.00</span><span>회색 0.50</span><span>검정 1.00</span></div>`;
+    else if(this.scene<3){const top=this.scene===1,values=top?[1,.5]:[0,.5];stage.innerHTML=`<div class="journey-calc-picture">${this.picture(cells,top?0:1)}<span>${top?'윗줄':'아랫줄'} 두 칸</span></div><div class="journey-calculation"><div class="${this.frame>=1?'lit':''}"><b>${n(values[0]!)}</b><span>+</span><b>${n(values[1]!)}</b></div><span class="journey-down ${this.frame>=2?'lit':''}">↓ 더하면</span><div class="${this.frame>=2?'lit':''}"><b>${top?'1.50':'0.50'}</b><span>÷ 2</span></div><span class="journey-down ${this.frame>=3?'lit':''}">↓ 두 칸에 나누면</span><output>${this.done.has(this.scene)?top?'0.75':'0.25':'?'}</output></div>`;}
+    else stage.innerHTML=renderJourneyPlot({width:stage.clientWidth||560,height:stage.clientHeight||400,scene:this.scene,separated:this.separated,cursor:this.cursor,located:this.done.has(3),threshold:this.threshold,oldThreshold:this.oldThreshold,selected:this.selected,model:this.model,frame:this.frame,solved:this.done.has(this.scene)});
+    const network=this.el('.journey-network');network.hidden=this.scene<6;
+    const point=journeyPoint(JOURNEY_ROWS[this.selected]!.cells),result=forwardPixels(this.model,point),prediction=journeyPrediction(this.model,point);
+    if(this.scene>=6){const first=this.scene===6?`0.75 − 0.25 − ${n(this.threshold)}`:`${n(point[0])} − ${n(point[1])}`;
+      network.innerHTML=`<div class="journey-route"><div><small>가로 · 세로</small><b>${n(point[0])} · ${n(point[1])}</b></div><span>→</span><div class="journey-neurons"><div class="journey-neuron"><small>은닉 뉴런 1</small><span>${first}</span><b>${n(result.hidden[0]!)}</b></div>${this.scene>=8?`<div class="journey-neuron second"><small>은닉 뉴런 2</small><span>${n(point[1])} − ${n(point[0])}</span><b>${n(result.hidden[1]!)}</b></div>`:''}</div>${this.scene>=7?`<span>→</span><div class="journey-outputs"><span class="class-a">A <b>0.25</b></span><span class="class-b">B <b>${n(result.logits[1]!)}</b></span></div>`:''}</div><p>${this.scene===5?'가로 × 1.00 + 세로 × (−1.00) = 가로 − 세로. 음수는 0.00으로 바꿔요.':this.scene===6?`현재 선: 가로 − 세로 = ${n(this.threshold)} · 점 (0.75, 0.25)은 그대로예요.`:this.scene===8?`B = ${n(result.hidden[0]!)} + ${n(result.hidden[1]!)} × ${n(this.connection)} · 연결값이 0.00이면 답에 영향을 주지 않아요.`:`예상 ${prediction===null?'동점':prediction===0?'A · 두 줄이 같음':'B · 두 줄이 다름'} · 여기의 숫자는 확률이 아니라 비교 점수예요.`}</p>`;
     }
-    for(const v of [0,.25,.5,.75,1]){const p=map(v,v);parts.push(`<path d="M${p.x},15V${height-40} M50,${p.y}H${width-20}" stroke="#cdd2d9" stroke-width=".7"/><text x="${p.x}" y="${height-20}" text-anchor="middle">${n(v)}</text><text x="43" y="${p.y+5}" text-anchor="end">${n(v)}</text>`);}
-    JOURNEY_ROWS.forEach((row,i)=>{
-      const point=journeyPoint(row.cells,this.step===1?this.x:'top',this.step===1?this.y:'bottom'),p=map(...point);
-      parts.push(`<g data-journey-point="${i}" role="button" aria-label="${i+1}번 정답 ${row.label?'B':'A'}" tabindex="0"><circle cx="${p.x}" cy="${p.y}" r="${i===this.selected&&!this.probe?9:6}" fill="${colors[row.label]}" stroke="white" stroke-width="2"/><text x="${Math.min(width-15,p.x+10)}" y="${Math.max(14,p.y-8)}" fill="${colors[row.label]}">${row.label?'B':'A'}</text></g>`);
-    });
-    if(this.step===1&&this.x==='all'&&this.y==='all'){const p=map(.5,.5);parts.push(`<circle cx="${p.x}" cy="${p.y}" r="15" fill="white" stroke="#7446f5" stroke-width="2"/><text x="${p.x}" y="${p.y+5}" text-anchor="middle">5</text><text x="${Math.max(55,p.x-90)}" y="${p.y-23}">같은 자리: A 1장 · B 4장</text>`);}
-    if(this.probe){const p=map(...this.probe);parts.push(`<circle cx="${p.x}" cy="${p.y}" r="7" fill="white" stroke="#202633" stroke-width="2"/>`);}
-    return `<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="특징 지도. 점 색은 정답, 배경은 예상, 점선은 뉴런 기준, 검은 선은 최종 경계"><rect x="50" y="15" width="${w}" height="${h}" fill="#fafafa"/>${parts.join('')}<text x="${width/2}" y="${height-2}" text-anchor="middle">${JOURNEY_FEATURES[this.step===1?this.x:'top']}</text><text x="13" y="${height/2}" transform="rotate(-90 13 ${height/2})" text-anchor="middle">${JOURNEY_FEATURES[this.step===1?this.y:'bottom']}</text></svg>`;
+    this.el('.journey-legend').innerHTML=this.scene===3?'<span>가로 0.75 →</span><span>세로 0.25 ↑</span>':this.scene===4?'<span class="class-a">● 정답 A · 두 줄이 같음</span><span class="class-b">● 정답 B · 두 줄이 다름</span>':this.scene===6?'<span class="neuron-key">━ 보라: 지금의 0.00 선</span><span>┄ 회색: 바꾸기 전</span>':this.scene>=7?'<span>점 색 = 정답 · 바탕색 = 예상</span><span class="neuron-key">┄ 뉴런 계산 전환점</span><span>━ 검정: A 점수 = B 점수</span>':'';
   }
 }

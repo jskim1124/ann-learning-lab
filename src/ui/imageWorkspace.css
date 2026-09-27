@@ -451,7 +451,16 @@
 .image-results-panel:has(#imageMap) .image-trainer { margin-top:5px; }
 .image-results-panel:has(#imageMap) .learning-chart { margin-top:5px;padding-top:4px; }
 .image-results-panel:has(#imageMap) .learning-chart canvas { height:52px!important; }
-.image-results-panel #imageMap { flex:1 1 0;min-height:180px; }
+.image-results-panel #imageMap { flex:1 1 0;min-height:230px; }
+.image-model-panel .image-training-choice { display:grid;grid-template-columns:1fr;gap:8px;margin:0 0 12px; }
+.image-model-panel .image-training-choice>select { width:100%;padding:8px;font-size:14px; }
+.image-model-panel .practice-axes { display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin:0; }
+.image-model-panel .practice-axes label { min-width:0;font-size:14px;display:grid;gap:5px; }
+.image-model-panel .practice-axes select { width:100%;min-width:0;padding:7px;font-size:14px; }
+.image-model-panel .practice-axes>span { display:none; }
+.image-model-panel .practice-feature-create { align-self:end;max-width:65px;padding:6px;font-size:13px; }
+.image-model-panel #imageModeNote { font-size:13px;line-height:1.5; }
+.image-training-choice:has(#imageMode option[value="map"]:checked) #imageModeNote { display:none; }
 @media(min-width:901px) {
   .lesson-page[data-app-page="4"]>.page-heading.compact { grid-template-columns:max-content minmax(0,1fr) auto; }
   .lesson-page[data-app-page="4"]>.page-heading>.manual-launch { grid-column:3;grid-row:1; }

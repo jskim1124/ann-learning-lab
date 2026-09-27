@@ -17,7 +17,7 @@ function softColor(hex: string, confidence: number): string {
   return `rgb(${Math.round(255 + (red - 255) * amount)},${Math.round(255 + (green - 255) * amount)},${Math.round(255 + (blue - 255) * amount)})`;
 }
 
-export function drawFeatureSurface(canvas: HTMLCanvasElement, model: PixelModel, data: PixelExample[], testInput: { x: number; y: number }, options: { showNeuronBoundaries?: boolean; showDecisionBoundary?: boolean; showProbe?: boolean; selectedPoint?: number | null } = {}): void {
+export function drawFeatureSurface(canvas: HTMLCanvasElement, model: PixelModel, data: PixelExample[], testInput: { x: number; y: number }, options: { showNeuronBoundaries?: boolean; showDecisionBoundary?: boolean; showProbe?: boolean; selectedPoint?: number | null; showValueDirection?:boolean } = {}): void {
   fitSurfaceCanvas(canvas);
   const context = canvas.getContext("2d"); if (!context) return;
   const grid = 120; const cellWidth = canvas.width / grid; const cellHeight = canvas.height / grid;
@@ -34,6 +34,7 @@ export function drawFeatureSurface(canvas: HTMLCanvasElement, model: PixelModel,
     const segment = hiddenBoundarySegment(weights[0] ?? 0, weights[1] ?? 0, model.hiddenBias[neuron] ?? 0); if (!segment) return;
     const start = canvasPoint(canvas, ...segment[0]); const end = canvasPoint(canvas, ...segment[1]); const color = HIDDEN_COLORS[neuron % HIDDEN_COLORS.length]!;
     context.save(); context.strokeStyle = color; context.fillStyle = color; context.lineWidth = 2.5; context.globalAlpha = .82; context.beginPath(); context.moveTo(...start); context.lineTo(...end); context.stroke();
+    if(options.showValueDirection===false){context.restore();return;}
     const middleX = (start[0] + end[0]) / 2; const middleY = (start[1] + end[1]) / 2;
     const sx=(weights[0]??0)/canvas.width,sy=-(weights[1]??0)/canvas.height,length=Math.hypot(sx,sy)||1,dx=sx/length*22,dy=sy/length*22;
     context.beginPath(); context.moveTo(middleX, middleY); context.lineTo(middleX + dx, middleY + dy); context.stroke(); context.beginPath(); context.moveTo(middleX+dx,middleY+dy); context.lineTo(middleX+dx*.65-dy*.22,middleY+dy*.65+dx*.22); context.lineTo(middleX+dx*.65+dy*.22,middleY+dy*.65-dx*.22); context.closePath(); context.fill(); context.restore();

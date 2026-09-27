@@ -18,10 +18,10 @@ describe("자료에서 연습으로 이어지는 실제 화면 이동",()=>{
     click('[data-preset="xor"]');click('#scenarioNext');click('#dataNext');
     const root=document.getElementById('penaltyUnderstanding')!;
     expect([...root.querySelectorAll('.journey-nav button')].map(b=>b.textContent)).toEqual(['1 특징 계산','2 분포·선택','3 뉴런·선','4 뉴런·출력']);
-    click('#penaltyUnderstanding [data-journey-cell="0"]');click('#penaltyUnderstanding [data-journey-cell="1"]');click('#penaltyUnderstanding [data-journey-answer="0"]');
+    const ink=root.querySelector<HTMLInputElement>('[data-journey-ink]')!;ink.value='1';ink.dispatchEvent(new Event('input',{bubbles:true}));click('#penaltyUnderstanding [data-journey-answer="0"]');
     expect(root.querySelectorAll('.is-wrong')).toHaveLength(1);expect(root.querySelector('.correct')).toBeNull();
-    expect(root.querySelector('.journey-summary')!.hasAttribute('hidden')).toBe(true);
-    expect(root.querySelector('[role=status]')!.textContent).toContain('오답');
+    expect(root.querySelector('.journey-summary')).toBeNull();
+    expect(root.querySelector('.journey-feedback')!.textContent).toContain('오답');
   },20000);
   it("자율 숫자 문제는 이해 없이 연습으로 가고, 특징을 바꿔도 그 화면에 남는다",()=>{
     click('[data-preset="custom"]');click("#scenarioNext");click("#customLoadExample");click("#dataNext");
