@@ -1,0 +1,108 @@
+/* Current exploration content, independent of the retired quiz layout.
+   1 pt = 1.333 CSS px: reduce type, never scale the canvas or the page. */
+:root { --lesson-text:calc(17px - 1pt); --lesson-small:calc(16px - 1pt); }
+.exploration-journey { font-size:var(--lesson-text); }
+.exploration-journey button,.exploration-journey select,.exploration-journey p,.explore-controls label,.explore-equation { font-size:var(--lesson-small); }
+.exploration-journey h2 { font-size:calc(23px - 1pt); }
+.explore-nav button,.explore-visual>header { font-size:calc(18px - 1pt); }
+.explore-knob output { font-size:calc(19px - 1pt); }
+.explore-point [data-close-point] { position:absolute;right:3px;top:3px;min-height:28px;padding:0;width:28px;border:0; }
+.explore-point strong { font-size:var(--lesson-small);white-space:normal; }
+.explore-zero { position:absolute;pointer-events:none;transform:translate(8px,-26px);background:white;border:1px solid #7446f5;color:#6936d8;border-radius:7px;padding:3px 6px;font-size:var(--lesson-small); }
+.explore-network { display:block;min-height:0;border-top:1px solid #edf0f3;padding-top:6px; }
+.explore-network svg { display:block;width:100%;height:auto;max-height:170px;overflow:visible; }
+.explore-network svg rect { fill:#f9f8fd;stroke:var(--neuron);stroke-width:1.5; }
+.explore-network svg text { text-anchor:middle;fill:#252c38;font-size:21px;font-variant-numeric:tabular-nums; }
+.explore-network svg .calc-label { font-size:16px; }
+.explore-network .calc-wire { stroke:var(--neuron);stroke-width:2;fill:none; }
+.exploration-journey[data-animation-phase="0"] .phase-input rect,
+.exploration-journey[data-animation-phase="1"] .phase-sum rect,
+.exploration-journey[data-animation-phase="2"] .phase-result rect { fill:#e4dafa;stroke-width:3; }
+.explore-comparisons { display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px; }
+.explore-comparisons article { padding:8px;border:1px solid #e4e6ed;border-radius:14px;min-width:0; }
+.explore-comparisons [data-source-example] { display:flex;flex-direction:column;align-items:center;gap:5px;margin-top:7px;font-size:var(--lesson-small); }
+.explore-comparisons .explore-picture { width:clamp(94px,17dvh,155px);height:auto;max-width:100%;cursor:crosshair; }
+.explore-comparisons strong { font-size:var(--lesson-small); }
+.explore-comparisons [data-source-example]:has(svg) { display:grid;grid-template-columns:90px minmax(0,1fr);align-items:center;font-size:var(--lesson-small); }
+.explore-comparisons [data-source-example]>svg { grid-column:1;grid-row:1/4;width:90px; }
+.explore-comparisons [data-source-example]>span,.explore-comparisons [data-source-example]>strong { grid-column:2; }
+.explore-comparisons .explore-goal { max-width:100%; }
+.explore-goal span { white-space:nowrap; }
+.explore-feature-tools { margin:3px 0; }
+.explore-line-proof,.explore-learning-step { padding:12px;border-radius:14px;background:#f5f2fc;font-size:var(--lesson-text); }
+.explore-learning-step>span { display:block;margin-top:7px;font-variant-numeric:tabular-nums; }
+.explore-loss-comparison,.explore-capacity { display:flex;gap:10px;justify-content:space-between;font-size:var(--lesson-small);margin:12px 0; }
+.explore-loss-comparison>span { flex:1;padding:10px 5px;border-radius:12px;background:#f7f8fa;text-align:center; }
+.explore-loss-comparison>span.current { background:#eee8ff; }
+.explore-loss-comparison b,.explore-capacity b { display:block;font-size:calc(22px - 1pt);font-variant-numeric:tabular-nums; }
+.explore-output-nodes { max-width:none;text-align:left;padding:10px 0; }
+.explore-output-nodes>div { justify-content:flex-start; }
+.explore-observation details { margin-top:8px; }
+.explore-content { scrollbar-gutter:stable; }
+/* Feedback replaces the introductory line, rather than growing the panel.
+   Keep the live region for assistive technologies without duplicating the text. */
+.explore-status { position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%); }
+.explore-neuron-choice:has(>button:only-child) { display:none; }
+.exploration-journey[data-chapter="2"] .explore-controls { display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:7px; }
+.exploration-journey[data-chapter="2"] .explore-neuron-choice,.exploration-journey[data-chapter="2"] .explore-tools { grid-column:1/-1; }
+.exploration-journey[data-chapter="2"] .explore-loss-comparison { margin-top:6px; }
+.explore-learning-step { padding:9px 10px; }
+.explore-metric { font-size:var(--lesson-small);display:block;margin-top:7px; }
+.exploration-journey[data-chapter="0"] .explore-controls { margin:4px 0;gap:3px; }
+.exploration-journey[data-chapter="3"] .explore-capacity { margin:10px 0; }
+.exploration-journey[data-chapter="0"] .explore-observation details { margin-top:4px; }
+@media (min-width:901px) and (max-width:1150px) {
+  .explore-comparisons [data-source-example]:has(svg) { display:flex; }
+  .explore-comparisons [data-source-example]>svg { width:85px; }
+}
+
+/* Capture panels own the available height. Both squares fit the remaining
+   drawing row; the controls and next-page navigation can no longer be pushed out. */
+@media (min-width:601px) and (min-height:521px) {
+  body:has(.image-collection):not(:has(.exploration-journey:not([hidden]))) .topbar { height:60px; }
+  .lesson-shell { height:calc(100dvh - 60px);min-height:0; }
+  .lesson-page:has(.image-collection) { min-height:0;height:100%;padding:12px 20px 10px; }
+  .lesson-page:has(.image-collection)>.page-heading { flex:none;min-height:0;margin-bottom:8px; }
+  .lesson-page:has(.image-collection)>.page-heading h1 { font-size:calc(26px - 1pt); }
+  .lesson-page:has(.image-collection)>.page-nav { position:static;flex:none;min-height:48px;background:transparent; }
+  .image-collection { grid-template-rows:minmax(0,1fr); }
+  .image-collection .image-panel { padding:14px; }
+  .image-collection button,.image-collection select,.image-collection input { font-size:var(--lesson-text);min-height:38px;padding:6px 10px; }
+  .image-collection h2 { font-size:calc(22px - 1pt); }
+  .image-collection .image-heading { margin:0 0 8px;flex:none; }
+  .image-collection .image-heading>span { font-size:var(--lesson-small)!important; }
+  .image-collection .image-capture-slot { align-items:stretch; }
+  .image-collection .image-capture { display:flex;flex-direction:column;min-height:0;height:100%;gap:8px; }
+  .image-collection .image-capture-pair { flex:1;min-height:0;width:100%;max-width:none;margin:0;grid-template-columns:minmax(0,1fr) 24px minmax(0,1fr);container-type:size; }
+  .image-collection .image-capture-pair figure { display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:0;height:100%; }
+  .image-collection .image-source,.image-collection .image-processed>canvas { flex:none;width:min(100%,calc(100cqh - 30px));max-width:none;height:auto;aspect-ratio:1;margin:0; }
+  .image-collection .image-capture-pair figcaption { flex:none;font-size:var(--lesson-small);line-height:1.3;margin-top:6px; }
+  .image-collection .image-capture-buttons { flex:none;margin:0;align-items:flex-end;gap:8px;flex-wrap:wrap; }
+  .image-collection .image-capture-buttons button { min-height:42px; }
+  .image-collection #imageCaptureHint,.image-collection #imagePrivacy { margin:0;flex:none;font-size:var(--lesson-small);line-height:1.3; }
+  .image-collection .image-input-switch { flex:none;margin:0; }
+  .image-collection .image-thumbnails { container-type:size; }
+  .image-collection .image-thumbnails button { width:min(23%,100cqh);max-width:none;height:min(100%,90px);aspect-ratio:1;min-height:0;padding:2px;flex:none; }
+  .image-collection .image-class { padding:8px; }
+  .image-collection .image-class-top button { min-height:30px; }
+  .image-collection #imageNewClass { margin-top:8px; }
+  .image-collection .image-pager { margin-top:6px; }
+}
+@media (min-width:601px) and (max-width:900px) {
+  .explore-body { grid-template-rows:minmax(280px,.9fr) minmax(350px,1.1fr); }
+  .explore-network svg { max-height:125px; }
+  .explore-content { display:block; }
+  .exploration-journey:not([data-chapter="0"]) .explore-content { display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px 14px;align-content:start; }
+  .exploration-journey:not([data-chapter="0"]) .explore-content h2,.exploration-journey:not([data-chapter="0"]) .explore-instruction { grid-column:1/-1; }
+  .exploration-journey:not([data-chapter="0"]) .explore-controls { grid-column:1;grid-row:3; }
+  .exploration-journey:not([data-chapter="0"]) .explore-equation { grid-column:2;grid-row:3/5; }
+  .exploration-journey:not([data-chapter="0"]) .explore-observation { grid-column:1;grid-row:4; }
+  .exploration-journey[data-chapter="0"] .explore-body { grid-template-rows:minmax(240px,.8fr) minmax(420px,1.2fr); }
+  .exploration-journey[data-chapter="0"] .explore-controls { display:grid;grid-template-columns:1fr 1fr;gap:8px; }
+  .exploration-journey[data-chapter="0"] .explore-axes,.exploration-journey[data-chapter="0"] .explore-toggle,.exploration-journey[data-chapter="0"] .explore-comparisons,.exploration-journey[data-chapter="0"] .explore-direction { grid-column:1/-1; }
+  .explore-comparisons .explore-picture { width:108px; }
+}
+@media (max-width:600px),(max-height:520px) {
+  .image-collection .image-capture-slot { overflow:auto; }
+  .image-capture { min-height:420px; }
+}

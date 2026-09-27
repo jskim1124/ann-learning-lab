@@ -35,6 +35,7 @@ import { pixelNetworkGraphMarkup } from "./visualization/pixelNetworkGraph";
 import './ui/tabletLayout.css';
 import './ui/practiceLayout.css';
 import './ui/explorationLayout.css';
+import './ui/explorationRefinement.css';
 
 function element<T extends Element>(selector: string): T {
   const found = document.querySelector<T>(selector);

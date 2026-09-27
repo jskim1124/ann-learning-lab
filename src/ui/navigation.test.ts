@@ -24,7 +24,7 @@ describe("자료에서 연습으로 이어지는 실제 화면 이동",()=>{
     click('#penaltyUnderstanding [data-explore-chapter="3"]');click('#penaltyUnderstanding [data-explore-next]');
     expect(document.querySelector<HTMLElement>('[data-app-page="4"]')!.hidden).toBe(false);
     click('.manual-launch');expect(root.hidden).toBe(false);expect(root.dataset.chapter).toBe('2');
-    expect(root.querySelector<HTMLInputElement>('[data-knob="bias"]')!.value).toBe('0.5');
+    expect(root.querySelector<HTMLInputElement>('[data-knob="bias"]')!.value).toBe('0.50');
   },20000);
   it("자율 숫자 문제는 이해 없이 연습으로 가고, 특징을 바꿔도 그 화면에 남는다",()=>{
     click('[data-preset="custom"]');click("#scenarioNext");click("#customLoadExample");click("#dataNext");

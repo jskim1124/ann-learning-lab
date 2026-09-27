@@ -15,7 +15,7 @@ describe('실제 자료로 탐구하는 이해 단계',()=>{
   beforeEach(()=>{vi.useFakeTimers();document.body.innerHTML='<div id="root"></div>';root=document.getElementById('root')!;journey=new UnderstandingJourney(root,{source,context:()=>'',complete});});
   afterEach(()=>{journey.stop();vi.useRealTimers();vi.clearAllMocks();});
   it('모든 장면을 다시 오갈 수 있고 정해진 답을 요구하지 않는다',()=>{
-    expect([...root.querySelectorAll('[data-explore-chapter]')].map(b=>b.textContent)).toEqual(['1 자료를 숫자로','2 분포 살피기','3 뉴런 고치기','4 답 합치기']);
+    expect([...root.querySelectorAll('[data-explore-chapter]')].map(b=>b.textContent)).toEqual(['1 자료와 특징','2 숫자로 선 만들기','3 학습 방향','4 뉴런 늘리기']);
     click('[data-explore-chapter="3"]');expect(root.dataset.chapter).toBe('3');click('[data-explore-chapter="0"]');expect(root.dataset.chapter).toBe('0');
     expect(root.querySelector('[data-journey-answer]')).toBeNull();click('[data-explore-chapter="3"]');click('[data-explore-next]');expect(complete).toHaveBeenCalled();
   });
@@ -25,37 +25,53 @@ describe('실제 자료로 탐구하는 이해 단계',()=>{
     expect(JSON.stringify(last()[2])).toBe(before);input('[data-knob="kick"]','0');expect(root.querySelector('.explore-point')!.textContent).toContain('가운데 방향은 판정하지 않아요');
   });
   it('분포는 실제 자료이며 한 축으로 접어 비교해도 원자료는 보존된다',()=>{
-    journey.goTo(1);expect(last()[2]).toEqual(source().data);click('[data-dimension="1"]');expect(last()[2].every(r=>r.pixels[1]===0)).toBe(true);
-    click('[data-dimension="2"]');expect(last()[2]).toEqual(source().data);click('[data-filter="1"]');expect(last()[5]?.emphasizeClass).toBe(1);
+    journey.goTo(0);expect(last()[2]).toEqual(source().data);click('[data-dimension="1"]');expect(last()[2].every(r=>r.pixels[1]===0)).toBe(true);
+    click('[data-dimension="2"]');expect(last()[2]).toEqual(source().data);
   });
   it('슬라이더는 실제 가중치를 고치고 식·뉴런 값·지도 모델이 일치한다',()=>{
-    journey.goTo(2);const slider=root.querySelector('[data-knob="bias"]');input('[data-knob="xWeight"]','-1');input('[data-knob="yWeight"]','1');input('[data-knob="bias"]','1');
+    journey.goTo(1);const slider=root.querySelector('[data-knob="bias"]');input('[data-knob="xWeight"]','-1');input('[data-knob="yWeight"]','1');input('[data-knob="bias"]','1');
     expect(root.querySelector('[data-knob="bias"]')).toBe(slider);
     const m=last()[1];expect(m.inputHidden[0]).toEqual([-1,1]);expect(m.hiddenBias[0]).toBe(1);
-    expect(root.querySelector('[data-calculation]')!.textContent).toContain('더하면 1.00');expect(forwardPixels(m,[-.5,-.5]).hidden[0]).toBe(1);
+    expect(root.querySelector('.phase-sum')!.textContent).toContain('= 1.00');expect(forwardPixels(m,[-.5,-.5]).hidden[0]).toBe(1);
     expect(root.querySelector('.explore-network')!.textContent).toContain('1.00');
   });
   it('뉴런을 추가한 것만으로 답이 달라지지 않고 출력 수는 클래스 수다',()=>{
     journey.goTo(3);const before=last()[1];click('[data-add-neuron]');const after=last()[1];
     expect(after.hiddenUnits).toBe(2);for(const r of source().data)expect(forwardPixels(after,r.pixels).logits).toEqual(forwardPixels(before,r.pixels).logits);
     expect(root.querySelectorAll('.explore-output-nodes > div > span')).toHaveLength(2);
-    input('[data-knob="connection"]','1');expect(last()[1].hiddenOutput[1]![1]).toBe(1);
+    click('[data-train]');expect(last()[1].hiddenOutput[1]![1]).not.toBe(0);
   });
-  it('재생은 중간 계산과 선을 함께 바꾸고 화면 이동 시 타이머를 취소한다',()=>{
-    journey.goTo(2);click('[data-anchor]');input('[data-knob="bias"]','1');click('[data-replay]');vi.advanceTimersByTime(720);
-    expect(last()[1].hiddenBias[0]).toBeGreaterThan(0);expect(last()[1].hiddenBias[0]).toBeLessThan(1);
-    journey.goTo(3);expect(vi.getTimerCount()).toBe(0);expect(last()[1].hiddenBias[0]).toBe(1);
-    click('[data-train]');vi.advanceTimersByTime(1600);expect(last()[1].epoch).toBe(1);
+  it('변화 재생 없이 계산 경로를 강조하고 이동하면 타이머를 취소한다',()=>{
+    journey.goTo(1);expect(root.querySelector('[data-replay]')).toBeNull();input('[data-knob="bias"]','1');click('[data-play-math]');vi.advanceTimersByTime(700);
+    expect(root.dataset.animationPhase).toBe('1');expect(last()[1].hiddenBias[0]).toBe(1);
+    journey.goTo(3);expect(vi.getTimerCount()).toBe(0);click('[data-train]');expect(last()[1].epoch).toBe(1);
   });
   it('숫자 그림의 특징 변경이 실제 연습 저장소와 동일한 좌표로 이어진다',()=>{
     journey.stop();root.replaceWith(root=root.cloneNode(false) as HTMLElement);const store=new ImageLabStore('omr');journey=new UnderstandingJourney(root,{source:()=>imageExplorationSource(store.snapshot),context:()=>'',complete,setAxes:(x,y)=>store.setAxes(x,y)});
-    expect(root.querySelector('.explore-picture rect')).not.toBeNull();journey.goTo(1);
+    expect(root.querySelector('.explore-picture rect')).not.toBeNull();journey.goTo(0);
     const select=root.querySelector<HTMLSelectElement>('[data-feature="0"]')!;select.value='lr';select.dispatchEvent(new Event('change',{bubbles:true}));
     expect(store.snapshot.xFeature).toBe('lr');expect(last()[2]).toEqual(imageExplorationSource(store.snapshot).data);expect(last()[5]!.axisLegend!.horizontal.title).toBe('오른쪽 − 왼쪽 (평균 0)');
   });
   it('잘못된 특징 조합을 선택해도 이전의 유효한 좌표로 돌아온다',()=>{
-    journey.stop();root.replaceWith(root=root.cloneNode(false) as HTMLElement);const store=new ImageLabStore('digits');journey=new UnderstandingJourney(root,{source:()=>imageExplorationSource(store.snapshot),context:()=>'',complete,setAxes:(x,y)=>store.setAxes(x,y)});journey.goTo(1);
+    journey.stop();root.replaceWith(root=root.cloneNode(false) as HTMLElement);const store=new ImageLabStore('digits');journey=new UnderstandingJourney(root,{source:()=>imageExplorationSource(store.snapshot),context:()=>'',complete,setAxes:(x,y)=>store.setAxes(x,y)});journey.goTo(0);
     const select=root.querySelector<HTMLSelectElement>('[data-feature="0"]')!;select.value='center';select.dispatchEvent(new Event('change',{bubbles:true}));
     expect(store.snapshot.xFeature).toBe('ink');expect(root.querySelector<HTMLSelectElement>('[data-feature="0"]')!.value).toBe('ink');
+  });
+  it('점의 정답·예상은 클릭한 점 팝업에서만 보이며 닫을 수 있다',()=>{
+    journey.goTo(2);expect(root.querySelector<HTMLElement>('.explore-point')!.hidden).toBe(true);
+    root.querySelector('canvas')!.dispatchEvent(new MouseEvent('pointerdown',{bubbles:true,clientX:30,clientY:40}));
+    expect(root.querySelector<HTMLElement>('.explore-point')!.hidden).toBe(false);expect(root.querySelector('.explore-point')!.textContent).toContain('정답 골');
+    click('[data-close-point]');expect(root.querySelector<HTMLElement>('.explore-point')!.hidden).toBe(true);
+  });
+  it('학습 방향은 선택한 수 하나만 실제 계산값으로 갱신한다',()=>{
+    journey.goTo(2);input('[data-knob="bias"]','.2');const before=last()[1];click('[data-learn-one]');const after=last()[1];
+    expect(after.inputHidden).toEqual(before.inputHidden);expect(after.hiddenOutput).toEqual(before.hiddenOutput);expect(after.hiddenBias).not.toEqual(before.hiddenBias);
+    expect(root.textContent).toContain('점과 선의 거리가 아닙니다');
+  });
+  it('자료와 특징은 같은 화면의 두 실제 그림에서 같은 칸의 계산을 비교한다',()=>{
+    journey.stop();root.replaceWith(root=root.cloneNode(false) as HTMLElement);const store=new ImageLabStore('omr');journey=new UnderstandingJourney(root,{source:()=>imageExplorationSource(store.snapshot),context:()=>'',complete});
+    expect(root.querySelectorAll('.explore-comparisons svg')).toHaveLength(2);
+    root.querySelector('[data-source-example="0"] [data-pixel="57"]')!.dispatchEvent(new MouseEvent('click',{bubbles:true}));
+    for(const e of root.querySelectorAll('[data-source-example]'))expect(e.textContent).toContain('고른 칸');
   });
 });

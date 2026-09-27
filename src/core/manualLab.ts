@@ -85,6 +85,11 @@ export class ManualLab {
     this.parameterLimit=Math.max(this.parameterLimit,...[...this.model.inputHidden.flat(),...this.model.hiddenBias,...this.model.hiddenOutput.flat(),...this.model.outputBias].map(v=>Math.ceil(Math.abs(v))));
     this.best=Math.max(this.best,this.score);
   }
+  /** Preserve full precision for a calculated learning step; display alone rounds to 2 decimals. */
+  applyModel(model:PixelModel):void {
+    this.record();this.model=copyModel(model);
+    this.parameterLimit=Math.max(this.parameterLimit,...[...model.inputHidden.flat(),...model.hiddenBias].map(v=>Math.ceil(Math.abs(v))));
+  }
   addNeuron(): void {
     if(this.model.hiddenUnits>=4)return;
     this.record();this.model.inputHidden.push([0,1]);this.model.hiddenBias.push(0);
