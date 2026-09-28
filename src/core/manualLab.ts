@@ -88,7 +88,7 @@ export class ManualLab {
   /** Preserve full precision for a calculated learning step; display alone rounds to 2 decimals. */
   applyModel(model:PixelModel):void {
     this.record();this.model=copyModel(model);
-    this.parameterLimit=Math.max(this.parameterLimit,...[...model.inputHidden.flat(),...model.hiddenBias].map(v=>Math.ceil(Math.abs(v))));
+    this.parameterLimit=Math.max(this.parameterLimit,...[...model.inputHidden.flat(),...model.hiddenBias,...model.hiddenOutput.flat(),...model.outputBias].map(v=>Math.ceil(Math.abs(v))));
   }
   addNeuron(): void {
     if(this.model.hiddenUnits>=4)return;

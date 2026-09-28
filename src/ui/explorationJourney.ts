@@ -1,16 +1,16 @@
-import { ManualLab, manualPrediction, manualScore, type ManualParameter } from '../core/manualLab';
-import { evaluatePixelModel, forwardPixels, trainPixelModel } from '../core/pixelNetwork';
+import { ManualLab, copyModel, manualPrediction, manualScore, type ManualParameter } from '../core/manualLab';
+import { evaluatePixelModel, forwardPixels, trainPixelModel, type PixelModel } from '../core/pixelNetwork';
 import { learningDirection, parameterValue, withParameter, zeroPoint, type InputParameter } from '../core/explorationLearning';
 import type { ExplorationSource } from '../core/explorationSource';
 import { drawPixelLatentMap, pixelMapExampleAt } from '../visualization/pixelLatentMap';
 import { NEURON_COLORS } from '../visualization/neuronColors';
-import { explorationNetwork } from './explorationNetwork';
+import { explorationNetwork, explorationOutputNetwork } from './explorationNetwork';
 
 interface JourneyOptions {
   source:()=>ExplorationSource; context:()=>string; complete:()=>void; back?:()=>void;
   setAxes?:(x:string,y:string)=>string|null; featureEditor?:(host:HTMLElement)=>void;
 }
-const CHAPTERS=['자료와 특징','숫자로 선 만들기','학습 방향','뉴런 늘리기'];
+const CHAPTERS=['자료 비교','뉴런 직접 조절','오차 줄이기','뉴런 늘리기'];
 const IDENTITY={mean:[0,0],horizontal:[1,0],vertical:[0,1],horizontalScale:1,verticalScale:1};
 const COLORS=['#f17605','#df466f','#7446f5','#1f6bd6','#1558b7','#a93658'];
 const n=(value:number)=>Math.abs(value)<.005?'0.00':value.toFixed(2);
@@ -26,6 +26,7 @@ export class UnderstandingJourney {
   private axis:0|1=0;private oneAxis=false;private timer=0;private phase=-1;
   private inputKey='';private featureFrame=-1;private compare=1;private popup=false;private status='';private introduction='';
   private parameter:InputParameter='bias';private onLine=false;private chosePoint=false;
+  private trial:PixelModel|null=null;private guess:-1|1|null=null;private tried=false;
   constructor(root:HTMLElement,private options:JourneyOptions) {
     this.root=root;root.className='image-workspace understanding-journey exploration-journey';
     root.innerHTML=`<nav class="explore-nav" aria-label="이해 순서">${CHAPTERS.map((s,i)=>`<button data-explore-chapter="${i}"><span>${i+1}</span> ${s}</button>`).join('')}</nav>
@@ -47,7 +48,8 @@ export class UnderstandingJourney {
   }
   private el<T extends HTMLElement=HTMLElement>(s:string):T{return this.root.querySelector<T>(s)!;}
   stop():void {window.clearInterval(this.timer);this.timer=0;this.phase=-1;this.featureFrame=-1;}
-  reset():void {this.stop();this.chapter=0;this.axis=0;this.oneAxis=false;this.status='';this.signature='';this.inputKey='';this.popup=false;this.onLine=false;}
+  reset():void {this.stop();this.chapter=0;this.axis=0;this.oneAxis=false;this.status='';this.signature='';this.inputKey='';this.popup=false;this.onLine=false;this.trial=null;this.guess=null;this.tried=false;}
+  private startTrial():void {this.trial=copyModel(this.lab.model);this.guess=null;this.tried=false;}
   show(visible:boolean):void {this.root.hidden=!visible;if(visible)this.render();else this.stop();}
   goTo(chapter:number):void {
     this.stop();this.chapter=Math.max(0,Math.min(3,chapter));this.onLine=false;this.popup=false;this.inputKey='';this.status='';
@@ -56,12 +58,13 @@ export class UnderstandingJourney {
       let strongest=-1,index=0;this.source.data.forEach((row,i)=>{const g=Math.abs(learningDirection(this.lab.model,[row],this.lab.selected,this.parameter).gradient);const visible=forwardPixels(this.lab.model,row.pixels).hidden[this.lab.selected]!>.1;const priority=g+(visible?1:0);if(priority>strongest){strongest=priority;index=i;}});
       this.lab.choosePoint(this.source.data[index]!.pixels,index);
     }
+    if(this.chapter===2)this.startTrial();
     this.render();
   }
   render():void {
     this.source=this.options.source();
     const key=JSON.stringify([this.source.kind,this.source.data,this.source.classes,this.source.axes]);
-    if(key!==this.signature){this.stop();this.signature=key;this.lab=new ManualLab('data',this.source);this.inputKey='';this.popup=false;this.onLine=false;this.chosePoint=false;this.compare=Math.max(0,this.source.data.findIndex(r=>r.label!==this.source.data[0]?.label));}
+    if(key!==this.signature){this.stop();this.signature=key;this.lab=new ManualLab('data',this.source);this.startTrial();this.inputKey='';this.popup=false;this.onLine=false;this.chosePoint=false;this.compare=Math.max(0,this.source.data.findIndex(r=>r.label!==this.source.data[0]?.label));}
     this.root.dataset.chapter=String(this.chapter);
     this.root.querySelectorAll<HTMLElement>('[data-explore-chapter]').forEach(b=>b.setAttribute('aria-current',Number(b.dataset.exploreChapter)===this.chapter?'step':'false'));
     this.el('[data-explore-back]').textContent=this.chapter?'← 이전':'← 자료 보기';
@@ -78,9 +81,9 @@ export class UnderstandingJourney {
   private renderControls():void {
     const s=this.source,m=this.lab.model;
     this.el('h2').textContent=[s.kind==='penalty'?'두 방향을 숫자로 기록해요':'나란히 놓고 특징을 찾아요','어떤 점들을 이으면 선이 될까요?','어느 쪽으로 고쳐야 오차가 줄까요?','뉴런 하나가 더 생기면?'][this.chapter]!;
-    this.introduction=[s.kind==='penalty'?'방향 한 개로 충분할까요? 두 방향을 함께 기록해 비교하세요.':'두 그림에 같은 계산을 해 보고, 분포를 비교하세요.','은닉 뉴런은 두 입력에 각각 곱한 뒤 더하는 계산기입니다. 합이 0인 점들을 이은 것이 색 선이에요.','전체 자료의 정답과 예상을 비교해 방향을 정해요.','기준선과 계산 경로가 하나 더 생겨요. 늘린 뒤 학습하고, 최종 경계와 오차를 비교해 보세요.'][this.chapter]!;
+    this.introduction=[s.kind==='penalty'?'방향 한 개로 충분할까요? 두 방향을 함께 기록해 비교하세요.':'두 그림에 같은 계산을 해 보고, 분포를 비교하세요.','은닉 뉴런은 곱하고 더하는 계산기예요. 수 하나를 바꾸고, 왼쪽 계산과 선을 함께 보세요.','방향을 먼저 예상한 뒤 직접 고쳐 보세요. 정해진 답 대신, 실제 오차로 확인합니다.','뉴런을 추가하고 답에 쓰는 비율을 바꿔 보세요. 새 기준이 최종 경계에 어떻게 보탬이 될까요?'][this.chapter]!;
     this.el('.explore-feature-tools').hidden=this.chapter!==0;
-    const key=JSON.stringify([this.chapter,s.axes,s.features?.map(f=>[f.id,f.name]),s.classes,m.hiddenUnits,this.lab.selected,this.axis,this.parameter]);
+    const key=JSON.stringify([this.chapter,s.axes,s.features?.map(f=>[f.id,f.name]),s.classes,m.hiddenUnits,this.lab.selected,this.lab.output,this.axis,this.parameter]);
     if(this.inputKey===key)return;this.inputKey=key;
     let html='';
     if(this.chapter===0){
@@ -89,9 +92,12 @@ export class UnderstandingJourney {
       html+=`<div class="explore-toggle"><button data-dimension="1" aria-pressed="${this.oneAxis}">가로만 보기</button><button data-dimension="2" aria-pressed="${!this.oneAxis}">두 특징 함께</button>${s.features?`<button data-axis="${1-this.axis}">${this.axis===0?'세로':'가로'} 계산 보기</button>`:''}</div><div class="explore-comparisons"><article>${this.rows('data-row',this.lab.pointIndex??0)}<div data-source-example="0"></div></article><article>${this.rows('data-compare',this.compare)}<div data-source-example="1"></div></article></div>`;
     }else{
       html=`<div class="explore-neuron-choice">${Array.from({length:m.hiddenUnits},(_,i)=>`<button data-neuron="${i}" style="--neuron:${neuronColor(i)}" aria-pressed="${this.lab.selected===i}">뉴런 ${i+1}</button>`).join('')}${this.chapter===3?`<button data-add-neuron ${m.hiddenUnits>=4?'disabled':''}>+ 뉴런 추가</button><button data-remove-neuron ${m.hiddenUnits<=1?'disabled':''}>−</button>`:''}</div>`;
-      if(this.chapter===1)html+=Object.entries(PARAMS).map(([id,label])=>this.range(id,label,parameterValue(m,this.lab.selected,id as InputParameter))).join('')+`<div class="explore-tools"><button data-zero>선 위의 점 계산</button><button data-play-math>계산 따라 보기</button><button data-undo aria-label="값 변경 되돌리기">↶</button></div>`;
-      if(this.chapter===2)html+=`<label>한 번에 이 수만 고쳐 보기<select data-parameter aria-label="학습 방향을 볼 수">${Object.entries(PARAMS).map(([id,label])=>`<option value="${id}" ${id===this.parameter?'selected':''}>${label}</option>`).join('')}</select></label>`+this.range(this.parameter,PARAMS[this.parameter],parameterValue(m,this.lab.selected,this.parameter))+`<div class="explore-tools"><button data-learn-one>모델이 계산한 방향으로 한 걸음</button><button data-undo aria-label="값 변경 되돌리기">↶</button></div>`;
-      if(this.chapter===3)html+=`<div class="explore-tools"><button data-train>1번 학습</button><button data-train-many>50번 학습</button><button data-undo aria-label="값 변경 되돌리기">↶</button></div>`;
+      if(this.chapter===1||this.chapter===2)html+=`<label>바꿔 볼 수<select data-parameter aria-label="직접 바꿀 수">${Object.entries(PARAMS).map(([id,label])=>`<option value="${id}" ${id===this.parameter?'selected':''}>${label}</option>`).join('')}</select></label>`;
+      if(this.chapter===2)html+=`<fieldset class="explore-prediction"><legend>오차가 줄어들 것 같은 쪽은?</legend><button data-guess="-1">줄여 볼래요</button><button data-guess="1">늘려 볼래요</button></fieldset>`;
+      if(this.chapter===1||this.chapter===2)html+=this.range(this.parameter,PARAMS[this.parameter],parameterValue(m,this.lab.selected,this.parameter));
+      if(this.chapter===1)html+=`<div class="explore-tools"><button data-zero>선 위의 점 계산</button><button data-play-math>계산 따라 보기</button><button data-undo aria-label="값 변경 되돌리기">↶</button></div>`;
+      if(this.chapter===2)html+=`<div class="explore-tools"><button data-learn-one>같은 출발점에서 모델과 비교</button><button data-restart-trial>다시 예상</button></div>`;
+      if(this.chapter===3)html+=`<label>어느 답에 쓸까요?<select data-output aria-label="조절할 답">${s.classes.map((c,i)=>`<option value="${i}" ${i===this.lab.output?'selected':''}>${escape(c)}</option>`).join('')}</select></label>`+this.range('connection',`뉴런 ${this.lab.selected+1}의 값에 곱할 수`,m.hiddenOutput[this.lab.output]![this.lab.selected]!)+`<div class="explore-tools"><button data-train>1번 학습</button><button data-train-many>50번 학습</button><button data-undo aria-label="값 변경 되돌리기">↶</button></div>`;
     }
     this.el('.explore-controls').innerHTML=html;
   }
@@ -107,7 +113,7 @@ export class UnderstandingJourney {
     const displayed=this.chapter===0&&this.oneAxis?[point[0]!,0]:point;
     drawPixelLatentMap(this.el('canvas'),this.lab.model,this.displayData(),displayed,IDENTITY,{
       view:this.chapter===0?'placement':'decision',showNeuronBoundaries:this.chapter>0,onlyNeuron:this.chapter===1?this.lab.selected:undefined,
-      showDecisionBoundary:this.chapter>=2,showValueDirection:false,previousNeuronModel:this.chapter>0?this.lab.previous:undefined,
+      showDecisionBoundary:this.chapter>=2,showValueDirection:false,previousNeuronModel:this.chapter===2?this.trial??undefined:this.chapter>0?this.lab.previous:undefined,
       focusLabel:'',neutralTies:true,classLabels:this.source.classes,
       axisLegend:{horizontal:{title:this.source.axes[0],negative:'',positive:''},vertical:{title:this.chapter===0&&this.oneAxis?'세로 특징을 보지 않음':this.source.axes[1],negative:'',positive:''}},resolution:65,
     });
@@ -116,22 +122,26 @@ export class UnderstandingJourney {
   }
   private refresh():void {
     const s=this.source,l=this.lab,m=l.model,point=this.onLine?zeroPoint(m,l.selected)??l.point:l.point,selected=l.pointIndex;
+    this.root.style.setProperty('--active-neuron',neuronColor(l.selected));
     const product=(point[0]??0)*(point[1]??0);
     const label=selected===null?(s.kind==='penalty'?(product===0?null:product<0?1:0):null):s.data[selected]?.label??null;
     const answer=manualPrediction(m,point);
-    this.el('[data-map-title]').textContent=this.chapter===0?'고른 특징으로 본 자료 분포':this.chapter===1?'색 선 위에서는 합이 0':'색 선은 뉴런 · 검은 선은 최종 경계';
+    this.el('[data-map-title]').textContent=this.chapter===0?'고른 특징으로 본 자료 분포':this.chapter===1?'색 선 위에서는 합이 0':'색 선 = 뉴런의 기준 · 검은 선 = 최종 경계';
     this.el('[data-map-count]').textContent=`${s.data.length}개 자료`;
     const popup=this.el('.explore-point');popup.hidden=!this.popup||this.onLine;
     popup.innerHTML=`<button data-close-point aria-label="점 정보 닫기">×</button>${s.pictures&&selected!==null?this.picture(s.pictures[selected]!):''}<div><span>(${n(point[0]!)}, ${n(point[1]!)})</span><strong>정답 <b style="color:${label===null?'inherit':color(label)}">${label===null?'가운데 방향은 판정하지 않아요':escape(s.classes[label]??'?')}</b>${this.chapter>0?` · 예상 <b style="color:${answer===null?'inherit':color(answer)}">${answer===null?'동점':`${escape(s.classes[answer]??'?')} ${n(forwardPixels(m,point).probabilities[answer]!*100)}%`}</b>`:''}</strong></div>`;
     this.el('.explore-network').hidden=this.chapter===0;
-    if(this.chapter>0)this.el('.explore-network').innerHTML=explorationNetwork(m,point,l.selected);
-    this.el('.explore-key').innerHTML=this.chapter===0?'점의 위치 = 두 특징값 · 점을 눌러 자료 확인':this.chapter===1?'색이 진할수록 뉴런이 보내는 값이 큽니다. 정답 클래스의 색은 아니에요.':'점 색 = 정답 · 바탕색 = 예상 · 회색 점선 = 고치기 전';
+    if(this.chapter>0)this.el('.explore-network').innerHTML=this.chapter===3?explorationOutputNetwork(m,point,l.selected,l.output,s.classes[l.output]!):explorationNetwork(m,point,l.selected);
+    this.el('.explore-key').innerHTML=this.chapter===0?'점의 위치 = 두 특징값 · 점을 눌러 자료 확인':this.chapter===1?'색이 진할수록 뉴런이 보내는 값이 큽니다. 정답 클래스의 색은 아니에요.':`점 색 = 정답 · 바탕색 = 예상 · 회색 점선 = ${this.chapter===2?'실험 출발점':'고치기 전'}`;
     this.renderEquation(point);
     for(const input of this.root.querySelectorAll<HTMLInputElement>('[data-knob]')){
-      const id=input.dataset.knob!,v=id==='kick'?l.point[0]!:id==='keeper'?l.point[1]!:parameterValue(m,l.selected,id as InputParameter);
+      const id=input.dataset.knob!,v=id==='kick'?l.point[0]!:id==='keeper'?l.point[1]!:id==='connection'?m.hiddenOutput[l.output]![l.selected]!:parameterValue(m,l.selected,id as InputParameter);
       if(id!=='kick'&&id!=='keeper'){input.min=String(-l.parameterLimit);input.max=String(l.parameterLimit);}
       if(document.activeElement!==input)input.value=n(v);input.setAttribute('aria-valuetext',n(v));this.el(`[data-knob-value="${id}"]`).textContent=n(v);
+      input.disabled=this.chapter===2&&this.guess===null;
     }
+    this.root.querySelectorAll<HTMLButtonElement>('[data-guess]').forEach(b=>{b.setAttribute('aria-pressed',String(Number(b.dataset.guess)===this.guess));b.disabled=this.tried;});
+    const compareButton=this.root.querySelector<HTMLButtonElement>('[data-learn-one]');if(compareButton)compareButton.disabled=!this.tried;
     const row=this.root.querySelector<HTMLSelectElement>('[data-row]');if(row&&selected!==null)row.value=String(selected);
     this.el('.explore-instruction').textContent=this.status||this.introduction;
     this.el('.explore-status').textContent=this.status;this.root.dataset.animationPhase=String(this.phase);this.draw();
@@ -156,29 +166,33 @@ export class UnderstandingJourney {
     }
     if(this.chapter===1){
       const z=zeroPoint(m,l.selected),w=m.inputHidden[l.selected]!,allZero=w.every(v=>v===0)&&m.hiddenBias[l.selected]===0;
-      section.innerHTML=`<div class="explore-line-proof"><strong>${z?`선 위의 한 점 (${n(z[0])}, ${n(z[1])})`:allZero?'모든 점의 합이 0이라 하나의 선으로 정해지지 않아요':'화면 안에 합이 0인 선이 없어요'}</strong>${z?`<p>${n(z[0])} × (${n(w[0]!)}) + ${n(z[1])} × (${n(w[1]!)}) + (${n(m.hiddenBias[l.selected]!)}) ≈ 0.00</p>`:''}<p>곱할 수의 비율이 방향을 정하고, 더할 수가 자리에 영향을 줍니다. 같은 계산이 0이 되는 점을 다시 찾기 때문이에요.</p></div>`;
-      observation.innerHTML='<p class="explore-note">처음 수는 실험용 시작값입니다. 색 선은 최종 정답 경계가 아니라, 뉴런의 값이 0에서 양수로 바뀌는 곳이에요.</p>';return;
+      const previous=l.previous,old=previous?parameterValue(previous,Math.min(l.selected,previous.hiddenUnits-1),this.parameter):null;
+      section.innerHTML=`<div class="explore-line-proof"><strong>${old===null?'슬라이더를 움직여 보세요':`${PARAMS[this.parameter]} ${n(old)} → ${n(parameterValue(m,l.selected,this.parameter))}`}</strong><p>${this.parameter==='bias'?'더할 수를 바꾸면, 같은 방향의 선이 자리를 옮겨요.':'곱할 수를 바꾸면, 선의 방향과 뉴런 값이 달라질 수 있어요.'} 합이 0인 자리를 다시 찾기 때문이에요.</p></div><details><summary>왜 이 자리에 선이 생길까요?</summary><p>${z?`선 위의 점 (${n(z[0])}, ${n(z[1])})`:allZero?'모든 점의 합이 0이라 하나의 선으로 정해지지 않아요':'화면 안에 합이 0인 선이 없어요'}</p>${z?`<strong>${n(z[0])} × (${n(w[0]!)}) + ${n(z[1])} × (${n(w[1]!)}) + (${n(m.hiddenBias[l.selected]!)}) ≈ 0.00</strong>`:''}<p>합이 0인 점들을 이으면 색 선이 됩니다. 최종 클래스 경계는 다음 장면에서 함께 봐요. 처음 수는 실험용 시작값입니다.</p></details>`;
+      observation.innerHTML='';return;
     }
     const metrics=evaluatePixelModel(m,s.data),before=l.previous?evaluatePixelModel(l.previous,s.data):null;
     if(this.chapter===2){
-      const d=learningDirection(m,s.data,l.selected,this.parameter),index=l.pointIndex,example=index===null?null:s.data[index];
-      const contribution=example?learningDirection(m,[example],l.selected,this.parameter).gradient:0;
-      section.innerHTML=`<div class="explore-loss-comparison" aria-label="같은 수만 바꾼 오차 비교"><span>0.10 줄이면<b>${n(d.lower)}</b></span><span class="current">현재 오차<b>${n(d.loss)}</b></span><span>0.10 늘리면<b>${n(d.higher)}</b></span></div><p class="explore-note">오차는 작을수록 좋아요. 정답에 준 가능성을 비교한 값이며, 점과 선의 거리가 아닙니다.</p><div class="explore-learning-step"><strong>${Math.abs(d.gradient)<1e-8?'이 수는 지금 움직이지 않아요':d.next<d.value?'전체 자료는 이 수를 줄이는 쪽으로 작용해요':'전체 자료는 이 수를 늘리는 쪽으로 작용해요'}</strong><span>${n(d.value)} → ${n(d.next)} · 예상 오차 ${n(d.nextLoss)}</span><details><summary>방향을 정한 계산</summary><p>이 수를 늘릴 때 오차가 커지는 정도를 각 자료에서 계산합니다. 양수면 줄이고, 음수면 늘립니다.</p><p>${example?`고른 자료의 변화율 ${n(contribution)} · `:''}전체 평균 ${n(d.gradient)}</p><strong>${n(d.value)} − ${n(d.rate)} × (${n(d.gradient)}) ≈ ${n(d.next)}</strong><p>다른 수는 고정한 한 걸음입니다. 0.10 비교는 유한한 실험이고, 실제 학습은 현재 위치의 변화율로 계산해요. 반올림 때문에 작은 변화는 같아 보일 수 있어요.</p></details></div>`;
+      const d=learningDirection(this.trial??m,s.data,l.selected,this.parameter),delta=metrics.loss-d.loss;
+      const outcome=Math.abs(delta)<1e-9?'오차가 같아요':delta<0?'오차가 줄었어요':'오차가 커졌어요';
+      section.innerHTML=`<div class="explore-loss-comparison" aria-label="출발점과 지금의 오차"><span>출발점 오차<b>${n(d.loss)}</b></span><span class="current">지금 오차<b>${n(metrics.loss)}</b></span></div><p class="explore-trial-result" data-result="${!this.tried?'waiting':delta<0?'better':delta>0?'worse':'same'}">${!this.tried?(this.guess===null?'먼저 방향을 예상해 주세요.':'이제 슬라이더로 수를 직접 바꿔 보세요.'):`${outcome}. ${Math.abs(delta)<.005&&Math.abs(delta)>1e-9?'둘째 자리에서는 차이가 안 보일 만큼 작아요.':delta>0?'반대쪽이나 더 작은 변화도 시험해 보세요.':'더 움직여도 좋아질까요? 계속 시험해 보세요.'}`}</p><p class="explore-note">오차는 작을수록 좋아요. 정답에 준 가능성으로 계산하며, 정답률이나 점과 선의 거리가 아닙니다.</p>${this.tried?`<details><summary>모델은 어느 방향을 고를까요?</summary><p>같은 출발점에서 ${Math.abs(d.gradient)<1e-8?'이 수는 움직이지 않아요':d.next<d.value?'이 수를 줄여요':'이 수를 늘려요'}. 다른 수는 그대로 둡니다.</p><strong>${n(d.value)} − ${n(d.rate)} × (${n(d.gradient)}) ≈ ${n(d.next)}</strong><p>전체 자료에서 계산한 오차 변화율 ${n(d.gradient)}을 반대로 따라갑니다. 고른 방향이 항상 같지는 않아요.</p><p>출발점에서 0.10 줄일 때 오차 ${n(d.lower)}, 늘릴 때 ${n(d.higher)}. 이 비교와 아주 작은 변화율은 다를 수 있어요.</p></details>`:''}`;
       observation.innerHTML='';return;
     }
-    section.innerHTML=`<div class="explore-capacity"><span>은닉 뉴런 <b>${m.hiddenUnits}개</b></span><span>출력 <b>${s.classes.length}개</b></span><span>학습 <b>${m.epoch}번</b></span></div><div class="explore-output-nodes"><small>뉴런들이 보낸 값 → 클래스마다 하나의 출력</small><div>${s.classes.map((c,i)=>`<span style="--class-color:${color(i)}">${escape(c)}</span>`).join('')}</div></div><p>은닉 뉴런을 늘려도 답의 종류는 그대로입니다. 서로 다른 기준의 계산을 섞을 수 있어서, 최종 경계가 꺾일 수 있어요.</p>`;
-    observation.innerHTML=`<div class="explore-capacity"><span>오차 <b>${before?`${n(before.loss)} → `:''}${n(metrics.loss)}</b></span><span>맞힌 자료 <b>${manualScore(m,s.data)} / ${s.data.length}</b></span></div><details><summary>비교할 때 주의할 점</summary><p>추가한 뉴런은 처음에 출력 연결이 0입니다. 학습하면서 연결이 생겨요. 뉴런 수를 늘린다고 항상 성능이 좋아지는 것은 아닙니다. 연습에서는 새 자료로도 확인하세요.</p></details>`;
+    section.innerHTML=`<div class="explore-output-nodes"><small>은닉 뉴런 ${m.hiddenUnits}개 → 출력은 클래스 수인 ${s.classes.length}개</small><div>${s.classes.map((c,i)=>`<span style="--class-color:${color(i)}">${escape(c)}</span>`).join('')}</div></div><p>새 뉴런도 답에 연결해야 영향을 줘요. 곱할 수 0은 쓰지 않음, 양수는 더함, 음수는 뺌입니다.</p><div class="explore-capacity"><span>오차 <b>${before?`${n(before.loss)} → `:''}${n(metrics.loss)}</b></span><span>맞힌 자료 <b>${manualScore(m,s.data)} / ${s.data.length}</b></span></div>`;
+    observation.innerHTML='<details><summary>뉴런을 늘리면 항상 좋아질까요?</summary><p>서로 다른 기준을 섞어서 최종 경계가 꺾일 수 있지만, 늘리기만 해서는 좋아지지 않아요. 직접 비율을 바꾸거나 학습한 뒤 비교하세요. 연습에서는 새 자료로도 확인합니다.</p></details>';
   }
   private input(event:Event):void {
     const el=event.target as HTMLInputElement,id=el.dataset.knob;if(!id)return;this.stop();const v=Number(el.value);this.status='';
+    if(this.chapter===2&&this.guess===null)return;
     if(id==='kick'||id==='keeper'){const p=[...this.lab.point];p[id==='kick'?0:1]=v;this.lab.choosePoint(p,null);}else this.lab.edit(id as ManualParameter,v);
+    if(this.chapter===2&&Math.abs(v-parameterValue(this.trial!,this.lab.selected,this.parameter))>1e-9)this.tried=true;
     this.refresh();
   }
   private change(event:Event):void {
     const select=event.target as HTMLSelectElement;
     if(select.matches('[data-row]')){const i=Number(select.value);this.stop();this.onLine=false;this.chosePoint=true;this.lab.choosePoint(this.source.data[i]!.pixels,i);this.popup=this.chapter>0;this.refresh();}
     if(select.matches('[data-compare]')){this.compare=Number(select.value);this.refresh();}
-    if(select.matches('[data-parameter]')){this.parameter=select.value as InputParameter;this.inputKey='';this.render();}
+    if(select.matches('[data-parameter]')){this.parameter=select.value as InputParameter;this.startTrial();this.status='';this.inputKey='';this.render();}
+    if(select.matches('[data-output]')){this.lab.output=Number(select.value);this.status='';this.inputKey='';this.render();}
     if(select.matches('[data-feature]')){const axes=[...this.source.featureIds!] as [string,string];axes[Number(select.dataset.feature)]=select.value;this.status=this.options.setAxes?.(...axes)??'특징을 바꾸어 점을 다시 놓았어요. 실험 모델은 처음 상태입니다.';this.inputKey='';this.render();}
   }
   private click(event:Event):void {
@@ -188,14 +202,21 @@ export class UnderstandingJourney {
     if(b.hasAttribute('data-explore-next')){if(this.chapter===3){this.stop();this.options.complete();}else this.goTo(this.chapter+1);return;}
     if(b.hasAttribute('data-explore-back')){if(this.chapter===0)this.options.back?.();else this.goTo(this.chapter-1);return;}
     if(b.hasAttribute('data-close-point')){this.popup=false;this.refresh();return;}
-    if(b.dataset.neuron!==undefined){this.lab.selected=Number(b.dataset.neuron);this.inputKey='';this.render();return;}
+    if(b.dataset.neuron!==undefined){this.lab.selected=Number(b.dataset.neuron);this.startTrial();this.status='';this.inputKey='';this.render();return;}
+    if(b.dataset.guess!==undefined){if(this.tried)return;this.guess=Number(b.dataset.guess) as -1|1;this.refresh();return;}
+    if(b.hasAttribute('data-restart-trial')){this.startTrial();this.status='';this.refresh();return;}
     if(b.dataset.axis!==undefined){this.axis=Number(b.dataset.axis) as 0|1;this.featureFrame=-1;this.inputKey='';this.render();return;}
     if(b.dataset.dimension!==undefined){this.oneAxis=b.dataset.dimension==='1';this.inputKey='';this.render();return;}
     if(b.hasAttribute('data-zero')){this.onLine=!this.onLine;this.popup=false;this.refresh();return;}
-    if(b.hasAttribute('data-add-neuron')){this.lab.addNeuron();this.status='새 기준선이 생겼어요. 답은 아직 그대로입니다. 학습해서 연결을 만들어 보세요.';}
+    if(b.hasAttribute('data-add-neuron')){this.lab.addNeuron();this.status='새 기준선이 생겼어요. 아직 곱할 수가 0이라 답은 그대로입니다. 슬라이더로 연결해 보세요.';}
     if(b.hasAttribute('data-remove-neuron'))this.lab.removeNeuron();
     if(b.hasAttribute('data-undo'))this.lab.undo();
-    if(b.hasAttribute('data-learn-one')){const d=learningDirection(this.lab.model,this.source.data,this.lab.selected,this.parameter);this.lab.applyModel(withParameter(this.lab.model,this.lab.selected,this.parameter,d.next));this.status=`${PARAMS[this.parameter]} ${n(d.value)} → ${n(d.next)} · 오차 ${n(d.loss?100*(d.loss-d.nextLoss)/d.loss:0)}% 감소`;}
+    if(b.hasAttribute('data-learn-one')){
+      if(!this.tried)return;
+      const base=this.trial!,d=learningDirection(base,this.source.data,this.lab.selected,this.parameter);
+      this.lab.applyModel(withParameter(base,this.lab.selected,this.parameter,d.next));
+      this.status=d.next===d.value?'이 출발점에서는 이 수를 바꿀 방향이 나오지 않았어요. 다른 수나 뉴런도 살펴보세요.':n(d.value)===n(d.next)?`모델은 이 수를 아주 조금 ${d.next<d.value?'줄였어요':'늘렸어요'}. 둘째 자리로 표시하면 같지만, 실제 값과 선은 변합니다.`:`같은 출발점에서 모델은 ${n(d.value)} → ${n(d.next)}로 고쳤어요. 오차 ${n(d.loss)} → ${n(d.nextLoss)}.`;
+    }
     if(b.hasAttribute('data-train')||b.hasAttribute('data-train-many')){this.stop();const count=b.hasAttribute('data-train-many')?50:1;this.lab.applyModel(trainPixelModel(this.lab.model,this.source.data,count,.1));this.status=`모든 연결을 ${count}번 학습했어요. 색 선과 검은 경계를 비교하세요.`;}
     if(b.hasAttribute('data-play-math')){this.stop();this.phase=0;this.refresh();this.timer=window.setInterval(()=>{this.phase++;if(this.phase>2){window.clearInterval(this.timer);this.timer=0;this.phase=-1;}this.refresh();},650);return;}
     this.inputKey='';this.render();

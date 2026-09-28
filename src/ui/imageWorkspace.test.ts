@@ -19,7 +19,7 @@ describe("공통 이미지 UI 연결", () => {
   it.each(['digits','omr','webcam'] as const)('%s는 실제 자료로 같은 네 단계 탐구 과정을 사용한다',task=>{
     workspace.configure(task);workspace.show(true,3);
     const root=document.querySelector('.understanding-journey:not([hidden])')!;
-    expect([...root.querySelectorAll('.explore-nav button')].map(b=>b.textContent)).toEqual(['1 자료와 특징','2 숫자로 선 만들기','3 학습 방향','4 뉴런 늘리기']);
+    expect([...root.querySelectorAll('.explore-nav button')].map(b=>b.textContent)).toEqual(['1 자료 비교','2 뉴런 직접 조절','3 오차 줄이기','4 뉴런 늘리기']);
     expect(root.querySelector('[data-journey-ink]')).toBeNull();
     expect(root.querySelector('.explore-network')).not.toBeNull();
     expect(root.querySelectorAll('[data-explore-chapter]:disabled')).toHaveLength(0);

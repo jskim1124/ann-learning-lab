@@ -97,7 +97,6 @@ export class ImageWorkspace {
   }
   private el<T extends HTMLElement = HTMLElement>(id: string): T { return document.getElementById(id) as T; }
   pauseTraining(): void { this.stopTraining(); if(this.active&&this.step===4)this.renderTraining(); }
-  explore(): void { this.featureLesson.goTo(2); }
   configure(task: ImageTask, kind: CaptureKind = task === "webcam" ? "webcam" : "drawing", classes?: string[]): void {
     this.probe=null;
     this.stopCamera(); this.stopTraining(); this.featureLesson.stop(); this.kind = kind; this.classPage = 0; this.samplePage = 0; this.collectionSignature = ""; this.featureLesson.reset();

@@ -15,3 +15,13 @@ export function explorationNetwork(m:PixelModel,p:number[],selected:number):stri
     <g class="phase-result"><rect x="506" y="44" width="171" height="74" rx="18"/><text x="591" y="32" class="calc-label">다음으로 보낼 값</text><text x="591" y="73" class="calc-label">음수면 0, 양수면 그대로</text><text x="591" y="104">${n(f.hidden[selected]!)}</text></g>
   </svg>`;
 }
+
+/** Only the chosen class's route is expanded, with every hidden contribution. */
+export function explorationOutputNetwork(m:PixelModel,p:number[],selected:number,output:number,label:string):string {
+  const f=forwardPixels(m,p),escape=(s:string)=>s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
+  const rows=m.inputHidden.map((_,i)=>{
+    const y=24+i*34,v=f.hidden[i]!,w=m.hiddenOutput[output]![i]!,color=NEURON_COLORS[i%NEURON_COLORS.length];
+    return `<g style="--neuron:${color}" class="${i===selected?'output-selected':''}"><path class="calc-wire" d="M138 ${y} H337 L400 78"/><rect x="2" y="${y-14}" width="136" height="28" rx="10"/><text class="calc-label" x="70" y="${y+5}">뉴런 ${i+1} · ${n(v)}</text><text x="240" y="${y-6}" class="calc-label">× (${n(w)}) = ${n(v*w)}</text></g>`;
+  }).join('');
+  return `<svg viewBox="0 0 680 158" role="img" aria-label="${escape(label)} 점수: 각 뉴런의 값에 연결값을 곱하고 모두 더합니다" style="--neuron:${NEURON_COLORS[selected%NEURON_COLORS.length]}">${rows}<rect x="400" y="35" width="275" height="99" rx="18"/><text x="537" y="24" class="calc-label">${escape(label)}의 점수</text><text x="537" y="61" class="calc-label">왼쪽 값을 모두 더하고</text><text x="537" y="88" class="calc-label">+ (${n(m.outputBias[output]!)})</text><text x="537" y="118">= ${n(f.logits[output]!)}</text></svg>`;
+}

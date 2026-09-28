@@ -106,3 +106,47 @@
   .image-collection .image-capture-slot { overflow:auto; }
   .image-capture { min-height:420px; }
 }
+
+/* One hands-on task, one active slider. Prediction and comparison replace the
+   separate practice dialog; no extra toolbar or growing results stack. */
+.exploration-journey:is([data-chapter="1"],[data-chapter="2"],[data-chapter="3"]) .explore-controls {
+  display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px 14px;
+}
+.exploration-journey:is([data-chapter="1"],[data-chapter="2"],[data-chapter="3"]) .explore-controls > label:not(.explore-knob) {
+  display:block;grid-column:1;grid-row:2;
+}
+.exploration-journey:is([data-chapter="1"],[data-chapter="2"],[data-chapter="3"]) .explore-knob {
+  grid-column:2;grid-row:2;grid-template-columns:1fr auto;align-self:center;
+}
+.exploration-journey[data-chapter="1"] .explore-knob output { grid-row:auto; }
+.exploration-journey[data-chapter="2"] .explore-knob { grid-row:2; }
+.exploration-journey:is([data-chapter="1"],[data-chapter="2"],[data-chapter="3"]) .explore-neuron-choice { grid-row:1; }
+.exploration-journey:is([data-chapter="1"],[data-chapter="3"]) .explore-tools { grid-row:3; }
+.exploration-journey[data-chapter="2"] .explore-tools { grid-row:4; }
+.explore-prediction { grid-column:1/-1;grid-row:3;display:flex;align-items:center;gap:6px;border:0;padding:0;margin:0;min-width:0; }
+.explore-prediction legend { float:left;flex:1;font-size:var(--lesson-small);margin:0 8px 0 0;padding:0; }
+.explore-prediction button { min-height:36px;white-space:nowrap; }
+.explore-prediction button[aria-pressed=true]:disabled { opacity:1; }
+.explore-tools { justify-content:flex-start; }
+.explore-trial-result { font-weight:650;min-height:22px; }
+.explore-trial-result[data-result="better"] { color:#1f6bd6; }
+.explore-trial-result[data-result="worse"] { color:#bf365e; }
+.explore-loss-comparison { margin:8px 0;gap:8px; }
+.explore-loss-comparison>span { padding:7px; }
+.explore-output-nodes { padding:4px 0; }
+.explore-knob output { color:var(--active-neuron,#7446f5); }
+.explore-knob input[type=range] { accent-color:var(--active-neuron,#7446f5); }
+.explore-neuron-choice [data-neuron][aria-pressed=true] { color:var(--neuron);border-color:var(--neuron);background:color-mix(in srgb,var(--neuron) 10%,white); }
+.explore-network .output-selected rect { stroke-width:2.5;fill:color-mix(in srgb,var(--neuron) 10%,white); }
+.explore-network .calc-wire { transition:stroke-width .18s; }
+.explore-network .output-selected .calc-wire { stroke-width:3; }
+.explore-content details summary { cursor:pointer; }
+@media (min-width:601px) and (max-width:900px) {
+  .exploration-journey:is([data-chapter="1"],[data-chapter="2"],[data-chapter="3"]) .explore-controls { gap:6px 10px; }
+  .explore-prediction { flex-wrap:wrap; }
+  .explore-prediction legend { flex:0 0 100%;margin-bottom:4px; }
+  .explore-tools button { flex:1; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .explore-network .calc-wire { transition:none; }
+}
