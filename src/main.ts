@@ -1,7 +1,6 @@
 import "./styles.css";
 import { workspacePanels, featureTrainingPanels, revealModelPanel, organizePracticeStage } from "./ui/workspacePanels";
 import { generateInferenceExtension } from "./export/inferenceExtension";
-import { TabularLesson } from "./ui/tabularLesson";
 import { importSpreadsheet } from "./data/spreadsheetImport";
 import { evaluate, forward } from "./core/neuralNetwork";
 import { forwardPixels } from "./core/pixelNetwork";
@@ -9,7 +8,7 @@ import { penaltyPixelModel } from "./core/penalty";
 import { renderSignalNetwork, installSignalNetwork } from "./ui/liveCalculation";
 import { bindPracticeProbe } from "./ui/practiceProbe";
 import { PRESETS } from "./data/presets";
-import { addCustomClass, centroidAccuracy, createCustomDraft, createCustomExample, projectCustomDataset, removeCustomClass, textFeatures, validateCustomDataset, type CustomDatasetDraft, type CustomInputKind } from "./data/customDataset";
+import { addCustomClass, createCustomDraft, createCustomExample, projectCustomDataset, removeCustomClass, textFeatures, validateCustomDataset, type CustomDatasetDraft, type CustomInputKind } from "./data/customDataset";
 import type { PixelTaskName } from "./data/pixelDatasets";
 import { deserializeModel, downloadBlob, downloadText, serializeModel } from "./export/modelJson";
 import { generateScratchExtension } from "./export/scratchExtension";
@@ -19,7 +18,7 @@ import { createInitialStore, type LabState, type LabStore } from "./state/labSto
 import { ImageWorkspace } from "./ui/imageWorkspace";
 import { PenaltyCollection } from "./ui/penaltyCollection";
 import { UnderstandingJourney } from "./ui/understandingJourney";
-import { penaltyExplorationSource } from './core/explorationSource';
+import { customExplorationSource, penaltyExplorationSource } from './core/explorationSource';
 import { FeatureLabStore, type FeatureLabState } from "./state/featureLabStore";
 import type { ActivationName, Label, PresetName } from "./types";
 import { drawDecisionSurface, HIDDEN_COLORS } from "./visualization/decisionSurface";
@@ -62,7 +61,7 @@ let customClassPage = 0, customSelectedClass = 0;
 let featureSelectedPoint: number | null = null;
 let boundarySelectedPoint: number | null = null;
 let featureProbe = false, boundaryProbe = false;
-let tabularLesson: TabularLesson | null = null;
+let customLesson: UnderstandingJourney;
 let imageWorkspace: ImageWorkspace;
 let penaltyCollection:PenaltyCollection;
 let penaltyLesson:UnderstandingJourney;
@@ -104,7 +103,6 @@ function renderCustomLab(state: LabState): void {
   const custom = isCustomPreset(state.preset);
   element<HTMLElement>("#stepThreeLabel").textContent = "이해";
   if (!custom) return;
-  const projection = projectCustomDataset(customDraft);
   const inputHelp = { numbers: "특징값을 숫자로 넣습니다.", drawing: "그림 자체로 학습합니다.", webcam: "촬영한 사진 자체로 학습합니다.", text: "글의 길이와 구성을 셉니다. 문장의 뜻을 이해하는 모델은 아닙니다." };
   element<HTMLElement>(".custom-input-tabs").classList.remove("webcam-only");
   document.querySelectorAll<HTMLButtonElement>("[data-custom-input]").forEach((button) => { const active = button.dataset.customInput === customDraft.inputKind; button.classList.toggle("active", active); button.setAttribute("aria-pressed", String(active)); });
@@ -143,11 +141,6 @@ function renderCustomLab(state: LabState): void {
   const headerRow = document.createElement("tr"); ["사례", "클래스", ...customDraft.features, ""].forEach((name) => { const th = document.createElement("th"); th.textContent = name; headerRow.append(th); }); head.append(headerRow);
   if (!customDraft.rows.length) { const row = body.insertRow(); const cell = row.insertCell(); cell.colSpan = customDraft.features.length + 3; cell.className = "empty-cell"; cell.textContent = "아직 입력한 사례가 없습니다."; }
   customDraft.rows.forEach((item) => { const row = body.insertRow(); [item.name, customDraft.classes[item.label] ?? "삭제된 클래스", ...item.values.map(String)].forEach((value) => { const cell = row.insertCell(); cell.textContent = value; }); const action = row.insertCell(); const button = document.createElement("button"); button.type = "button"; button.className = "delete-button"; button.dataset.removeCustomRow = String(item.id); button.textContent = "지우기"; action.append(button); });
-  const xSelect = element<HTMLSelectElement>("#customXAxis"); const ySelect = element<HTMLSelectElement>("#customYAxis"); fillSelect(xSelect, customDraft.features, customDraft.xFeature); fillSelect(ySelect, customDraft.features, customDraft.yFeature);
-  element<HTMLElement>("#customFeatureAxisX").textContent = projection.axes[0]; element<HTMLElement>("#customFeatureAxisY").textContent = projection.axes[1]; element<HTMLElement>("#customFeatureTitle").textContent = `${projection.axes[0]} × ${projection.axes[1]}`;
-  const legend = element<HTMLElement>("#customFeatureLegend"); legend.replaceChildren(); projection.classes.forEach((name, index) => { const item = document.createElement("span"); const dot = document.createElement("i"); dot.style.background = CLASS_COLORS[index % CLASS_COLORS.length]!; const text = document.createElement("b"); text.textContent = name; item.append(dot, text); legend.append(item); });
-  const score = Math.round(centroidAccuracy(projection.points, projection.classes.length) * 100); element<HTMLElement>("#customSeparationScore").textContent = projection.points.length ? `${score}%` : "—"; element<HTMLElement>("#customSeparationHint").textContent = !projection.points.length ? "자료를 먼저 입력해 주세요." : score >= 80 ? "두 특징만으로 무리가 비교적 잘 떨어집니다. 아직 신경망의 성적은 아닙니다." : "다른 특징 조합도 비교해 보세요. 아직 신경망의 성적은 아닙니다.";
-  if (state.lessonStep === 3) tabularLesson?.render(customDraft); else tabularLesson?.stop();
 }
 
 let renderedLessonStep = 0;
@@ -363,22 +356,21 @@ function renderFeatureLab(lab: LabState, state: FeatureLabState): void {
 function render(state: LabState, store: LabStore): void {
   renderLessonProgress(state); renderScenario(state);
   const images = usesImages(state.preset); const custom = isCustomPreset(state.preset) && !images;
-  const skipUnderstanding = state.preset === "custom";
   const understandingButton = element<HTMLButtonElement>('.lesson-progress [data-go-step="3"]');
-  understandingButton.hidden = false; understandingButton.disabled = skipUnderstanding || state.furthestLessonStep < 3;
-  understandingButton.title = skipUnderstanding ? "자율 문제는 이해 단계를 건너뜁니다." : "이해 단계 다시 보기";
-  element<HTMLButtonElement>('[data-app-page="4"] [data-back]').textContent = skipUnderstanding ? "← 자료 다시 보기" : "← 원리 다시 보기";
+  understandingButton.hidden = false; understandingButton.disabled = state.furthestLessonStep < 3;
+  understandingButton.title = "이해 단계 다시 보기";
+  element<HTMLButtonElement>('[data-app-page="4"] [data-back]').textContent = "← 원리 다시 보기";
   ["boundaryDataView", "boundaryWhyView", "boundaryTrainingView", "boundaryUseView"].forEach((id) => { element<HTMLElement>(`#${id}`).hidden = images || custom; });
   if(state.preset==='xor') { element<HTMLElement>('#boundaryDataView').hidden=true;element<HTMLElement>('#boundaryWhyView').hidden=true; }
   penaltyCollection.show(state.preset==='xor'&&state.lessonStep===2);
   penaltyLesson.show(state.preset==='xor'&&state.lessonStep===3);
-  ["customDataView", "customFeatureView", "customTrainingView", "customUseView"].forEach((id) => { element<HTMLElement>(`#${id}`).hidden = !custom; });
-  element<HTMLElement>("#customFeatureNext").hidden = !custom;
+  customLesson.show(custom && state.lessonStep === 3);
+  ["customDataView", "customTrainingView", "customUseView"].forEach((id) => { element<HTMLElement>(`#${id}`).hidden = !custom; });
   element<HTMLElement>("#whyFooterNote").hidden = images || custom;
   element<HTMLElement>("#whyFooterNote").textContent = state.preset === "xor" ? "실제 경기 예측이 아니라, 방향 두 가지만 남긴 연습 규칙입니다." : "주황 점에서 보라색 십자로, 가로 한 가지만 바꿉니다.";
   imageWorkspace.show(images, state.lessonStep);
   element<HTMLElement>("#stepThreeLabel").textContent = "이해";
-  element<HTMLButtonElement>("#dataNext").textContent = skipUnderstanding ? "바로 학습하기 →" : images ? "원리 살펴보기 →" : "원리 살펴보기 →";
+  element<HTMLButtonElement>("#dataNext").textContent = "원리 살펴보기 →";
   element<HTMLElement>("#dataTitle").textContent = images ? "클래스를 고르고 그림을 모아요" : custom ? "자료를 직접 모아요" : "사진에서 승부차기를 모아요";
   element<HTMLElement>("#whyTitle").textContent = images ? "그림에서 예상까지, 한 단계씩" : custom ? "어떤 특징으로 나눌까요?" : "은닉 뉴런이 왜 두 개 필요할까요?";
   element<HTMLElement>("#trainTitle").textContent = images ? "모은 그림으로 학습해요" : "모델을 직접 학습시켜요";
@@ -454,23 +446,30 @@ function addPointFromCanvas(event: MouseEvent, store: LabStore): void {
 
 export function mountApp(store = createInitialStore()): LabStore {
   const goImageStep = (step: 1 | 2 | 3 | 4 | 5) => {
-    if (step === 3 && store.snapshot.preset === "custom") step = 4;
     if (step >= 3) { const error = imageWorkspace.ready(); if (error) return showToast(error); }
     if (step === 5 && !imageWorkspace.store.snapshot.model.epoch) return showToast("먼저 학습해 주세요.");
     store.setLessonStep(step);
   };
-  imageWorkspace = new ImageWorkspace(showToast, goImageStep, (kind) => { customDraft = createCustomDraft(kind); syncCustomStore(store); store.setLessonStep(2); });
+  imageWorkspace = new ImageWorkspace(showToast, goImageStep, (kind) => { customDraft = createCustomDraft(kind); customLesson.reset(); syncCustomStore(store); store.setLessonStep(2); });
   imageWorkspace.configure(isPixelPreset(store.snapshot.preset) ? store.snapshot.preset : store.snapshot.preset === "webcam" ? "webcam" : "custom");
   penaltyCollection=new PenaltyCollection(store,showToast);
   const penaltyLessonRoot=document.createElement('div');penaltyLessonRoot.id='penaltyUnderstanding';penaltyLessonRoot.hidden=true;element('[data-app-page="3"] .page-nav').before(penaltyLessonRoot);
   penaltyLesson=new UnderstandingJourney(penaltyLessonRoot,{source:()=>penaltyExplorationSource(store.snapshot.data,[...PRESETS.xor.classes]),context:()=> '승부차기: 공·골키퍼의 좌우가 두 입력이에요',complete:()=>store.beginPractice(),back:()=>store.setLessonStep(2)});
   workspacePanels(element("#customDataView"), [...element("#customDataView .image-collection").children], ["클래스·자료", "자료 수집"], () => renderCustomLab(store.snapshot));
   const featureStore = new FeatureLabStore(); featureUiStore = featureStore;
-  // Hands-on parameter experiments live in the understanding journey, not a
-  // second practice workspace. Custom projects keep their direct-to-practice route.
+  // Every input format follows the shared hands-on understanding journey.
   if (isCustomPreset(store.snapshot.preset)) { const projection = projectCustomDataset(customDraft); featureStore.setDataset(projection.points, projection.classes); }
   const rerender = () => render(store.snapshot, store);
-  tabularLesson = new TabularLesson(element("#customFeatureView"), () => renderCustomLab(store.snapshot), showToast);
+  customLesson = new UnderstandingJourney(element('#customFeatureView'), {
+    source:()=>customExplorationSource(customDraft), context:()=> '내 자료로 탐구하기',
+    setAxes:(x,y)=>{
+      const a=Number(x),b=Number(y);
+      if(a===b)return '두 축에는 서로 다른 특징을 골라 주세요.';
+      if(![a,b].every(i=>Number.isInteger(i)&&i>=0&&i<customDraft.features.length))return '목록에 있는 특징을 골라 주세요.';
+      stopFeatureAuto();customDraft.xFeature=a;customDraft.yFeature=b;syncCustomStore(store);return null;
+    },
+    complete:()=>store.setLessonStep(4), back:()=>store.setLessonStep(2),
+  });
   featureTrainingPanels(element("#customTrainingView"), rerender);
   featureTrainingPanels(element("#boundaryTrainingView"), rerender);
   installSignalNetwork(element('#networkSvg'),'boundarySignalNetwork');installSignalNetwork(element('#featureNetworkSvg'),'featureSignalNetwork');
@@ -491,20 +490,20 @@ export function mountApp(store = createInitialStore()): LabStore {
   store.subscribe(rerender); featureStore.subscribe(rerender);
   document.querySelectorAll<HTMLButtonElement>("[data-preset]").forEach((card) => card.addEventListener("click", () => {
     const preset = card.dataset.preset as PresetName;
-    boundarySelectedPoint = null; featureSelectedPoint = null; boundaryProbe=false;featureProbe=false;customClassPage=0; customSelectedClass=0; tabularLesson?.reset();penaltyCollection.reset();penaltyLesson.reset();
+    boundarySelectedPoint = null; featureSelectedPoint = null; boundaryProbe=false;featureProbe=false;customClassPage=0; customSelectedClass=0; customLesson.reset();penaltyCollection.reset();penaltyLesson.reset();
     if (preset === "custom") { customDraft = createCustomDraft(); featureStore.setHiddenUnits(1); syncCustomPreset("custom"); imageWorkspace.configure("custom"); }
     else if (isPixelPreset(preset) || preset === "webcam") imageWorkspace.configure(preset);
     store.setPreset(preset, { restartLesson: true }); if (preset === "custom") syncCustomStore(store);
   }));
   document.querySelectorAll<HTMLButtonElement>("[data-go-step]").forEach((button) => button.addEventListener("click", () => { const step = Number(button.dataset.goStep) as LabState["lessonStep"]; if (step <= store.snapshot.furthestLessonStep) { if (usesImages(store.snapshot.preset)) goImageStep(step); else { if(isCustomPreset(store.snapshot.preset)&&step>=3){const error=validateCustomDataset(customDraft);if(error)return showToast(error);} if(step===5&&!featureStore.snapshot.model.epoch&&isCustomPreset(store.snapshot.preset))return showToast("먼저 학습해 주세요."); store.setLessonStep(step); } } }));
   document.querySelectorAll<HTMLButtonElement>("[data-back]").forEach((button) => button.addEventListener("click", () => {
-    if (store.snapshot.preset === "custom" && store.snapshot.lessonStep === 4) store.setLessonStep(2); else store.previousLesson();
+    store.previousLesson();
   }));
   element<HTMLButtonElement>("#scenarioNext").addEventListener("click", () => store.setLessonStep(2));
   element<HTMLButtonElement>("#dataNext").addEventListener("click", () => {
     if(store.snapshot.preset==='xor'){store.setLessonStep(3);return;}
-    if (usesImages(store.snapshot.preset)) { const error = imageWorkspace.ready(); if (error) return showToast(error); store.setLessonStep(store.snapshot.preset === "custom" ? 4 : 3); return; }
-    if (isCustomPreset(store.snapshot.preset)) { const error = validateCustomDataset(customDraft); if (error) return showToast(error); syncCustomStore(store); store.setLessonStep(4); return; }
+    if (usesImages(store.snapshot.preset)) { const error = imageWorkspace.ready(); if (error) return showToast(error); store.setLessonStep(3); return; }
+    if (isCustomPreset(store.snapshot.preset)) { const error = validateCustomDataset(customDraft); if (error) return showToast(error); store.setLessonStep(3); return; }
     const error = store.prepareExplanationModel(); if (error) return showToast(error); store.setLessonStep(3);
   });
   element<HTMLButtonElement>("#modelNext").addEventListener("click", () => {
@@ -525,6 +524,7 @@ export function mountApp(store = createInitialStore()): LabStore {
   element<HTMLCanvasElement>("#dataCanvas").addEventListener("click", (event) => addPointFromCanvas(event, store));
   document.querySelectorAll<HTMLButtonElement>("[data-custom-input]").forEach((button) => button.addEventListener("click", () => {
     const kind = button.dataset.customInput as CustomInputKind; if (kind === customDraft.inputKind) return;
+    customLesson.reset();
     const classes = [...customDraft.classes]; customDraft = createCustomDraft(kind); customDraft.classes = classes;
     if (kind === "drawing" || kind === "webcam") imageWorkspace.configure("custom", kind, classes);
     syncCustomStore(store);
@@ -561,9 +561,6 @@ export function mountApp(store = createInitialStore()): LabStore {
     finally { input.value = ""; input.disabled = false; }
   });
   element<HTMLTableSectionElement>("#customTableBody").addEventListener("click", (event) => { const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-remove-custom-row]"); if (!button) return; customDraft.rows = customDraft.rows.filter((row) => row.id !== Number(button.dataset.removeCustomRow)); syncCustomStore(store); });
-  element<HTMLSelectElement>("#customXAxis").addEventListener("change", (event) => { customDraft.xFeature = Number((event.currentTarget as HTMLSelectElement).value); syncCustomStore(store); });
-  element<HTMLSelectElement>("#customYAxis").addEventListener("change", (event) => { customDraft.yFeature = Number((event.currentTarget as HTMLSelectElement).value); syncCustomStore(store); });
-  element<HTMLButtonElement>("#customFeatureNext").addEventListener("click", () => { const error = validateCustomDataset(customDraft); if (error) return showToast(error); syncCustomStore(store); store.setLessonStep(4); });
   element<HTMLButtonElement>("#customTextAdd").addEventListener("click", () => { const input = element<HTMLTextAreaElement>("#customTextValue"); const source = input.value.trim(); if (!source) return showToast("글을 먼저 입력해 주세요."); addCustomRow(store, Number(element<HTMLSelectElement>("#customTextClass").value) as Label, textFeatures(source), source); input.value = ""; });
   element<HTMLButtonElement>("#nextMediaSample").addEventListener("click", () => store.nextMediaSample());
   element<HTMLButtonElement>("#toggleMediaHighlight").addEventListener("click", () => store.toggleMediaHighlight());

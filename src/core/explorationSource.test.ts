@@ -1,11 +1,28 @@
 import { describe,it,expect } from 'vitest';
-import { imageExplorationSource,penaltyExplorationSource } from './explorationSource';
+import { customExplorationSource,imageExplorationSource,penaltyExplorationSource } from './explorationSource';
+import { createCustomExample,projectCustomDataset } from '../data/customDataset';
 import { ImageLabStore } from '../state/imageLabStore';
 import { projectPixels } from './pixelProjection';
 import { ManualLab } from './manualLab';
 import { evaluatePixelModel,trainPixelModel } from './pixelNetwork';
 
 describe('탐구와 실제 연습의 계산 연결',()=>{
+  it('자율 숫자의 원자료·축·좌표는 연습에서 쓰는 값과 같다',()=>{
+    const draft=createCustomExample();draft.xFeature=2;draft.yFeature=0;
+    const source=customExplorationSource(draft),p=projectCustomDataset(draft);
+    expect(source.axes).toEqual(p.axes);expect(source.featureIds).toEqual(['2','0']);
+    expect(source.data).toEqual(p.points.map(r=>({pixels:[r.x,r.y],label:r.label})));
+    draft.rows.forEach((row,i)=>{
+      expect(source.records![i]!.values).toEqual([row.values[2],row.values[0]]);
+      for(const axis of [0,1] as const){const c=source.numericCalculation!(i,axis);expect((c.value-c.low)/(c.high-c.low)*1.8-.9).toBeCloseTo(source.data[i]!.pixels[axis]!,12);}
+    });
+    draft.rows.forEach(r=>r.label=1-r.label);expect(customExplorationSource(draft).data.map(r=>r.pixels)).toEqual(source.data.map(r=>r.pixels));
+  });
+  it('자율 자료의 특징이 모두 같으면 좌표 0이며 나누기 0이 되지 않는다',()=>{
+    const draft=createCustomExample();draft.rows.forEach(r=>r.values[0]=7);
+    const s=customExplorationSource(draft);expect(s.data.every(r=>r.pixels[0]===0)).toBe(true);
+    expect(s.numericCalculation!(0,0)).toEqual({value:7,low:7,high:7,coordinate:0});
+  });
   it.each(['digits','omr'] as const)('%s의 원그림·가중합·좌표는 같은 원자료에서 계산한다',task=>{
     const store=new ImageLabStore(task);
     for(const [x,y] of [['ink','center'],['lr','tb'],['position','ink']]){

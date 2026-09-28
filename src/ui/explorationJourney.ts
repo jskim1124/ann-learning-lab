@@ -81,7 +81,7 @@ export class UnderstandingJourney {
   private renderControls():void {
     const s=this.source,m=this.lab.model;
     this.el('h2').textContent=[s.kind==='penalty'?'두 방향을 숫자로 기록해요':'나란히 놓고 특징을 찾아요','어떤 점들을 이으면 선이 될까요?','어느 쪽으로 고쳐야 오차가 줄까요?','뉴런 하나가 더 생기면?'][this.chapter]!;
-    this.introduction=[s.kind==='penalty'?'방향 한 개로 충분할까요? 두 방향을 함께 기록해 비교하세요.':'두 그림에 같은 계산을 해 보고, 분포를 비교하세요.','은닉 뉴런은 곱하고 더하는 계산기예요. 수 하나를 바꾸고, 왼쪽 계산과 선을 함께 보세요.','방향을 먼저 예상한 뒤 직접 고쳐 보세요. 정해진 답 대신, 실제 오차로 확인합니다.','뉴런을 추가하고 답에 쓰는 비율을 바꿔 보세요. 새 기준이 최종 경계에 어떻게 보탬이 될까요?'][this.chapter]!;
+    this.introduction=[s.kind==='penalty'?'방향 한 개로 충분할까요? 두 방향을 함께 기록해 비교하세요.':s.kind==='tabular'?'내 자료 두 개를 나란히 놓고, 어떤 특징으로 구별할지 비교하세요.':'두 그림에 같은 계산을 해 보고, 분포를 비교하세요.','은닉 뉴런은 곱하고 더하는 계산기예요. 수 하나를 바꾸고, 왼쪽의 테두리 친 숫자와 선을 함께 보세요.','방향을 먼저 예상한 뒤 직접 고쳐 보세요. 정해진 답 대신, 실제 오차로 확인합니다.','뉴런을 추가하고 답에 쓰는 비율을 바꿔 보세요. 새 기준이 최종 경계에 어떻게 보탬이 될까요?'][this.chapter]!;
     this.el('.explore-feature-tools').hidden=this.chapter!==0;
     const key=JSON.stringify([this.chapter,s.axes,s.features?.map(f=>[f.id,f.name]),s.classes,m.hiddenUnits,this.lab.selected,this.lab.output,this.axis,this.parameter]);
     if(this.inputKey===key)return;this.inputKey=key;
@@ -131,7 +131,7 @@ export class UnderstandingJourney {
     const popup=this.el('.explore-point');popup.hidden=!this.popup||this.onLine;
     popup.innerHTML=`<button data-close-point aria-label="점 정보 닫기">×</button>${s.pictures&&selected!==null?this.picture(s.pictures[selected]!):''}<div><span>(${n(point[0]!)}, ${n(point[1]!)})</span><strong>정답 <b style="color:${label===null?'inherit':color(label)}">${label===null?'가운데 방향은 판정하지 않아요':escape(s.classes[label]??'?')}</b>${this.chapter>0?` · 예상 <b style="color:${answer===null?'inherit':color(answer)}">${answer===null?'동점':`${escape(s.classes[answer]??'?')} ${n(forwardPixels(m,point).probabilities[answer]!*100)}%`}</b>`:''}</strong></div>`;
     this.el('.explore-network').hidden=this.chapter===0;
-    if(this.chapter>0)this.el('.explore-network').innerHTML=this.chapter===3?explorationOutputNetwork(m,point,l.selected,l.output,s.classes[l.output]!):explorationNetwork(m,point,l.selected);
+    if(this.chapter>0)this.el('.explore-network').innerHTML=this.chapter===3?explorationOutputNetwork(m,point,l.selected,l.output,s.classes[l.output]!):explorationNetwork(m,point,l.selected,this.parameter);
     this.el('.explore-key').innerHTML=this.chapter===0?'점의 위치 = 두 특징값 · 점을 눌러 자료 확인':this.chapter===1?'색이 진할수록 뉴런이 보내는 값이 큽니다. 정답 클래스의 색은 아니에요.':`점 색 = 정답 · 바탕색 = 예상 · 회색 점선 = ${this.chapter===2?'실험 출발점':'고치기 전'}`;
     this.renderEquation(point);
     for(const input of this.root.querySelectorAll<HTMLInputElement>('[data-knob]')){
@@ -154,6 +154,11 @@ export class UnderstandingJourney {
     [this.lab.pointIndex??0,this.compare].forEach((row,i)=>{
       const c=s.axisCalculation?.(row,this.axis),p=i===0?this.lab.point:s.data[row]?.pixels??[0,0],image=s.pictures?.[row];
       const term=c&&this.featureFrame>=0?c.terms[this.featureFrame]:null;
+      if(s.records){
+        const record=s.records[row];
+        this.el(`[data-source-example="${i}"]`).innerHTML=record?`<p class="explore-record">${escape(record.name)}</p><dl class="explore-record-values">${s.axes.map((name,axis)=>`<div><dt>${escape(name)}</dt><dd>${n(record.values[axis]!)}</dd></div>`).join('')}</dl><span>좌표 (${n(p[0]!)}, ${n(p[1]!)})</span>`:'<span>자료를 먼저 모아 주세요.</span>';
+        return;
+      }
       this.el(`[data-source-example="${i}"]`).innerHTML=image&&c?`${this.picture(image)}<span>${term?`고른 칸 ${n(term.pixel)} × (${n(term.weight)}) = ${n(term.product)}`:'칸을 눌러 계산하기'}</span><strong>모두 더해 ${n(c.total)}</strong><span>좌표 (${n(p[0]!)}, ${n(p[1]!)})</span>`:`<div class="explore-goal"><span class="kick" style="left:${(p[0]!+1)*44+6}%">공</span><span class="keeper" style="left:${(p[1]!+1)*44+6}%">골키퍼</span></div><strong>키커 ${n(p[0]!)} · 골키퍼 ${n(p[1]!)}</strong><span>좌표 (${n(p[0]!)}, ${n(p[1]!)})</span>`;
     });
   }
@@ -161,7 +166,9 @@ export class UnderstandingJourney {
     const s=this.source,l=this.lab,m=l.model,section=this.el('.explore-equation'),observation=this.el('.explore-observation');
     if(this.chapter===0){
       this.renderExamples();const f=s.features?.find(f=>f.id===s.featureIds?.[this.axis]),c=s.axisCalculation?.(l.pointIndex??0,this.axis);
-      section.innerHTML=c?`<details><summary>${escape(f?.name??'')} · 계산과 좌표 확인</summary><p>${escape(f?.description??'')}</p><p>모든 자료에서 구한 평균 ${n(c.mean)}을 빼고, 공통 크기 ${n(c.scale)}로 나눕니다.</p><strong>(${n(c.total)} − ${n(c.mean)}) ÷ ${n(c.scale)} ≈ ${n(c.coordinate)}</strong><p>정답을 쓰지 않고, 반올림 전 수로 계산해요.</p></details>`:'<p>같은 방향이면 막힘, 다른 방향이면 골로 단순화한 상황입니다. 가운데는 다루지 않아요.</p>';
+      const numeric=s.numericCalculation?.(l.pointIndex??0,this.axis);
+      const constant=numeric&&Math.abs(numeric.high-numeric.low)<1e-9;
+      section.innerHTML=numeric?`<details><summary>${escape(f?.name??'')} · 계산과 좌표 확인</summary><p>${escape(f?.description??'')}</p>${constant?'':`<p>전체 자료의 최솟값 ${n(numeric.low)}을 −0.90, 최댓값 ${n(numeric.high)}을 +0.90에 놓아, 서로 다른 단위를 같은 범위로 맞춥니다.</p>`}<strong>${constant?'값이 모두 같아서 좌표는 0.00입니다.':`(${n(numeric.value)} − ${n(numeric.low)}) ÷ (${n(numeric.high)} − ${n(numeric.low)}) × 1.80 − 0.90 ≈ ${n(numeric.coordinate)}`}</strong><p>정답은 좌표 계산에 쓰지 않아요. 연습에서도 같은 위치입니다.</p></details>`:c?`<details><summary>${escape(f?.name??'')} · 계산과 좌표 확인</summary><p>${escape(f?.description??'')}</p><p>모든 자료에서 구한 평균 ${n(c.mean)}을 빼고, 공통 크기 ${n(c.scale)}로 나눕니다.</p><strong>(${n(c.total)} − ${n(c.mean)}) ÷ ${n(c.scale)} ≈ ${n(c.coordinate)}</strong><p>정답을 쓰지 않고, 반올림 전 수로 계산해요.</p></details>`:'<p>같은 방향이면 막힘, 다른 방향이면 골로 단순화한 상황입니다. 가운데는 다루지 않아요.</p>';
       observation.innerHTML=`<details><summary>이 실험에서 쓰는 모델</summary><p>${escape(s.note)}</p></details>`;return;
     }
     if(this.chapter===1){

@@ -37,6 +37,25 @@ describe('실제 자료로 탐구하는 이해 단계',()=>{
     expect(root.querySelector('.phase-sum')!.textContent).toContain('= 1.00');expect(forwardPixels(m,[-.5,-.5]).hidden[0]).toBe(1);
     expect(root.querySelector('.explore-network')!.textContent).toContain('1.00');
   });
+  it('곱할 수와 더할 수를 선택하면 그 숫자 하나만 강조되고 실시간 값이 일치한다',()=>{
+    journey.goTo(1);
+    for(const id of ['xWeight','yWeight','bias']){
+      parameter(id);const slider=root.querySelector<HTMLInputElement>(`[data-knob="${id}"]`)!;slider.focus();input(`[data-knob="${id}"]`,'1.23');
+      const highlighted=root.querySelectorAll('.parameter-active');expect(highlighted).toHaveLength(1);
+      expect(highlighted[0]!.getAttribute('data-network-parameter')).toBe(id);expect(highlighted[0]!.textContent).toBe('1.23');
+      expect(root.querySelectorAll('.parameter-marker:not([visibility="hidden"])')).toHaveLength(1);
+      expect(document.activeElement).toBe(slider);
+    }
+    journey.goTo(2);click('[data-guess="-1"]');input('[data-knob="bias"]','-.25');expect(root.querySelector('.parameter-active')!.textContent).toBe('-0.25');
+  });
+  it('출력 연결에서 고른 뉴런과 클래스에 해당하는 곱할 수만 강조한다',()=>{
+    journey.goTo(3);click('[data-add-neuron]');input('[data-knob="connection"]','.73');
+    let highlighted=root.querySelector('.parameter-active')!;expect(highlighted.getAttribute('data-network-parameter')).toBe('connection-1');expect(highlighted.textContent).toBe('0.73');
+    click('[data-neuron="0"]');input('[data-knob="connection"]','-.41');highlighted=root.querySelector('.parameter-active')!;
+    expect(highlighted.getAttribute('data-network-parameter')).toBe('connection-0');expect(highlighted.textContent).toBe('-0.41');
+    const select=root.querySelector<HTMLSelectElement>('[data-output]')!;select.value='1';select.dispatchEvent(new Event('change',{bubbles:true}));input('[data-knob="connection"]','.92');
+    expect(root.querySelectorAll('.parameter-active')).toHaveLength(1);expect(root.querySelector('.parameter-active')!.textContent).toBe('0.92');expect(last()[1].hiddenOutput[1]![0]).toBe(.92);
+  });
   it('뉴런을 추가한 것만으로 답이 달라지지 않고 출력 수는 클래스 수다',()=>{
     journey.goTo(3);const before=last()[1];click('[data-add-neuron]');const after=last()[1];
     expect(after.hiddenUnits).toBe(2);for(const r of source().data)expect(forwardPixels(after,r.pixels).logits).toEqual(forwardPixels(before,r.pixels).logits);

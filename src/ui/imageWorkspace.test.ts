@@ -16,7 +16,7 @@ describe("공통 이미지 UI 연결", () => {
     workspace = new ImageWorkspace(vi.fn(), vi.fn(), vi.fn());
   });
   afterEach(() => { workspace.show(false,1); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
-  it.each(['digits','omr','webcam'] as const)('%s는 실제 자료로 같은 네 단계 탐구 과정을 사용한다',task=>{
+  it.each(['digits','omr','webcam','custom'] as const)('%s는 실제 자료로 같은 네 단계 탐구 과정을 사용한다',task=>{
     workspace.configure(task);workspace.show(true,3);
     const root=document.querySelector('.understanding-journey:not([hidden])')!;
     expect([...root.querySelectorAll('.explore-nav button')].map(b=>b.textContent)).toEqual(['1 자료 비교','2 뉴런 직접 조절','3 오차 줄이기','4 뉴런 늘리기']);
