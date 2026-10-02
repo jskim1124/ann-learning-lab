@@ -1,5 +1,5 @@
-import { mac } from './crypto';
-import type { ResearchConfig } from './config';
+import { mac } from './crypto.js';
+import type { ResearchConfig } from './config.js';
 export interface Participant { participantId: string; consentVersion: string; joinedAt: string; profile: object; identityCiphertext: string; }
 export interface SheetRow { id: string; participantId: string; values: unknown[]; }
 export interface ResearchSink {

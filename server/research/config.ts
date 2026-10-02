@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
-import { PROFILE_VERSION, type Instrument } from '../../src/research/schema';
-import { STUDY_INSTRUMENT } from '../../src/research/questionnaire';
+import { PROFILE_VERSION, type Instrument } from '../../src/research/schema.js';
+import { STUDY_INSTRUMENT } from '../../src/research/questionnaire.js';
 export interface ResearchConfig {
   mode: 'off' | 'local' | 'google'; origin: string; study: string; googleClientId: string;
   sessionKey: string; pseudonymKey: string; identityKey: string; gatewayUrl: string; gatewaySecret: string;

@@ -1,7 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { researchConfig } from '../../server/research/config';
-import { createResearchHandler } from '../../server/research/handler';
-import { MemorySink, SheetsGateway } from '../../server/research/sink';
+import { researchConfig } from '../../server/research/config.js';
+import { createResearchHandler } from '../../server/research/handler.js';
+import { MemorySink, SheetsGateway } from '../../server/research/sink.js';
 let handler: ReturnType<typeof createResearchHandler> | undefined;
 /** App deployment does not enable research collection. RESEARCH_MODE defaults to off. */
 export default async function research(req: IncomingMessage,res: ServerResponse) {

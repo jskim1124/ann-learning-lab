@@ -1,10 +1,10 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { OAuth2Client } from 'google-auth-library';
-import { ACTIONS, MAX_EVENT_BATCH, PROFILE_VERSION, validEvent, validProfile, validSurvey, type RawEvent } from '../../src/research/schema';
-import { encryptSubject, equal, pseudonym, seal, unseal } from './crypto';
-import type { ResearchConfig } from './config';
-import type { ResearchSink } from './sink';
+import { ACTIONS, MAX_EVENT_BATCH, PROFILE_VERSION, validEvent, validProfile, validSurvey, type RawEvent } from '../../src/research/schema.js';
+import { encryptSubject, equal, pseudonym, seal, unseal } from './crypto.js';
+import type { ResearchConfig } from './config.js';
+import type { ResearchSink } from './sink.js';
 
 interface Session { exp: number; participantId: string; csrf: string; identityCiphertext: string; }
 interface Challenge { exp: number; nonce: string; csrf: string; }

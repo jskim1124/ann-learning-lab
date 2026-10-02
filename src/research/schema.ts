@@ -1,4 +1,4 @@
-import { PROFILE_QUESTIONS } from './questionnaire';
+import { PROFILE_QUESTIONS } from './questionnaire.js';
 /** Versioned raw observations, not inferences about attention, intent, or understanding. */
 export const SCHEMA_VERSION = 1;
 // Limits also enforced by the server and Apps Script receiver.

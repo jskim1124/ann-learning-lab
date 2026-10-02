@@ -1,4 +1,4 @@
-import type { Instrument } from './schema';
+import type { Instrument } from './schema.js';
 
 export interface ProfileQuestion { id: string; text: string; options?: string[]; multiple?: boolean; }
 /** Researcher-supplied wording. IDs and versions are stored with raw responses. */
