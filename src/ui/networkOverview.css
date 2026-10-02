@@ -11,6 +11,7 @@
 .network-source,.network-stage .response-node,.network-stage .response-answer { position:absolute;transform:translate(-50%,-50%); }
 .network-source { width:35px;height:42px;border:1px solid #cbd2dd;border-radius:12px;background:#fff;display:flex;align-items:center;justify-content:center;gap:2px;color:#596574; }
 .network-source i { font-style:normal;font-size:20px; }
+.network-source.network-axis { width:40px;height:40px;border-radius:50%;font-size:13px; }
 .network-stage .response-node { padding:0;width:26px;height:26px;min-height:0;border:1.5px solid var(--node-color);border-radius:50%;background:color-mix(in srgb,var(--node-color) var(--response-ink),white);color:#202633;font-size:14px;line-height:1; }
 .response-node small { position:absolute;bottom:-3px;right:-5px;font-size:13px;background:white;border-radius:6px;min-width:12px;color:#202633; }
 .network-stage .response-node[aria-pressed=true] { outline:2px solid var(--node-color);outline-offset:3px; }

@@ -45,9 +45,9 @@ export function drawFeatureSurface(canvas: HTMLCanvasElement, model: PixelModel,
     for(let r=0;r<grid;r++)for(let c=0;c<grid;c++)for(const [a,b] of classContours([vertices[r]![c]!,vertices[r]![c+1]!,vertices[r+1]![c+1]!,vertices[r+1]![c]!])){context.moveTo(a.x,a.y);context.lineTo(b.x,b.y);}
     context.stroke();
   }
-  data.forEach((example, index) => {
+  data.forEach(example => {
     const [x, y] = canvasPoint(canvas, example.pixels[0] ?? 0, example.pixels[1] ?? 0); const color = CLASS_COLORS[example.label % CLASS_COLORS.length]!;
-    context.beginPath(); context.arc(x, y, 8, 0, Math.PI * 2); context.fillStyle = color; context.fill(); context.strokeStyle = "white"; context.lineWidth = 2.5; context.stroke(); context.fillStyle = "#303b4a"; context.font = "700 11px system-ui"; context.fillText(String(index + 1), x + 10, y - 9);
+    context.beginPath(); context.arc(x, y, 4.7, 0, Math.PI * 2); context.fillStyle = color; context.fill(); context.strokeStyle = "white"; context.lineWidth = 1.2; context.stroke();
   });
   if (options.selectedPoint !== undefined && options.selectedPoint !== null && data[options.selectedPoint]) {
     const p=data[options.selectedPoint]!.pixels;const [x,y]=canvasPoint(canvas,p[0]!,p[1]!);context.strokeStyle="#202633";context.lineWidth=3;context.beginPath();context.arc(x,y,12,0,Math.PI*2);context.stroke();

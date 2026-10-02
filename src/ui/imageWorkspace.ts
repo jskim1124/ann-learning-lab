@@ -1,8 +1,9 @@
+import { updatePracticePopup } from './practicePopup';
 import { captureImage, drawImagePixels, IMAGE_INPUTS, IMAGE_SIDE } from "../core/imageInput";
 import { imageFeatureLegend } from "../core/imageFeatures";
+import { renderTrainingSequence, trainingAllowed } from './trainingSequence';
 import { UnderstandingJourney } from "./understandingJourney";
 import { imageExplorationSource } from '../core/explorationSource';
-import { installImageFeatureEditor } from './imageFeatureEditor';
 import { revealModelPanel, movePracticeReadouts, organizePracticeStage } from "./workspacePanels";
 import { OMR_CENTERS } from "../data/pixelDatasets";
 import { downloadBlob, downloadText } from "../export/modelJson";
@@ -10,11 +11,11 @@ import { generateInferenceExtension } from "../export/inferenceExtension";
 import { createPixelScratchProject } from "../export/pixelScratchProject";
 import { ImageLabStore, type ImageTask, type ImageMode } from "../state/imageLabStore";
 import { drawPixelLatentMap, pixelMapExampleAt, pixelMapInputAt, projectedPixelModel } from "../visualization/pixelLatentMap";
-import { installTrainingMotion, drawTrainingMotion } from '../visualization/trainingMotion';
 import { projectPixels, reconstructProjectedPixels } from '../core/pixelProjection';
 import { renderSignalNetwork, installSignalNetwork } from './liveCalculation';
 import { pixelNetworkGraphMarkup } from "../visualization/pixelNetworkGraph";
 import { drawLossChart } from "../visualization/lossChart";
+import { recordStoreResearch } from '../research/instrumentation';
 import "./imageWorkspace.css";
 
 const COLORS = ["#f17605", "#df466f", "#7446f5", "#1769d2", "#1558b7", "#a93658"];
@@ -35,12 +36,21 @@ export class ImageWorkspace {
   private training = 0;
   private classPage = 0;
   private samplePage = 0;
+  private collectionPage = 0;
   private featureLesson: UnderstandingJourney;
   private canCapture = false;
   private collectionSignature = "";
   private showLines = true;
   private showBoundary = true;
   private probe:[number,number]|null=null;
+
+  private moveInspectionPoint(point:[number,number]):void {
+    const changed=!this.probe||this.probe.some((v,i)=>v!==point[i]);this.probe=point;
+    if(changed){const s=this.store.snapshot,result=this.store.predict(reconstructProjectedPixels(s.projection,...point));
+      recordStoreResearch(this.store,'prediction',{source:'map-probe',x:point[0],y:point[1],probabilities:result.probabilities,hidden:result.hidden,logits:result.logits,trained:s.model.epoch>0,truthSource:'unknown'});
+    }
+    this.renderTraining();
+  }
 
   constructor(private message: (text: string) => void, private go: (step: 1 | 2 | 3 | 4 | 5) => void, private changeInput: (kind: "numbers" | "text") => void) {
     const pages: Record<number, string> = {
@@ -60,19 +70,18 @@ export class ImageWorkspace {
       document.querySelector(`[data-app-page="${step}"] .page-nav`)!.before(root); this.roots.set(Number(step), root);
     });
     this.featureLesson = new UnderstandingJourney(this.roots.get(3)!, {source:()=>imageExplorationSource(this.store.snapshot),context:()=>this.store.snapshot.task,
-      setAxes:(x,y)=>this.store.setAxes(x,y),featureEditor:host=>installImageFeatureEditor(host,this.store,this.message),complete:()=>this.go(4),back:()=>this.go(2)});
+      setAxes:(x,y)=>this.store.setAxes(x,y),complete:()=>this.go(4),back:()=>this.go(2)});
     const axisBar = document.createElement("div"); axisBar.className = "feature-axis-pair practice-axes";
     axisBar.innerHTML = '<label>가로 특징<select id="imagePracticeX"></select></label><label>세로 특징<select id="imagePracticeY"></select></label><span>특징을 바꾸면 분포가 바뀌고 학습은 처음부터 시작합니다.</span>';
     this.el("imageChooseFeatures").replaceWith(axisBar);
-    installImageFeatureEditor(axisBar,this.store,this.message);
     this.el("imageNetwork").closest("details")!.open = true;
     this.el('imageExportSb3').closest('details')!.open=true;
     installSignalNetwork(this.el('imageNetwork'),'imageSignalNetwork');
-    installTrainingMotion(this.el('imageMap'),this.el('imageSignalNetwork'),()=>this.render());
-    const classChoice=document.createElement('label');classChoice.className='practice-class-choice';classChoice.innerHTML='자료 클래스 선택<select id="imageTrainingClass" aria-label="연습에서 살펴볼 클래스"></select>';
-    this.el('imageFocus').parentElement!.before(classChoice);
-    classChoice.before(this.el('imageMode').closest('.image-training-choice')!);
-    this.el('imageTrainingClass').addEventListener('change',()=>{const label=Number(this.el<HTMLSelectElement>('imageTrainingClass').value),row=this.store.snapshot.data.find(d=>d.label===label);this.probe=null;if(row)this.store.selectSample(row.id);});
+    this.el('imageMode').hidden=true;
+    this.el('imageModeNote').hidden=true;
+    this.el('imageMode').closest('.image-training-choice')!.before(axisBar);
+    this.el('imageMode').closest<HTMLElement>('.image-training-choice')!.hidden=true;
+    this.roots.get(4)!.querySelector('.image-model-panel')!.prepend(axisBar);
     movePracticeReadouts(this.roots.get(4)!);
     organizePracticeStage(this.roots.get(4)!);
     this.capture = document.createElement("div"); this.capture.className = "image-capture";
@@ -83,9 +92,11 @@ export class ImageWorkspace {
     this.el('imageCaptureAdd').before(destination);
     const still = document.createElement("img"); still.id = "imageCameraStill"; still.alt = "촬영해 보관한 원본 그림"; still.hidden = true;
     this.capture.querySelector(".image-source")!.append(still);
-    const removeSample = document.createElement("button"); removeSample.id = "imageRemoveSample"; removeSample.textContent = "이 자료 삭제"; removeSample.hidden = true;
-    this.capture.querySelector(".image-capture-buttons")!.append(removeSample);
-    removeSample.addEventListener("click", () => { const id = this.store.snapshot.selectedSample; if (id !== null && window.confirm("이 학습 그림 한 장을 삭제할까요? 모델은 다시 학습해야 합니다.")) this.store.removeSample(id); });
+    const removeSample = document.createElement("button"); removeSample.id = "imageRemoveSample"; removeSample.textContent = "×"; removeSample.setAttribute('aria-label','선택한 그림 삭제');removeSample.hidden = true;
+    this.capture.querySelector(".image-source")!.append(removeSample);
+    removeSample.addEventListener("click", () => { const id = this.store.snapshot.selectedSample; if (id !== null) {this.store.removeSample(id);this.clearDrawing();this.message('그림을 삭제했습니다. 모델은 다시 학습해야 합니다.');} });
+    const gallery=document.createElement('div');gallery.id='imageSelectedGallery';gallery.className='image-selected-gallery';this.capture.querySelector('.image-heading')!.after(gallery);
+    gallery.addEventListener('click',e=>{const b=(e.target as Element).closest<HTMLElement>('[data-collection-page]');if(b){this.collectionPage+=Number(b.dataset.collectionPage);this.render();}});
     const otherInputs = document.createElement("span");
     otherInputs.innerHTML = '<button data-image-other="numbers">숫자 자료</button><button data-image-other="text">텍스트 자료</button>';
     this.el("imageInputSwitch").append(otherInputs);
@@ -106,6 +117,7 @@ export class ImageWorkspace {
     if ((!active || step !== this.step) && this.active) { this.stopCamera(); this.stopTraining(); this.featureLesson.stop(); }
     this.active = active; this.step = step;
     this.roots.forEach((root, number) => { root.hidden = !active || step !== number; });
+    this.featureLesson.show(active&&step===3);
     if (!active) return;
     if (step === 2 || step === 5) {
       const slot = this.el(step === 2 ? "imageCollectSlot" : "imageTestSlot"); if (this.capture.parentElement !== slot) slot.append(this.capture);
@@ -151,6 +163,14 @@ export class ImageWorkspace {
   }
   private renderCapture(): void {
     const s = this.store.snapshot; const camera = this.kind === "webcam";
+    const gallery=this.el('imageSelectedGallery'),rows=s.data.filter(r=>r.label===s.selectedClass),pages=Math.max(1,Math.ceil(rows.length/6));
+    this.collectionPage=Math.max(0,Math.min(this.collectionPage,pages-1));gallery.hidden=this.step!==2;
+    const galleryKey=`${s.revision}:${s.selectedClass}:${s.selectedSample}:${this.collectionPage}`;
+    if(gallery.dataset.key!==galleryKey){
+      gallery.dataset.key=galleryKey;
+      gallery.innerHTML=`<button data-collection-page="-1" aria-label="이전 자료" ${this.collectionPage===0?'disabled':''}>‹</button><div>${rows.slice(this.collectionPage*6,this.collectionPage*6+6).map(r=>`<button data-image-sample="${r.id}" aria-label="자료 ${r.id} 선택" aria-pressed="${r.id===s.selectedSample}"><canvas width="70" height="70" data-gallery-thumb="${r.id}"></canvas></button>`).join('')||'<span>그림을 모아 주세요</span>'}</div><button data-collection-page="1" aria-label="다음 자료" ${this.collectionPage===pages-1?'disabled':''}>›</button>`;
+      gallery.querySelectorAll<HTMLCanvasElement>('[data-gallery-thumb]').forEach(c=>drawImagePixels(c,s.data.find(r=>r.id===Number(c.dataset.galleryThumb))!.pixels));
+    }
     this.el("imageInputSwitch").hidden = s.task !== "custom";
     this.capture.querySelectorAll<HTMLButtonElement>("[data-image-input]").forEach((button) => { button.classList.toggle("active", button.dataset.imageInput === this.kind); });
     this.el("imageDraw").hidden = camera; this.el("imageVideo").hidden = !camera; this.el("imageCameraEmpty").hidden = !camera || !!this.stream;
@@ -171,7 +191,6 @@ export class ImageWorkspace {
     const s = this.store.snapshot; const map = s.mode === "map"; const metrics = this.store.metrics(); const focus = this.store.focus();
     const probe=map?this.probe:null,input=probe?reconstructProjectedPixels(s.projection,...probe):focus.pixels,result=this.store.predict(input),selected=!!probe||s.selectedSample!==null;
     const coordinate=projectPixels(s.projection,input),mapModel=projectedPixelModel(s.model,s.projection),predicted=s.classes[result.probabilities.indexOf(Math.max(...result.probabilities))];
-    this.options(this.el<HTMLSelectElement>('imageTrainingClass'));this.el<HTMLSelectElement>('imageTrainingClass').value=String(focus.label);
     this.el("imageResultGrid").hidden = true; this.el("imageResultPager").hidden = true;
     this.el("imageMap").hidden = false; this.el("imageMapControls").hidden = !map;
     this.el("imageResultTitle").textContent = map?"점을 움직이며 반응 살펴보기":"그림을 골라 반응 살펴보기";
@@ -183,22 +202,22 @@ export class ImageWorkspace {
     this.el("imageNetwork").closest("details")!.hidden = false;
     for (const [id, value] of [["imagePracticeX", s.xFeature], ["imagePracticeY", s.yFeature]]) {
       const select = this.el<HTMLSelectElement>(id!);
-      if (select.dataset.features !== s.features.map(f => f.id).join("|")) { select.innerHTML = s.features.map(f => `<option value="${f.id}">${escape(f.name)}</option>`).join(""); select.dataset.features = s.features.map(f => f.id).join("|"); }
+      if (select.dataset.features !== s.features.map(f => f.id).join("|")) { select.innerHTML = s.features.filter(f=>['lr','tb','ink','center','position'].includes(f.id)).map(f => `<option value="${f.id}">${escape(f.name)}</option>`).join(""); select.dataset.features = s.features.map(f => f.id).join("|"); }
       select.value = value!;
     }
     this.el<HTMLOutputElement>("imageHiddenValue").value = `${s.model.hiddenUnits}개`; this.el<HTMLOutputElement>('imageHiddenValue').setAttribute('aria-label',`은닉 뉴런 ${s.model.hiddenUnits}개`); this.el<HTMLInputElement>("imageHidden").value = String(s.model.hiddenUnits);
     this.el("imageEpoch").textContent = `${s.model.epoch}번`; this.el("imageAccuracy").textContent = `${(metrics.accuracy * 100).toFixed(2)}%`;
     this.el<HTMLInputElement>("imageRate").value = String(s.rate); this.el<HTMLOutputElement>("imageRateValue").value = s.rate.toFixed(2);
     this.el("imageAutoTrain").textContent = this.training ? "잠시 멈추기" : "계속 학습";
+    renderTrainingSequence(this.el('imageTrainOne'),this.el('imageTrainTen'),this.el('imageTrainHundred'),this.el('imageAutoTrain'),s.model.epoch);
     drawImagePixels(this.el<HTMLCanvasElement>("imageFocus"), focus.pixels);
     this.el("imageFocusName").textContent = probe?'새 입력 · 정답 미지정':s.selectedSample === null ? "점을 누르거나 누른 채 움직여 보세요." : `고른 그림 · 정답 ${s.classes[focus.label]}`;
     if(selected)this.bars("imageTrainBars", result.probabilities);
     this.el("imageNetwork").innerHTML = pixelNetworkGraphMarkup(map?mapModel:s.model, s.classes, selected?result.hidden:[], selected?result.probabilities:[], map ? [`가로 ${coordinate.x.toFixed(2)}`,`세로 ${coordinate.y.toFixed(2)}`] : undefined);
     renderSignalNetwork(this.el('imageSignalNetwork'),map?mapModel:s.model,map?[coordinate.x,coordinate.y]:input,s.classes,selected);
+    updatePracticePopup(this.roots.get(4)!,[coordinate.x,coordinate.y],probe?null:s.classes[focus.label]!,predicted!,probe?undefined:focus.pixels);
     drawLossChart(this.el<HTMLCanvasElement>("imageLoss"), s.history);
-    drawPixelLatentMap(this.el<HTMLCanvasElement>("imageMap"), s.model, s.data, selected?input:[], s.projection, { view: map ? "decision" : "placement", showValueDirection:false, showNeuronBoundaries: this.showLines, showDecisionBoundary: this.showBoundary, axisLegend: imageFeatureLegend(s.features, s.xFeature, s.yFeature), focusLabel: probe?`정답 미지정 · 예상 ${predicted}`:`정답 ${s.classes[focus.label]} · 예상 ${predicted}` });
-    const canvas=this.el<HTMLCanvasElement>('imageMap'),ratio=window.devicePixelRatio||1;
-    drawTrainingMotion(canvas,mapModel,{left:50,top:13,width:canvas.width/ratio-64,height:canvas.height/ratio-52},map,this.showLines);
+    drawPixelLatentMap(this.el<HTMLCanvasElement>("imageMap"), s.model, s.data, selected?input:[], s.projection, { view: map ? "decision" : "placement", showValueDirection:false, showNeuronBoundaries: this.showLines, showDecisionBoundary: this.showBoundary, axisLegend: imageFeatureLegend(s.features, s.xFeature, s.yFeature), focusLabel: '' });
   }
   private clearDrawing(): void {
     const canvas = this.el<HTMLCanvasElement>("imageDraw"); const ctx = canvas.getContext("2d")!;
@@ -244,22 +263,20 @@ export class ImageWorkspace {
     this.el<HTMLFormElement>("imageNewClass").addEventListener("submit", (event) => { event.preventDefault(); const input = this.el("imageNewClass").querySelector<HTMLInputElement>("input")!; const error = this.store.addClass(input.value); if (error) this.message(error); else { input.value = ""; this.classPage = Math.floor((this.store.snapshot.classes.length - 1) / 3); this.render(); } });
     this.el("imageClassList").addEventListener("click", (event) => {
       const target = event.target as HTMLElement;
-      const selected = target.closest<HTMLButtonElement>("[data-select-image-class]"); if (selected) this.store.selectClass(Number(selected.dataset.selectImageClass));
+      const selected = target.closest<HTMLButtonElement>("[data-select-image-class]"); if (selected) {this.collectionPage=0;this.store.selectSample(null);this.store.selectClass(Number(selected.dataset.selectImageClass));}
       const remove = target.closest<HTMLButtonElement>("[data-remove-image-class]"); if (remove) { const label = Number(remove.dataset.removeImageClass); const count = this.store.snapshot.data.filter((sample) => sample.label === label).length; if (count && !window.confirm(`이 클래스와 그림 ${count}장을 삭제할까요?`)) return; const error = this.store.removeClass(label); if (error) this.message(error); }
       const rename = target.closest<HTMLButtonElement>("[data-rename-image-class]"); if (rename) { const label = Number(rename.dataset.renameImageClass); const name = window.prompt("클래스 이름", this.store.snapshot.classes[label]); if (name !== null) { const error = this.store.renameClass(label, name); if (error) this.message(error); } }
     });
     this.roots.forEach((root) => root.addEventListener("click", (event) => {
       const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-image-sample]"); if (!button) return;
-      const id = Number(button.dataset.imageSample); this.store.selectSample(id);
+      const id = Number(button.dataset.imageSample); if(this.step!==2)this.store.selectSample(id);
       if (this.step === 2) {
         const sample = this.store.snapshot.data.find((item) => item.id === id)!;
         this.stopCamera();
         // A webcam sample is inspected as captured; clicking it never changes the task to drawing.
         if (this.kind === "drawing") drawImagePixels(this.el<HTMLCanvasElement>("imageDraw"), sample.pixels);
         this.canCapture = this.kind === "drawing";
-        this.store.setInput(sample.pixels, sample.image, sample.source === "webcam" ? "webcam" : "drawing");
-        this.store.selectClass(sample.label);
-        this.store.selectSample(id);
+        this.store.loadSample(id);
       }
     }));
     click("imageClassesPrev", () => { this.classPage--; this.render(); }); click("imageClassesNext", () => { this.classPage++; this.render(); });
@@ -269,9 +286,10 @@ export class ImageWorkspace {
     const paint = (event: PointerEvent) => { if (!drawing) return; const here = point(event); const ctx = canvas.getContext("2d")!; ctx.strokeStyle = "#000000"; ctx.lineWidth = this.store.snapshot.task === "omr" ? 28 : 24; ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.beginPath(); ctx.moveTo(...(last ?? here)); ctx.lineTo(here[0] + .01, here[1]); ctx.stroke(); last = here; this.canCapture = true; const input = captureImage(canvas); this.store.setInput(input.pixels, input.image, "drawing"); };
     canvas.addEventListener("pointerdown", (event) => { drawing = true; last = point(event); canvas.setPointerCapture(event.pointerId); paint(event); }); canvas.addEventListener("pointermove", paint);
     canvas.addEventListener("pointerup", () => { drawing = false; last = null; }); canvas.addEventListener("pointercancel", () => { drawing = false; last = null; });
-    for (const [id, epochs] of [["imageTrainOne", 1], ["imageTrainTen", 10], ["imageTrainHundred", 100]] as const) click(id, () => { this.stopTraining(); const error = this.store.train(epochs); if (error) this.message(error); });
+    for (const [id, epochs] of [["imageTrainOne", 10], ["imageTrainTen", 10], ["imageTrainHundred", 100]] as const) click(id, () => { if(!trainingAllowed(this.store.snapshot.model.epoch,epochs))return;this.stopTraining(); const error = this.store.train(epochs); if (error) this.message(error); });
     click("imageAutoTrain", () => {
       if (this.training) { this.stopTraining(); this.render(); return; }
+      if(!trainingAllowed(this.store.snapshot.model.epoch,'auto'))return;
       const error = this.store.coverageError(); if (error) return this.message(error);
       let remaining = 500;
       const tick = () => { if (!this.active || this.step !== 4 || remaining <= 0) { this.stopTraining(); this.render(); return; } remaining -= 5; this.training = window.setTimeout(tick, 30); this.store.train(5); };
@@ -283,11 +301,11 @@ export class ImageWorkspace {
     click("imageReset", () => { this.stopTraining(); this.store.resetModel(); });
     this.el<HTMLInputElement>("imageLines").addEventListener("change", (event) => { this.showLines = (event.target as HTMLInputElement).checked; this.render(); });
     this.el<HTMLInputElement>("imageBoundary").addEventListener("change", (event) => { this.showBoundary = (event.target as HTMLInputElement).checked; this.render(); });
-    this.el<HTMLCanvasElement>("imageMap").addEventListener("click", (event) => { const s = this.store.snapshot; const index = pixelMapExampleAt(event.currentTarget as HTMLCanvasElement, event.clientX, event.clientY, s.projection, s.data); if (index !== null) { this.probe=null;this.store.selectSample(s.data[index]!.id); revealModelPanel(this.roots.get(4)!); } });
+    this.el<HTMLCanvasElement>("imageMap").addEventListener("click", (event) => { const s = this.store.snapshot; const index = pixelMapExampleAt(event.currentTarget as HTMLCanvasElement, event.clientX, event.clientY, s.projection, s.data); if (index !== null) { this.probe=null;this.store.selectSample(s.data[index]!.id); } });
     const practiceMap=this.el<HTMLCanvasElement>('imageMap');practiceMap.tabIndex=0;let probing=false;
-    const moveProbe=(e:PointerEvent)=>{if(!probing)return;const s=this.store.snapshot,index=pixelMapExampleAt(practiceMap,e.clientX,e.clientY,s.projection,s.data);if(index!==null){this.probe=null;this.store.selectSample(s.data[index]!.id);}else if(s.mode==='map'){const p=pixelMapInputAt(practiceMap,e.clientX,e.clientY);if(p){this.probe=p;this.renderTraining();}}};
+    const moveProbe=(e:PointerEvent)=>{if(!probing)return;const s=this.store.snapshot,index=pixelMapExampleAt(practiceMap,e.clientX,e.clientY,s.projection,s.data);if(index!==null){this.probe=null;this.store.selectSample(s.data[index]!.id);}else if(s.mode==='map'){const p=pixelMapInputAt(practiceMap,e.clientX,e.clientY);if(p)this.moveInspectionPoint(p);}};
     practiceMap.addEventListener('pointerdown',e=>{probing=true;practiceMap.setPointerCapture?.(e.pointerId);moveProbe(e);});practiceMap.addEventListener('pointermove',moveProbe);practiceMap.addEventListener('pointerup',()=>probing=false);practiceMap.addEventListener('pointercancel',()=>probing=false);
-    practiceMap.addEventListener('keydown',e=>{if(this.store.snapshot.mode!=='map'||!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key))return;e.preventDefault();const p=this.probe??[0,0];this.probe=[Math.max(-1,Math.min(1,p[0]!+(e.key==='ArrowLeft'?-.05:e.key==='ArrowRight'?.05:0))),Math.max(-1,Math.min(1,p[1]!+(e.key==='ArrowDown'?-.05:e.key==='ArrowUp'?.05:0)))];this.renderTraining();});
+    practiceMap.addEventListener('keydown',e=>{if(this.store.snapshot.mode!=='map'||!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key))return;e.preventDefault();const p=this.probe??[0,0];this.moveInspectionPoint([Math.max(-1,Math.min(1,p[0]!+(e.key==='ArrowLeft'?-.05:e.key==='ArrowRight'?.05:0))),Math.max(-1,Math.min(1,p[1]!+(e.key==='ArrowDown'?-.05:e.key==='ArrowUp'?.05:0)))]);});
     for (const id of ["imagePracticeX", "imagePracticeY"]) this.el(id).addEventListener("change", () => {
       this.stopTraining();this.probe=null; const error = this.store.setAxes(this.el<HTMLSelectElement>("imagePracticeX").value, this.el<HTMLSelectElement>("imagePracticeY").value);
       this.message(error ?? "새 특징으로 분포를 바꾸었습니다. 여기서 다시 학습해 보세요."); this.render();

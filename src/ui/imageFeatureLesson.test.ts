@@ -123,7 +123,7 @@ describe("네 단계 특징 탐구",()=>{
     const map=root.querySelector<HTMLCanvasElement>('#flMap')!;
     vi.spyOn(map,"getBoundingClientRect").mockReturnValue({left:10,top:20,width:720,height:460} as DOMRect);
     const revision=store.snapshot.revision;
-    const point=(type:string,x:number)=>map.dispatchEvent(new MouseEvent(type,{clientX:10+50+(x+1)*328,clientY:20+13+.5*408,bubbles:true}));
+    const point=(type:string,x:number)=>map.dispatchEvent(new MouseEvent(type,{clientX:10+50+(x+1)*328,clientY:20+13+.5*396,bubbles:true}));
     point('pointerdown',-.5);point('pointermove',.8);point('pointerup',.8);
     expect(root.querySelector('.neuron-inputs')!.textContent).toContain("가로 0.8");
     expect(root.querySelector('.neuron-outputs')!.textContent).toContain("B 0.8");

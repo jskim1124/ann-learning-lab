@@ -6,13 +6,13 @@ import { createPixelDataset, PIXEL_TASKS, type PixelTaskName } from "../data/pix
 
 export type ImageTask = PixelTaskName | "webcam" | "custom";
 export type ImageMode = "pixels" | "map";
-export interface ImageSample extends PixelExample { id: number; image?: string; source: "example" | "drawing" | "webcam"; }
+export interface ImageSample extends PixelExample { id: number; image?: string; source: "example" | "drawing" | "webcam" | "upload"; }
 export interface ImageState {
   task: ImageTask; classes: string[]; data: ImageSample[]; model: PixelModel; mode: ImageMode;
   projection: PixelProjection; feature: PixelProjectionMode; rate: number;
   features: ImageFeature[]; xFeature: string; yFeature: string;
   history: Array<{ epoch: number; loss: number; accuracy?: number }>; selectedClass: number; selectedSample: number | null;
-  input: number[]; inputImage?: string; inputSource: "drawing" | "webcam";
+  input: number[]; inputImage?: string; inputSource: "drawing" | "webcam" | "upload";
   testCount: number; testCorrect: number; revision: number;
 }
 
@@ -27,7 +27,7 @@ export class ImageLabStore {
     const builtin = task === "digits" || task === "omr";
     const names = classes ?? (builtin ? [...PIXEL_TASKS[task].classes] : task === "webcam" ? ["가위", "바위", "보"] : ["클래스 1", "클래스 2"]);
     const data: ImageSample[] = builtin ? createPixelDataset(task).map((example) => ({ ...example, id: this.nextId++, source: "example" })) : [];
-    const features = imageFeatures(data), xFeature = task === "omr" ? "position" : builtin ? "ink" : "auto1", yFeature = task === "omr" ? "ink" : builtin ? "center" : "auto2";
+    const features = imageFeatures(data), xFeature = task === "omr" ? "position" : builtin ? "ink" : "lr", yFeature = task === "omr" ? "ink" : builtin ? "center" : "tb";
     const projection = selectedImageProjection(data, features, xFeature, yFeature);
     const mode: ImageMode = task === "webcam" ? "pixels" : "map";
     let model = initializePixelModel(IMAGE_INPUTS, 1, names.length, 31);
@@ -87,7 +87,7 @@ export class ImageLabStore {
     this.state.selectedClass = Math.max(0, Math.min(this.state.selectedClass > label ? this.state.selectedClass - 1 : this.state.selectedClass, this.state.classes.length - 1));
     this.reset(true); this.emit(); return null;
   }
-  setInput(pixels: number[], image?: string, source: "drawing" | "webcam" = this.state.inputSource): void {
+  setInput(pixels: number[], image?: string, source: "drawing" | "webcam" | "upload" = this.state.inputSource): void {
     if (pixels.length !== IMAGE_INPUTS || pixels.some((value) => !Number.isFinite(value) || value < 0 || value > 1)) throw new Error("그림은 0~1 사이의 밝기 196개여야 합니다.");
     this.state = { ...this.state, input: [...pixels], inputImage: image, inputSource: source, selectedSample: null }; this.emit();
   }
@@ -98,6 +98,11 @@ export class ImageLabStore {
   }
   removeSample(id: number): void { this.state.data = this.state.data.filter((sample) => sample.id !== id); this.reset(true); this.emit(); }
   selectSample(id: number | null): void { this.state.selectedSample = id; this.emit(); }
+  /** Selecting a saved drawing is atomic: loading its pixels must not clear selection. */
+  loadSample(id: number): void {
+    const row=this.state.data.find(r=>r.id===id); if(!row)return;
+    this.state={...this.state,selectedSample:id,selectedClass:row.label,input:[...row.pixels],inputImage:row.image,inputSource:row.source==='example'?'drawing':row.source};this.emit();
+  }
   focus(): PixelExample { return this.state.data.find((sample) => sample.id === this.state.selectedSample) ?? { pixels: this.state.input, label: this.state.selectedClass }; }
   coverageError(): string | null {
     const missing = this.state.classes.filter((_, label) => this.state.data.filter((sample) => sample.label === label).length < 2);

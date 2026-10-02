@@ -5,6 +5,16 @@ import { networkOverview,responseInk } from './networkOverview';
 import { neuronLessonModel } from '../core/neuronLesson';
 
 describe('연결지도에 놓인 실제 곱셈·덧셈·확률',()=>{
+  it('두 특징 입력은 별도 원과 연결을 갖고 픽셀 전체는 묶음으로 구분한다',()=>{
+    const panel=document.createElement('div');
+    panel.innerHTML=networkOverview(initializePixelModel(2,3,2),[.2,-.4],['A','B'],true,0,0);
+    expect([...panel.querySelectorAll('.network-axis')].map(node=>node.textContent)).toEqual(['가로','세로']);
+    expect(panel.querySelectorAll('[data-input-wire]')).toHaveLength(6);
+    expect(panel.querySelector('[data-network-input="1"]')!.getAttribute('aria-label')).toBe('세로 입력 -0.40');
+    panel.innerHTML=networkOverview(initializePixelModel(196,3,2),Array(196).fill(0),['A','B'],true,0,0);
+    expect(panel.querySelectorAll('.network-source')).toHaveLength(1);
+    expect(panel.querySelector('.network-source')!.textContent).toBe('196칸');
+  });
   it('답 하나만 살펴봐도 확률의 분모는 전체 클래스로 계산한다',()=>{
     const m=initializePixelModel(2,2,5),p=[.5,.5],panel=document.createElement('div');
     panel.innerHTML=networkOverview(m,p,['A','B','C','D','E'],true,0,4,{onlyOutput:4});
@@ -36,7 +46,7 @@ describe('연결지도에 놓인 실제 곱셈·덧셈·확률',()=>{
     expect(r.outputProducts.reduce((a,b)=>a+b,m.outputBias[1]!)).toBeCloseTo(actual.logits[1]!,12);
     expect(r.total).toBeGreaterThan(0);expect(Number.isFinite(r.total)).toBe(true);
     expect(r.positive[1]!/r.total).toBeCloseTo(actual.probabilities[1]!,14);
-    expect(signalNetwork(m,input,['가위','바위','보'])).toContain('그림 196칸을 한 묶음');
+    expect(signalNetwork(m,input,['가위','바위','보'])).toContain('196칸 입력 묶음');
     expect(signalNetwork(m,input,['가위','바위','보'])).not.toContain('계산값 자세히');
   });
   it('노드를 선택하고 점을 옮겨도 선택 경로를 유지하며 뉴런 삭제 후 안전하게 맞춘다',()=>{

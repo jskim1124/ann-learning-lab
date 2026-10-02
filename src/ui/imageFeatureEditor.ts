@@ -1,4 +1,5 @@
 import type {ImageLabStore} from '../state/imageLabStore';
+import { recordStoreResearch } from '../research/instrumentation';
 /** Feature creation belongs to the real-data workspace, not the common teaching example. */
 export function installImageFeatureEditor(host:HTMLElement,store:ImageLabStore,message:(text:string)=>void):void {
   const button=document.createElement('button');button.textContent='+ 특징 만들기';button.className='practice-feature-create';host.append(button);
@@ -7,7 +8,7 @@ export function installImageFeatureEditor(host:HTMLElement,store:ImageLabStore,m
   const weights=Array<number>(196).fill(0);let brush=1,drag=false;
   dialog.querySelector('.practice-feature-grid')!.innerHTML=weights.map((_,i)=>`<button data-feature-cell="${i}" aria-label="${Math.floor(i/14)+1}행 ${i%14+1}열 제외"></button>`).join('');
   document.body.append(dialog);
-  const paint=(target:Element|null)=>{const cell=target?.closest<HTMLButtonElement>('[data-feature-cell]');if(!cell)return;const i=Number(cell.dataset.featureCell);weights[i]=brush;cell.style.background=brush===1?'#f17605':brush===-1?'#7446f5':'white';cell.setAttribute('aria-label',`${Math.floor(i/14)+1}행 ${i%14+1}열 ${brush===1?'더하기':brush===-1?'빼기':'제외'}`);};
+  const paint=(target:Element|null)=>{const cell=target?.closest<HTMLButtonElement>('[data-feature-cell]');if(!cell)return;const i=Number(cell.dataset.featureCell),previous=weights[i]!;weights[i]=brush;if(previous!==brush)recordStoreResearch(store,'feature_edit',{operation:'cell-edit',cell:i,previous,value:brush});cell.style.background=brush===1?'#f17605':brush===-1?'#7446f5':'white';cell.setAttribute('aria-label',`${Math.floor(i/14)+1}행 ${i%14+1}열 ${brush===1?'더하기':brush===-1?'빼기':'제외'}`);};
   button.addEventListener('click',()=>dialog.showModal());
   dialog.addEventListener('pointerdown',e=>{drag=true;paint(e.target as Element);});dialog.addEventListener('pointerover',e=>{if(drag)paint(e.target as Element);});for(const type of ['pointerup','pointercancel','pointerleave'])dialog.addEventListener(type,()=>drag=false);
   dialog.addEventListener('click',event=>{const target=(event.target as Element).closest<HTMLElement>('button');if(!target)return;

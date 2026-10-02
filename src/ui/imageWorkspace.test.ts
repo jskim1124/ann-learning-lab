@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { ImageWorkspace } from "./imageWorkspace";
+import { observeResearch } from '../research/bus';
+import { instrumentImageStore } from '../research/instrumentation';
+import type { Payload } from '../research/schema';
 
 const { capture } = vi.hoisted(() => ({ capture: vi.fn(() => ({ pixels: Array<number>(196).fill(.3), image: "data:image/jpeg;base64,test" })) }));
 vi.mock("../core/imageInput", async (original) => ({ ...await original<typeof import("../core/imageInput")>(), captureImage: capture, drawImagePixels: vi.fn() }));
@@ -16,17 +19,41 @@ describe("공통 이미지 UI 연결", () => {
     workspace = new ImageWorkspace(vi.fn(), vi.fn(), vi.fn());
   });
   afterEach(() => { workspace.show(false,1); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+  it('클래스 옆 모든 자료를 넘겨 보고 선택 그림의 X로 정확히 한 장 삭제한다',()=>{
+    workspace.configure('omr');workspace.show(true,2);
+    const data=workspace.store.snapshot.data,chosen=data[0]!,rest=data.slice(1).map(r=>r.id);
+    document.querySelector<HTMLButtonElement>('#imageSelectedGallery [data-image-sample]')!.click();
+    expect(workspace.store.snapshot.selectedSample).toBe(chosen.id);expect(button('imageRemoveSample').hidden).toBe(false);
+    button('imageRemoveSample').click();expect(workspace.store.snapshot.data.map(r=>r.id)).toEqual(rest);expect(button('imageRemoveSample').hidden).toBe(true);
+    document.querySelector<HTMLButtonElement>('[data-collection-page="1"]')!.click();expect(document.querySelector<HTMLButtonElement>('#imageSelectedGallery [data-image-sample]')!.dataset.imageSample).toBe(String(data[7]!.id));
+  });
+  it('자료 다음에 축 선택부터 시작하고 다른 축은 그 다음 펼친다',()=>{
+    workspace.configure('omr');workspace.show(true,3);const root=document.querySelector<HTMLElement>('.understanding-journey:not([hidden])')!;
+    const next=root.querySelector<HTMLButtonElement>('[data-explore-next]')!;expect(next.textContent).toContain('가로축에');expect(root.querySelector<HTMLSelectElement>('[data-feature="1"]')!.disabled).toBe(true);
+    expect(next.disabled).toBe(true);const x=root.querySelector<HTMLSelectElement>('[data-feature="0"]')!;expect(x.value).toBe('');x.value='position';x.dispatchEvent(new Event('change',{bubbles:true}));root.querySelector<HTMLButtonElement>('[data-projection-skip]')!.click();expect(next.textContent).toContain('세로축에');
+    const y=root.querySelector<HTMLSelectElement>('[data-feature="1"]')!;y.value='ink';y.dispatchEvent(new Event('change',{bubbles:true}));root.querySelector<HTMLButtonElement>('[data-projection-skip]')!.click();expect(next.textContent).toBe('다음 →');expect(root.querySelector('[data-feature="0"]')!.parentElement!.hidden).toBe(false);
+  });
+  it('이미지 지도에서 키보드로 옮긴 확인점의 실제 좌표와 예상값을 기록한다',()=>{
+    workspace.configure('omr');workspace.show(true,4);const remove=instrumentImageStore(workspace.store),logs:Payload[]=[];
+    const stop=observeResearch((action,payload)=>{if(action==='prediction')logs.push(payload);});
+    try {
+      button('imageMap').dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}));
+      button('imageMap').dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowUp',bubbles:true}));
+      expect(logs).toHaveLength(2);expect(logs[0]).toMatchObject({source:'map-probe',x:.05,y:0,trained:false});expect(logs[1]).toMatchObject({x:.05,y:.05});
+      expect(logs[1]!.probabilities).toHaveLength(5);expect(logs[1]!.hidden).toHaveLength(1);
+    }finally{stop();remove();}
+  });
   it.each(['digits','omr','webcam','custom'] as const)('%s는 실제 자료로 같은 네 단계 탐구 과정을 사용한다',task=>{
     workspace.configure(task);workspace.show(true,3);
     const root=document.querySelector('.understanding-journey:not([hidden])')!;
-    expect([...root.querySelectorAll('.explore-nav button')].map(b=>b.textContent)).toEqual(['1 자료 비교','2 뉴런 직접 조절','3 오차 줄이기','4 뉴런 늘리기']);
+    expect([...root.querySelectorAll('.explore-nav button')].map(b=>b.textContent)).toEqual(['1 자료 비교','2 뉴런 직접 조절','3 예상 개선하기','4 뉴런 늘리기']);
     expect(root.querySelector('[data-journey-ink]')).toBeNull();
     expect(root.querySelector('.explore-network')).not.toBeNull();
-    expect(root.querySelectorAll('[data-explore-chapter]:disabled')).toHaveLength(0);
+    expect(root.querySelectorAll('[data-explore-chapter]:disabled')).toHaveLength(3);
   });
   it('연습 지표·선택 그림은 지도 쪽에, 연결 지도는 한 개만 남긴다',()=>{
     workspace.configure('omr');workspace.show(true,4);
-    for(const id of ['imageHidden','imageEpoch','imageAccuracy','imageFocusName'])expect(document.getElementById(id)!.closest('.image-results-panel')).not.toBeNull();
+    for(const id of ['imageHidden','imageEpoch','imageAccuracy'])expect(document.getElementById(id)!.closest('.practice-control-rail')).not.toBeNull();
     expect(document.getElementById('imageSignalNetwork')!.querySelectorAll('.network-overview')).toHaveLength(1);
     expect(document.getElementById('imageSignalNetwork')!.querySelector('.network-calculations')).toBeNull();
     expect(document.getElementById('imageNetwork')!.classList.contains('retired-network')).toBe(true);
@@ -125,8 +152,8 @@ describe("공통 이미지 UI 연결", () => {
     expect(document.querySelector('#imageSignalNetwork .answer-track>i')!.getAttribute('style')).not.toBe(before);
     expect(document.getElementById('imageFocusName')!.textContent).toContain('정답 미지정');
     expect(JSON.stringify(workspace.store.snapshot.data)).toBe(original);expect(JSON.stringify(workspace.store.snapshot.model)).toBe(model);
-    const select=document.getElementById('imageTrainingClass') as HTMLSelectElement;select.value='2';select.dispatchEvent(new Event('change'));
-    expect(document.getElementById('imageFocusName')!.textContent).toContain('정답 2');
+    expect(document.getElementById('imageTrainingClass')).toBeNull();
+    expect(document.getElementById('imageLoss')!.closest('.image-model-panel')).not.toBeNull();
     workspace.show(true,5);expect(document.getElementById('imageExportSb3')!.closest('details')!.open).toBe(true);
   });
   it("자유 드로잉은 진한 검정 붓으로 그리고 실제 픽셀을 미리보기·학습에 같이 사용한다",()=>{

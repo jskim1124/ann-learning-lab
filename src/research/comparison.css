@@ -1,0 +1,121 @@
+/* Shares the lesson shell and header. Only the selected class owns the collector. */
+.comparison-workspace { height:100%; min-height:0; padding:14px 20px 12px; display:flex; flex-direction:column; gap:12px; color:#222e3b; font-size:16px; }
+.comparison-workspace[hidden],.comparison-workspace [hidden] { display:none!important; }
+.lesson-shell:has(.comparison-workspace:not([hidden])) { height:calc(100dvh - 60px); min-height:0; overflow:hidden; }
+body:has(.comparison-workspace:not([hidden])) .topbar { height:60px; }
+.comparison-workspace>header { display:flex; justify-content:space-between; align-items:center; flex:none; }
+.comparison-workspace h1 { font-size:26px; margin:0; }
+.comparison-workspace h2 { font-size:20px; margin:0 0 10px; }
+.comparison-workspace button,.comparison-workspace input,.comparison-workspace select { font:inherit; min-height:36px; border:1px solid #ccd3df; border-radius:10px; padding:7px 10px; }
+.comparison-workspace button { cursor:pointer; background:white; }
+.comparison-workspace button.primary { background:var(--blue); color:white; }
+.comparison-workspace button:disabled { opacity:.5; cursor:default; }
+.comparison-workspace p { line-height:1.45; }
+.comparison-columns { flex:1; min-height:0; display:grid; grid-template-columns:minmax(330px,1.4fr) minmax(220px,.75fr) minmax(280px,1fr); gap:18px; align-items:start; }
+.comparison-columns>section { min-width:0; max-height:100%; overflow:auto; background:white; border:1px solid #dce0e7; border-radius:20px; padding:16px; }
+.comparison-heading { display:flex; justify-content:space-between; align-items:center; gap:10px; }
+.comparison-heading label { display:flex; gap:6px; align-items:center; font-size:14px; }
+.comparison-class { border:1px solid #dce1e8; border-radius:14px; padding:9px; margin:8px 0; }
+.comparison-class.selected { border:2px solid var(--class-color); padding:8px; }
+.comparison-class>div:first-child { display:flex; align-items:center; gap:5px; }
+.comparison-class>div:first-child button:first-child { flex:1; text-align:left; font-weight:700; color:var(--class-color); background:none; border:0; }
+.comparison-class>div:first-child button:not(:first-child) { font-size:14px; min-height:30px; }
+.comparison-samples { display:flex; gap:7px; align-items:center; min-height:34px; }
+.comparison-samples button { padding:0; border:0; background:#f5f6f8; min-height:0; }
+.comparison-samples canvas { display:block; width:34px; height:34px; }
+.comparison-samples span { font-size:14px; color:#6b7480; }
+.comparison-add { display:flex; gap:8px; }.comparison-add input { min-width:0; flex:1; }
+.comparison-pager { display:flex; justify-content:center; align-items:center; gap:12px; margin:6px 0 0; }
+.comparison-capture { border-top:1px solid #e6e7ed; padding-top:10px; margin-top:8px; }
+.comparison-tools { display:flex; gap:6px; flex-wrap:wrap; justify-content:center; }
+.comparison-tools [data-source] { flex:1; border-color:transparent; background:#f2f3f7; }
+.comparison-tools [data-source][aria-pressed=true] { color:white; background:var(--blue); border-color:var(--blue); font-weight:700; }
+.comparison-input { height:140px; display:flex; justify-content:center; align-items:center; margin:8px auto; }
+.comparison-input canvas,.comparison-input video { height:140px; width:140px; object-fit:cover; border:1px solid #dce0e7; border-radius:10px; touch-action:none; }
+.comparison-input video { transform:scaleX(-1); }
+.comparison-upload { display:flex; min-height:100px; align-items:center; justify-content:center; margin-top:8px; border:1px dashed #b4c7e4; cursor:pointer; }
+.comparison-train { margin-top:48px; display:grid; gap:12px; }
+.comparison-train label { display:grid; gap:6px; margin:12px 0; }
+.comparison-train progress { width:100%; accent-color:var(--blue); }
+.comparison-preview [data-preview-image] { height:110px; text-align:center; }
+.comparison-preview img,.comparison-preview [data-preview-image] canvas { height:100%; width:auto; aspect-ratio:1; object-fit:contain; border-radius:12px; }
+.comparison-preview [data-preview-image] canvas { image-rendering:pixelated; }
+.comparison-preview>label { display:grid; gap:6px; margin:12px 0 8px; }
+.comparison-preview details { margin-top:14px; }
+.comparison-preview details button { display:block; margin:8px 0; width:100%; }
+.comparison-bar { display:grid; grid-template-columns:65px 1fr 56px; align-items:center; gap:8px; margin:10px 0; }
+.comparison-bar span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.comparison-bar meter { width:100%; height:22px; }.comparison-bar meter::-webkit-meter-optimum-value { background:var(--class-color); }
+.comparison-bar b { font-size:14px; }.comparison-tabs { display:none; }
+.comparison-workspace>[data-comparison-status] { margin:0; font-size:14px; }
+.comparison-workspace>[data-comparison-status]:empty { display:none; }
+.comparison-gallery-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin:16px 0; }
+.comparison-gallery-grid>div { display:grid; gap:4px; }.comparison-gallery-grid canvas { width:100%; max-width:84px; display:block; margin:auto; }
+.comparison-gallery-grid button { border:1px solid #d5dce7; border-radius:10px; padding:8px; background:#fff; font:inherit; }
+.scenario-card[data-teachable] .card-visual,.scenario-illustration[data-preset=teachable] { background-image:url('/illustrations/teachable-machine.jpg'); background-size:cover; background-position:center; }
+.scenario-page .scenario-cards { grid-template-rows:repeat(6,minmax(0,1fr)); }
+@media(min-width:601px) and (max-height:740px) {
+  .scenario-page .scenario-card { padding:7px 12px; column-gap:10px; row-gap:1px; }
+  .scenario-page .scenario-card .card-visual { min-height:44px; max-height:62px; }
+  .scenario-page .scenario-card .card-level { font-size:14px; }
+  .comparison-workspace { padding:10px 16px; gap:8px; }
+  .comparison-columns>section { padding:12px; }.comparison-class { margin:5px 0; padding:5px; }.comparison-class.selected { padding:4px; }
+  .comparison-capture { padding-top:6px; margin-top:5px; }.comparison-samples canvas { width:28px; height:28px; }.comparison-samples { min-height:28px; }
+  .comparison-input,.comparison-input canvas,.comparison-input video { height:100px; }.comparison-input canvas,.comparison-input video { width:100px; }
+  .comparison-pager { margin-top:4px; }.comparison-workspace h2 { margin-bottom:6px; }
+  .comparison-preview [data-preview-image] { height:72px; }.comparison-bar { margin:7px 0; }
+  .comparison-preview>p { font-size:14px; margin:8px 0; }.comparison-preview>label { margin:8px 0; }.comparison-preview details { margin-top:10px; }
+}
+@media(max-width:1050px) {
+  .comparison-tabs { display:flex; gap:8px; flex:none; }.comparison-tabs button { flex:1; }
+  .comparison-tabs [aria-current=step] { background:var(--blue); color:white; }
+  .comparison-columns { display:block; width:100%; max-width:760px; margin:auto; }
+  .comparison-columns>section { display:none; }
+  .comparison-workspace[data-pane="0"] .comparison-data,.comparison-workspace[data-pane="1"] .comparison-train,.comparison-workspace[data-pane="2"] .comparison-preview { display:block; }
+  .comparison-train { margin-top:0; }
+}
+@media(max-width:600px) { .comparison-workspace { padding:10px; }.comparison-heading { flex-wrap:wrap; }.scenario-page .scenario-cards { grid-template-rows:repeat(6,minmax(92px,auto)); } }
+
+/* Collection and its live model share a workbench; testing is a separate tab. */
+.comparison-tabs { display:flex;gap:8px;flex:none; }
+.comparison-tabs button { flex:1; }
+.comparison-tabs [aria-current=step] { color:var(--blue);background:#edf2fc;border-color:#a8bfe8;font-weight:700; }
+.comparison-columns { grid-template-columns:minmax(320px,.85fr) minmax(0,1.65fr);align-items:stretch;gap:14px; }
+.comparison-columns>.comparison-train { margin:0;display:flex;flex-direction:column;gap:8px; }
+.comparison-train-heading { display:flex;align-items:center;justify-content:space-between;gap:12px; }
+.comparison-train-heading h2 { margin:0 0 4px; }
+.comparison-train-heading span { font-size:14px;color:#687284; }
+.comparison-train [data-training-status] { margin:0;font-size:15px; }
+.comparison-train .tm-flow { flex:1; }
+.comparison-train-footer { display:flex;align-items:center;justify-content:space-between;border-top:1px solid #edf0f4;padding-top:8px;font-size:14px;gap:12px; }
+.comparison-train-footer details { min-width:0; }.comparison-train-footer button { flex:none; }
+.comparison-train-heading,.comparison-train [data-training-status],.comparison-train-footer { flex:none; }
+.comparison-train progress { flex:none;height:5px; }
+.comparison-heading label { white-space:nowrap; }
+@media (min-width:1051px) {
+  .comparison-workspace { display:grid;grid-template-columns:auto minmax(0,1fr) auto;grid-template-rows:auto minmax(0,1fr);column-gap:20px; }
+  .comparison-workspace>header { display:contents; }
+  .comparison-workspace>header h1 { grid-column:1;grid-row:1;align-self:center; }
+  .comparison-workspace>header button { grid-column:3;grid-row:1; }
+  .comparison-tabs { grid-column:2;grid-row:1; }
+  .comparison-columns { grid-column:1/-1;grid-row:2; }
+  .comparison-workspace>[data-comparison-status] { grid-column:1/-1; }
+}
+.comparison-columns>.comparison-preview { display:none; }
+.comparison-workspace[data-pane="2"] .comparison-columns { display:block; }
+.comparison-workspace[data-pane="2"] .comparison-data,.comparison-workspace[data-pane="2"] .comparison-train { display:none; }
+.comparison-workspace[data-pane="2"] .comparison-preview { display:block;max-width:760px;margin:0 auto; }
+@media(max-width:1050px) {
+  .comparison-columns { display:block; }
+  .comparison-workspace:not([data-pane="2"]) .comparison-columns>.comparison-train { display:none; }
+  .comparison-workspace[data-pane="1"] .comparison-columns>.comparison-train { display:flex;height:100%; }
+  .comparison-workspace[data-pane="1"] .comparison-data { display:none; }
+}
+@media (min-width:1051px) and (max-height:740px) {
+  .comparison-input,.comparison-input canvas,.comparison-input video { height:82px; }
+  .comparison-input canvas,.comparison-input video { width:82px; }
+  .comparison-input { margin:5px auto; }
+  .comparison-columns>.comparison-train { gap:5px; }
+  .comparison-train-heading h2 { margin:0;font-size:19px; }
+  .comparison-train-heading span { font-size:13px; }
+}

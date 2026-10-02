@@ -20,23 +20,31 @@ export function organizePracticeStage(root: HTMLElement): void {
   stage.classList.add('practice-stage');
   const plot=document.createElement('div');plot.className='practice-plot-area';
   const rail=document.createElement('aside');rail.className='practice-control-rail';rail.setAttribute('aria-label','학습 상태');
-  const motion=stage.querySelector('.training-motion');
+  const model=root.querySelector<HTMLElement>('.image-model-panel')!;
   const move=(target:HTMLElement,selector:string)=>stage.querySelectorAll(selector).forEach(node=>target.append(node));
   move(plot,'.stage-toolbar, #imageMapControls');
-  // Both kinds of map use the same sized plot viewport, rather than a flex remainder.
   const viewport=stage.querySelector<HTMLElement>('.model-canvas')??document.createElement('div');
   viewport.classList.add('practice-plot-viewport');
-  if(!viewport.parentElement){viewport.append(...stage.querySelectorAll('#imageMap, #imageResultGrid, #imageResultPager'));}
-  plot.append(viewport);
+  if(!viewport.parentElement)viewport.append(...stage.querySelectorAll('#imageMap, #imageResultGrid, #imageResultPager'));
+  const slot=document.createElement('div');slot.className='plot-aspect-slot';slot.append(viewport);plot.append(slot);
   move(plot,'.trainer, .image-trainer');
-  move(rail,'.practice-readouts, .practice-selected-input');
-  if(motion)rail.append(motion);
-  move(rail,'.loss-strip, .image-loss');
-  const observations=document.createElement('div');observations.className='practice-observations';
-  observations.append(...rail.querySelectorAll('.practice-readouts, .practice-selected-input'));
+  move(rail,'.practice-readouts');
+  model.querySelectorAll('.practice-axes').forEach(node=>rail.append(node));
+  model.querySelectorAll<HTMLElement>('details').forEach(d=>{if(d.textContent?.includes('학습 설정'))rail.append(d);});
   const history=document.createElement('div');history.className='practice-history';
-  history.append(...rail.children);rail.append(observations,history);
-  stage.append(plot,rail);
+  move(history,'.loss-strip, .image-loss');model.append(history);
+  stage.querySelectorAll('.training-motion').forEach(e=>e.remove());
+  viewport.querySelectorAll('.training-motion').forEach(e=>e.remove());
+  stage.querySelectorAll<HTMLElement>('.practice-selected-input').forEach(e=>e.hidden=true);
+  const popup=document.createElement('div');popup.className='practice-point-popup';popup.hidden=true;popup.setAttribute('role','region');popup.setAttribute('aria-label','고른 자료의 정답과 예상');
+  popup.innerHTML='<button type="button" aria-label="점 정보 닫기">×</button><div data-point-body></div>';
+  viewport.append(popup);
+  popup.querySelector('button')!.addEventListener('click',()=>{popup.hidden=true;popup.dataset.open='false';});
+  viewport.addEventListener('pointerdown',e=>{if((e.target as Element).matches('canvas')){popup.dataset.open='true';popup.hidden=false;}},true);
+  rail.classList.add('image-panel');rail.setAttribute('aria-label','은닉 뉴런과 특징 조절');
+  stage.append(plot);stage.parentElement!.prepend(rail);
+  stage.parentElement!.classList.add('practice-composition');
+
 }
 
 /** Keep the same graph / model composition for numeric and image activities. */

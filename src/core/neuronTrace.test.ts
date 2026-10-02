@@ -24,9 +24,9 @@ describe("그리는 좌표와 선의 교차점",()=>{
     vi.stubGlobal("devicePixelRatio",ratio);
     const canvas=document.createElement('canvas');canvas.width=720*ratio;canvas.height=460*ratio;
     vi.spyOn(canvas,"getBoundingClientRect").mockReturnValue({left:30,top:70,width:720,height:460} as DOMRect);
-    expect(pixelMapInputAt(canvas,30+50+328,70+13+204)).toEqual([0,0]);
+    expect(pixelMapInputAt(canvas,30+50+328,70+13+198)).toEqual([0,0]);
     expect(pixelMapInputAt(canvas,30+50,70+13)).toEqual([-1,1]);
-    expect(pixelMapInputAt(canvas,30+706,70+421)).toEqual([1,-1]);
+    expect(pixelMapInputAt(canvas,30+706,70+409)).toEqual([1,-1]);
     expect(pixelMapInputAt(canvas,30+49,100)).toBeNull();
     vi.unstubAllGlobals();vi.restoreAllMocks();
   });

@@ -52,7 +52,7 @@ describe("고정된 픽셀 그림 지도", () => {
   it("그래프에서는 누른 점만 고르고 빈 곳은 임의의 점으로 바꾸지 않는다", () => {
     const data = createPixelDataset("omr"); const projection = createPixelFeatureProjection(data, "omr", "position"); const canvas = document.createElement("canvas");
     const rect = { left: 20, top: 30, width: 700, height: 420, right: 720, bottom: 450, x: 20, y: 30, toJSON: () => ({}) }; canvas.getBoundingClientRect = () => rect;
-    const point = projectPixels(projection, data[0]!.pixels); const x = rect.left + 50 + (point.x + 1) / 2 * (700 - 50 - 14); const y = rect.top + 13 + (1 - (point.y + 1) / 2) * (420 - 13 - 39);
+    const point = projectPixels(projection, data[0]!.pixels); const x = rect.left + 50 + (point.x + 1) / 2 * (700 - 50 - 14); const y = rect.top + 13 + (1 - (point.y + 1) / 2) * (420 - 13 - 51);
     expect(pixelMapExampleAt(canvas, x, y, projection, data)).toBe(0);
     expect(pixelMapExampleAt(canvas, rect.left + 8, rect.top + 8, projection, data)).toBeNull();
   });

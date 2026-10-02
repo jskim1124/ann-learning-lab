@@ -4,11 +4,12 @@ import type { PixelTaskName } from "../data/pixelDatasets";
 import { classContours } from "./classContours";
 import { NEURON_COLORS as HIDDEN } from "./neuronColors";
 import { drawCoordinateGrid, drawCoordinateTicks } from "./coordinateGrid";
+import { classificationReadout } from '../core/trainingEvidence';
 
 const STRONG = ["#f17605", "#df466f", "#7446f5", "#1f6bd6", "#1558b7", "#a93658"];
 export type PixelMapView = "placement" | "decision";
 export type PixelFeatureView = PixelProjectionMode;
-export const MAP_MARGIN = { left: 50, right: 14, top: 13, bottom: 39 } as const;
+export const MAP_MARGIN = { left: 50, right: 14, top: 13, bottom: 51 } as const;
 const MAP_HIT_RADIUS = 14;
 
 function mapGeometry(canvas: HTMLCanvasElement): { width: number; height: number; plotW: number; plotH: number } {
@@ -49,7 +50,7 @@ function lineEndpoints(plane: { constant: number; horizontal: number; vertical: 
   return points.slice(0, 2);
 }
 
-export interface PixelMapOptions { showValueDirection?:boolean; view?: PixelMapView; classColors?: readonly string[]; focusLabel?: string; previousModel?: PixelModel; previousNeuronModel?: PixelModel; highlightAxis?: "horizontal" | "vertical"; showNeuronBoundaries?: boolean; showDecisionBoundary?: boolean; showDataLabels?: boolean; axisLegend?: PixelAxisLegend; onlyNeuron?: number; resolution?: number; classLabels?: string[]; neutralBackground?: boolean; markerColor?: string; emphasizeClass?:number; neutralTies?:boolean; }
+export interface PixelMapOptions { showMisclassifications?:boolean; showValueDirection?:boolean; view?: PixelMapView; classColors?: readonly string[]; focusLabel?: string; previousModel?: PixelModel; previousNeuronModel?: PixelModel; highlightAxis?: "horizontal" | "vertical"; showNeuronBoundaries?: boolean; showDecisionBoundary?: boolean; showDataLabels?: boolean; axisLegend?: PixelAxisLegend; onlyNeuron?: number; resolution?: number; classLabels?: string[]; neutralBackground?: boolean; markerColor?: string; emphasizeClass?:number; neutralTies?:boolean; }
 
 export function drawPixelLatentMap(canvas: HTMLCanvasElement, model: PixelModel, data: PixelExample[], focusPixels: number[], projection: PixelProjection, options: PixelMapOptions = {}): void {
   const context = canvas.getContext("2d"); if (!context) return;
@@ -61,14 +62,16 @@ export function drawPixelLatentMap(canvas: HTMLCanvasElement, model: PixelModel,
   const margin = MAP_MARGIN; const cells = options.resolution ?? 100; const classes: number[][] = []; const previousClasses: number[][] = [];
   const regionLabels = new Map<number,{x:number;y:number;confidence:number}>();
   // Keep prediction captions away from the selected point and labelled examples.
-  const labelObstacles=[...(options.showDataLabels?data.map(d=>projectPixels(projection,d.pixels)):[]),...(focusPixels.length?[projectPixels(projection,focusPixels)]:[])];
+  const labelObstacles=[...data.map(d=>projectPixels(projection,d.pixels)),...(focusPixels.length?[projectPixels(projection,focusPixels)]:[])];
   const planeModel=projectedPixelModel(model,projection);
   const oldPlaneModel=options.previousModel?projectedPixelModel(options.previousModel,projection):null;
-  for (let gy = 0; gy < cells; gy += 1) {
+  // Placement animations need only a neutral grid, not thousands of repeated fills.
+  if(view === 'placement') { context.fillStyle='#fafafa';context.fillRect(margin.left,margin.top,plotW,plotH); }
+  for (let gy = 0; view !== 'placement' && gy < cells; gy += 1) {
     const row: number[] = []; classes.push(row); const previousRow: number[] = []; previousClasses.push(previousRow);
     for (let gx = 0; gx < cells; gx += 1) {
       const x = (gx + .5) / cells * 2 - 1; const y = 1 - (gy + .5) / cells * 2;
-      if (view === "placement" || options.neutralBackground) {
+      if (options.neutralBackground) {
         context.fillStyle = "#fafafa";
       } else if (options.onlyNeuron !== undefined && options.showDecisionBoundary === false) {
         // A neuron lesson shows its signed sum, not a misleading final-class background.
@@ -132,17 +135,34 @@ export function drawPixelLatentMap(canvas: HTMLCanvasElement, model: PixelModel,
     const top=Math.max(margin.top+16,y-13);
     context.fillStyle=color;context.fillText(text,left,top);
   };
-  data.forEach((example) => {
+  const wrong=new Set(options.showMisclassifications?classificationReadout(model,data).wrongIndices:[]);
+  data.forEach((example,index) => {
     const point=projectPixels(projection,example.pixels),p=mapCanvasPoint(point,plotW,plotH);
     context.beginPath();context.arc(p.x,p.y,4.7,0,Math.PI*2);context.fillStyle=options.markerColor??colors[example.label%colors.length]!;
     context.globalAlpha=options.emphasizeClass!==undefined&&options.emphasizeClass!==example.label?.15:view==="placement"?.85:1;context.fill();context.globalAlpha=1;context.strokeStyle="#fff";context.lineWidth=1.2;context.stroke();
+    if(wrong.has(index)){
+      // An x drawn inside the point cannot be mistaken for another training example.
+      context.beginPath();context.moveTo(p.x-2.5,p.y-2.5);context.lineTo(p.x+2.5,p.y+2.5);context.moveTo(p.x+2.5,p.y-2.5);context.lineTo(p.x-2.5,p.y+2.5);context.strokeStyle='#202633';context.lineWidth=1.7;context.stroke();
+    }
     const focused=focusPixels.length===example.pixels.length&&example.pixels.every((v,i)=>Math.abs(v-focusPixels[i]!)<1e-8);
     if(options.showDataLabels&&!focused)pointLabel(`정답 ${options.classLabels?.[example.label]??example.label}`,p.x,p.y,colors[example.label%colors.length]!);
   });
   if(focusPixels.length){
     const point=projectPixels(projection,focusPixels),p=mapCanvasPoint(point,plotW,plotH);
     context.beginPath();context.arc(p.x,p.y,9,0,Math.PI*2);context.fillStyle="rgba(255,255,255,.9)";context.fill();context.strokeStyle="#111722";context.lineWidth=3;context.stroke();
+    if(options.showMisclassifications&&data.some((row,i)=>wrong.has(i)&&row.pixels.length===focusPixels.length&&row.pixels.every((v,j)=>Math.abs(v-focusPixels[j]!)<1e-8))){
+      context.beginPath();context.moveTo(p.x-3,p.y-3);context.lineTo(p.x+3,p.y+3);context.moveTo(p.x+3,p.y-3);context.lineTo(p.x-3,p.y+3);context.lineWidth=1.7;context.stroke();
+    }
     pointLabel(options.focusLabel??"이 그림",p.x,p.y,"#111722");
+  }
+  if(options.onlyNeuron!==undefined&&options.showDecisionBoundary===false&&model.activation==='relu'){
+    const neuron=options.onlyNeuron,w=planeModel.inputHidden[neuron]!,b=planeModel.hiddenBias[neuron]!;
+    const corners=[[-.62,.66],[.62,.66],[-.62,-.66],[.62,-.66]];
+    const sums=corners.map(p=>w[0]!*p[0]!+w[1]!*p[1]!+b),hi=sums.indexOf(Math.max(...sums)),lo=sums.indexOf(Math.min(...sums));
+    [{i:hi,label:'양수 → 그대로 보냄',positive:true},{i:lo,label:'0 이하 → 0을 보냄',positive:false}].forEach(({i,label,positive})=>{
+      if(positive?sums[i]!<=0:sums[i]!>0)return;
+      const p=corners[i]!,at=mapCanvasPoint({x:p[0]!,y:p[1]!},plotW,plotH);context.font='bold 13px sans-serif';context.textAlign='center';context.fillStyle=positive?HIDDEN[neuron%HIDDEN.length]!:'#596574';context.fillText(label,at.x,at.y);
+    });
   }
   regionLabels.forEach((p,c)=>{const x=margin.left+(p.x+1)/2*plotW,y=margin.top+(1-p.y)/2*plotH;context.font="bold 14px sans-serif";context.textAlign="center";context.fillStyle=colors[c%colors.length]!;context.fillText(`${options.classLabels![c]}로 예상`,x,y);});
   const legend = options.axisLegend; const horizontalLabel = legend?.horizontal.title ?? "가로 점수"; const verticalLabel = legend?.vertical.title ?? "세로 점수";

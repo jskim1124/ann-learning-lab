@@ -1,5 +1,7 @@
 import "./styles.css";
+import { updatePracticePopup } from "./ui/practicePopup";
 import { workspacePanels, featureTrainingPanels, revealModelPanel, organizePracticeStage } from "./ui/workspacePanels";
+import { renderTrainingSequence, trainingAllowed } from './ui/trainingSequence';
 import { generateInferenceExtension } from "./export/inferenceExtension";
 import { importSpreadsheet } from "./data/spreadsheetImport";
 import { evaluate, forward } from "./core/neuralNetwork";
@@ -22,7 +24,6 @@ import { customExplorationSource, penaltyExplorationSource } from './core/explor
 import { FeatureLabStore, type FeatureLabState } from "./state/featureLabStore";
 import type { ActivationName, Label, PresetName } from "./types";
 import { drawDecisionSurface, HIDDEN_COLORS } from "./visualization/decisionSurface";
-import { installTrainingMotion, drawTrainingMotion } from './visualization/trainingMotion';
 import { CLASS_COLORS, drawFeatureSurface } from "./visualization/featureSurface";
 import { XOR_LESSON } from "./visualization/xorLesson";
 import { drawLossChart } from "./visualization/lossChart";
@@ -33,6 +34,16 @@ import './ui/tabletLayout.css';
 import './ui/practiceLayout.css';
 import './ui/explorationLayout.css';
 import './ui/explorationRefinement.css';
+import './ui/explorationClarity.css';
+import './ui/learningCanvas.css';
+import { installViewportGuard } from './ui/viewportGuard';
+installViewportGuard();
+import { ResearchUI } from './research/ui';
+import { ComparisonWorkspace } from './research/comparison';
+import { instrumentFeatureStore, instrumentImageStore, instrumentLabStore, instrumentSurface } from './research/instrumentation';
+import { recordResearch } from './research/bus';
+import { instrumentInteractions } from './research/interactions';
+import { createNumericDatasetRecorder } from './research/numericDataset';
 
 function element<T extends Element>(selector: string): T {
   const found = document.querySelector<T>(selector);
@@ -55,6 +66,7 @@ type CustomPresetName = "custom" | "webcam";
 function isCustomPreset(preset: PresetName): preset is CustomPresetName { return preset === "custom"; }
 
 let customDraft: CustomDatasetDraft = createCustomDraft();
+const recordNumericDataset = createNumericDatasetRecorder();
 let featureUiStore: FeatureLabStore | null = null;
 let featureAutoTimer = 0;
 let customClassPage = 0, customSelectedClass = 0;
@@ -65,6 +77,8 @@ let customLesson: UnderstandingJourney;
 let imageWorkspace: ImageWorkspace;
 let penaltyCollection:PenaltyCollection;
 let penaltyLesson:UnderstandingJourney;
+let teachable:ComparisonWorkspace|undefined;
+let teachableSelected=false;
 function usesImages(preset: PresetName): boolean { return isPixelPreset(preset) || preset === "webcam" || preset === "custom" && (customDraft.inputKind === "drawing" || customDraft.inputKind === "webcam"); }
 function stopFeatureAuto(): void { if (featureAutoTimer) window.clearInterval(featureAutoTimer); featureAutoTimer = 0; }
 
@@ -82,6 +96,7 @@ function syncCustomStore(store: LabStore): void {
   featureSelectedPoint = null;
   featureProbe = false;
   featureUiStore?.setDataset(projection.points, projection.classes);
+  if (featureUiStore) recordNumericDataset(featureUiStore, customDraft);
 }
 
 function fillSelect(select: HTMLSelectElement, names: string[], selected: number): void {
@@ -168,23 +183,33 @@ function startUnderstandingMotion(_kind: "boundary", duration = 950): void {
   explanationMotionFrame = window.requestAnimationFrame(tick);
 }
 function renderLessonProgress(state: LabState): void {
-  document.querySelectorAll<HTMLElement>("[data-app-page]").forEach((page) => { page.hidden = Number(page.dataset.appPage) !== state.lessonStep; });
+  document.querySelectorAll<HTMLElement>("[data-app-page]").forEach((page) => { page.hidden = !!teachable?.isOpen || Number(page.dataset.appPage) !== state.lessonStep; });
   document.querySelectorAll<HTMLButtonElement>("[data-go-step]").forEach((button) => {
     const step = Number(button.dataset.goStep);
-    button.classList.toggle("active", step === state.lessonStep);
-    button.classList.toggle("done", step < state.lessonStep);
-    if (button.closest(".lesson-progress")) button.disabled = step > state.furthestLessonStep;
+    const active=teachable?.isOpen?teachable.lessonStep:state.lessonStep;
+    button.classList.toggle("active", step === active);
+    button.classList.toggle("done", step < active && !(teachable?.isOpen&&step===3));
+    if (button.closest(".lesson-progress")) button.disabled = teachable?.isOpen?step===3:step > state.furthestLessonStep;
   });
   if (renderedLessonStep !== state.lessonStep) window.scrollTo({ top: 0, behavior: renderedLessonStep === 0 ? "auto" : "smooth" });
   renderedLessonStep = state.lessonStep;
 }
 
 function renderScenario(state: LabState): void {
+  element('[data-teachable]').classList.toggle('selected',teachableSelected);
+  element('[data-teachable]').setAttribute('aria-pressed',String(teachableSelected));
   const preset = PRESETS[state.preset];
   document.querySelectorAll<HTMLButtonElement>("[data-preset]").forEach((card) => {
-    const selected = card.dataset.preset === state.preset;
+    const selected = !teachableSelected && card.dataset.preset === state.preset;
     card.classList.toggle("selected", selected); card.setAttribute("aria-pressed", String(selected));
   });
+  if(teachableSelected){
+    element('#scenarioDifficulty').textContent='이미지';element('#scenarioName').textContent='티처블 머신';
+    element('#scenarioStory').textContent='우리 반에서 가위바위보 심판을 만들어 보기로 했어요. 친구마다 손의 모양과 크기는 조금씩 다르네요.';
+    element('#scenarioMotivation').textContent='각 손 모양에 이름을 붙여 사진을 모으고, 처음 보는 손도 알아보는 모델을 학습시켜 보세요.';
+    element('#scenarioQuestion').textContent='가위바위보뿐 아니라 직접 고른 물건이나 그림도 구별할 수 있을까요?';
+    element<HTMLElement>('#scenarioIllustration').dataset.preset='teachable';return;
+  }
   element<HTMLElement>("#scenarioDifficulty").textContent = preset.difficulty;
   element<HTMLElement>("#scenarioName").textContent = preset.title;
   element<HTMLElement>("#scenarioStory").textContent = preset.story;
@@ -340,14 +365,15 @@ function renderFeatureLab(lab: LabState, state: FeatureLabState): void {
   const projection = projectCustomDataset(customDraft); const metrics = featureUiStore?.metrics(); const probabilities = featureUiStore?.probabilities() ?? []; const best = probabilities.indexOf(Math.max(...probabilities));
   element<HTMLInputElement>("#featureHiddenUnits").value = String(state.model.hiddenUnits); element<HTMLOutputElement>("#featureHiddenOut").value = `${state.model.hiddenUnits}개`; element<HTMLSelectElement>("#featureActivation").value = state.model.activation; element<HTMLInputElement>("#featureLearningRate").value = String(state.learningRate); element<HTMLOutputElement>("#featureLearningRateOut").value = state.learningRate.toFixed(2);
   element<HTMLElement>("#featureEpoch").textContent = String(state.model.epoch); element<HTMLElement>("#featureEpochNow").textContent = String(state.model.epoch); element<HTMLElement>("#featureProgressBar").style.width = `${Math.min(100, state.model.epoch / 10)}%`; element<HTMLElement>("#featureLoss").textContent = metrics ? metrics.loss.toFixed(2) : "—"; element<HTMLElement>("#featureAccuracy").textContent = metrics ? `${(metrics.accuracy * 100).toFixed(2)}%` : "—"; element<HTMLElement>("#featureTrainCount").textContent = `${state.data.length}개`; element<HTMLButtonElement>("#featureAutoTrain").textContent = featureAutoTimer ? "잠시 멈추기" : "계속 연습";
+  renderTrainingSequence(element('#featureTrainOne'),element('#featureTrainTen'),element('#featureTrainHundred'),element('#featureAutoTrain'),state.model.epoch);
   element<HTMLInputElement>("#featureNeuronLayer").checked = state.showNeuronBoundaries; element<HTMLInputElement>("#featureDecisionLayer").checked = state.showDecisionBoundary; element<HTMLElement>("#featureTrainAxisX").textContent = projection.axes[0]; element<HTMLElement>("#featureTrainAxisY").textContent = projection.axes[1];
   if (lab.lessonStep === 4) { drawFeatureSurface(element<HTMLCanvasElement>("#featureModelCanvas"), state.model, state.data, state.testInput, { ...state, showValueDirection:false, showProbe: featureProbe, selectedPoint: featureSelectedPoint }); drawLossChart(element<HTMLCanvasElement>("#featureLossCanvas"), state.history); const result = forwardPixels(state.model, [state.testInput.x, state.testInput.y]); element<SVGSVGElement>("#featureNetworkSvg").innerHTML = pixelNetworkGraphMarkup(state.model, state.classes, result.hidden, result.probabilities, [projection.axes[0], projection.axes[1]]); renderProbabilityBars("#featureTrainBars", state, result.probabilities); }
   element<SVGSVGElement>("#featureNetworkSvg").removeAttribute("hidden");
   for (const [id, selected] of [["featurePracticeX", customDraft.xFeature], ["featurePracticeY", customDraft.yFeature]] as const) fillSelect(element<HTMLSelectElement>(`#${id}`), customDraft.features, selected);
   element<HTMLElement>("#featureTrainBars").hidden=true;
   renderSignalNetwork(element('#featureSignalNetwork'),state.model,[state.testInput.x,state.testInput.y],state.classes);
-  if(lab.lessonStep===4)drawTrainingMotion(element('#featureModelCanvas'),state.model,undefined,true,state.showNeuronBoundaries);
   const selected=featureSelectedPoint===null?null:customDraft.rows[featureSelectedPoint];
+  updatePracticePopup(element("#customTrainingView"),[state.testInput.x,state.testInput.y],selected?customDraft.classes[selected.label]!:null,state.classes[best]??"—");
   element<HTMLElement>("#featureSelectedData").textContent=selected?`${selected.name} · 정답 ${customDraft.classes[selected.label]}`:featureProbe?'새 입력 · 정답 미지정':"점을 선택하거나 빈 곳에서 확인점을 움직여 보세요.";
   element<HTMLElement>("#featureUseAxisX").textContent = projection.axes[0]; element<HTMLElement>("#featureUseAxisY").textContent = projection.axes[1]; element<HTMLInputElement>("#featureUseX").value = String(state.testInput.x); element<HTMLInputElement>("#featureUseY").value = String(state.testInput.y);
   if (lab.lessonStep === 5) { renderProbabilityBars("#featureUseBars", state, probabilities); element<HTMLElement>("#featurePredictionAnswer").textContent = state.model.epoch ? `모델의 답: ${state.classes[best] ?? "?"}` : "먼저 모델을 연습시켜 주세요"; }
@@ -402,13 +428,13 @@ function render(state: LabState, store: LabStore): void {
     drawLossChart(element<HTMLCanvasElement>("#lossCanvas"), state.history);
     element<SVGSVGElement>("#networkSvg").setAttribute("hidden", "");
     const chosen = boundarySelectedPoint === null ? null : state.data[boundarySelectedPoint];
+    updatePracticePopup(element("#boundaryTrainingView"),[state.testInput.x,state.testInput.y],chosen?preset.classes[chosen.label]!:state.testInput.x*state.testInput.y===0?null:preset.classes[Number((state.testInput.x<0)!==(state.testInput.y<0))]!,preset.classes[prediction.probability>=.5?1:0]!);
     const ruleTruth=state.testInput.x===0||state.testInput.y===0?'가운데는 정답 미지정':`규칙의 정답 ${preset.classes[Number((state.testInput.x<0)!==(state.testInput.y<0))]}`;
     element<HTMLElement>("#boundarySelectedData").textContent = chosen ? `자료 정답 ${preset.classes[chosen.label]} · 키커 ${chosen.x < 0 ? "왼쪽" : "오른쪽"} / 골키퍼 ${chosen.y < 0 ? "왼쪽" : "오른쪽"}` : boundaryProbe?`확인점 (${state.testInput.x.toFixed(2)}, ${state.testInput.y.toFixed(2)}) · ${ruleTruth}`:"점을 선택하거나 빈 곳에서 확인점을 움직여 보세요.";
     element<HTMLElement>("#boundarySelectedResult").textContent = `예상 ${preset.classes[prediction.probability >= .5 ? 1 : 0]} · 골 가능성 ${(prediction.probability * 100).toFixed(2)}%`;
     element<HTMLElement>("#boundarySelectedResult").hidden = true; // The shared network now shows this prediction visually.
     element<SVGSVGElement>("#networkSvg").innerHTML = networkGraphMarkup(state.model, prediction.hidden,[state.testInput.x,state.testInput.y]);
     renderSignalNetwork(element('#boundarySignalNetwork'),penaltyPixelModel(state.model),[state.testInput.x,state.testInput.y],preset.classes);
-    drawTrainingMotion(element('#modelCanvas'),penaltyPixelModel(state.model),undefined,true,state.showNeuronBoundaries);
   }
   if (state.lessonStep === 3 && state.preset!=='xor' && !isPixelPreset(state.preset) && !isCustomPreset(state.preset)) {
     drawDecisionSurface(element<HTMLCanvasElement>("#decisionCanvas"), state.model, state.data, state.testInput, { explanationStep: state.explanationStep, selectedNeuron: state.selectedNeuron, highlightRevealed: state.highlightRevealed });
@@ -421,6 +447,7 @@ function render(state: LabState, store: LabStore): void {
   element<HTMLElement>("#epochNow").textContent = String(state.model.epoch); element<HTMLElement>("#epochGoal").textContent = String(state.epochGoal);
   element<HTMLElement>("#progressBar").style.width = `${Math.min(100, (state.model.epoch / state.epochGoal) * 100)}%`;
   element<HTMLButtonElement>("#autoTrain").textContent = state.autoTraining ? "잠시 멈추기" : "계속 연습";
+  renderTrainingSequence(element('#trainOne'),element('#trainTen'),element('#trainHundred'),element('#autoTrain'),state.model.epoch);
   element<HTMLInputElement>("#testX").value = String(state.testInput.x); element<HTMLInputElement>("#testY").value = String(state.testInput.y);
   element<HTMLElement>("#predictionValue").textContent = `${(prediction.probability * 100).toFixed(2)}%`;
   element<HTMLElement>("#predictionLabel").textContent = `모델의 답: ${prediction.probability >= .5 ? preset.classes[1] : preset.classes[0]}`;
@@ -445,18 +472,21 @@ function addPointFromCanvas(event: MouseEvent, store: LabStore): void {
 }
 
 export function mountApp(store = createInitialStore()): LabStore {
+  instrumentLabStore(store);
   const goImageStep = (step: 1 | 2 | 3 | 4 | 5) => {
     if (step >= 3) { const error = imageWorkspace.ready(); if (error) return showToast(error); }
     if (step === 5 && !imageWorkspace.store.snapshot.model.epoch) return showToast("먼저 학습해 주세요.");
     store.setLessonStep(step);
   };
   imageWorkspace = new ImageWorkspace(showToast, goImageStep, (kind) => { customDraft = createCustomDraft(kind); customLesson.reset(); syncCustomStore(store); store.setLessonStep(2); });
+  instrumentImageStore(imageWorkspace.store);
   imageWorkspace.configure(isPixelPreset(store.snapshot.preset) ? store.snapshot.preset : store.snapshot.preset === "webcam" ? "webcam" : "custom");
   penaltyCollection=new PenaltyCollection(store,showToast);
   const penaltyLessonRoot=document.createElement('div');penaltyLessonRoot.id='penaltyUnderstanding';penaltyLessonRoot.hidden=true;element('[data-app-page="3"] .page-nav').before(penaltyLessonRoot);
   penaltyLesson=new UnderstandingJourney(penaltyLessonRoot,{source:()=>penaltyExplorationSource(store.snapshot.data,[...PRESETS.xor.classes]),context:()=> '승부차기: 공·골키퍼의 좌우가 두 입력이에요',complete:()=>store.beginPractice(),back:()=>store.setLessonStep(2)});
   workspacePanels(element("#customDataView"), [...element("#customDataView .image-collection").children], ["클래스·자료", "자료 수집"], () => renderCustomLab(store.snapshot));
   const featureStore = new FeatureLabStore(); featureUiStore = featureStore;
+  instrumentFeatureStore(featureStore);
   // Every input format follows the shared hands-on understanding journey.
   if (isCustomPreset(store.snapshot.preset)) { const projection = projectCustomDataset(customDraft); featureStore.setDataset(projection.points, projection.classes); }
   const rerender = () => render(store.snapshot, store);
@@ -473,33 +503,33 @@ export function mountApp(store = createInitialStore()): LabStore {
   featureTrainingPanels(element("#customTrainingView"), rerender);
   featureTrainingPanels(element("#boundaryTrainingView"), rerender);
   installSignalNetwork(element('#networkSvg'),'boundarySignalNetwork');installSignalNetwork(element('#featureNetworkSvg'),'featureSignalNetwork');
-  installTrainingMotion(element('#modelCanvas'),element('#boundarySignalNetwork'),rerender);
-  installTrainingMotion(element('#featureModelCanvas'),element('#featureSignalNetwork'),rerender);
   organizePracticeStage(element('#customTrainingView'));
   organizePracticeStage(element('#boundaryTrainingView'));
   document.querySelectorAll<HTMLDetailsElement>('[data-app-page="5"] details').forEach(panel=>panel.open=true);
   const axes = document.createElement("div"); axes.className = "feature-axis-pair practice-axes";
   axes.innerHTML = '<label>가로 특징<select id="featurePracticeX"></select></label><label>세로 특징<select id="featurePracticeY"></select></label><span>바꾸면 좌표·분포가 바뀌고 학습이 초기화됩니다.</span>';
-  element("#customTrainingView .image-model-panel").prepend(axes);
+  element("#customTrainingView .practice-control-rail").append(axes);
   for (const [id, axis] of [["featurePracticeX", "xFeature"], ["featurePracticeY", "yFeature"]] as const) element(id === "featurePracticeX" ? "#featurePracticeX" : "#featurePracticeY").addEventListener("change", event => {
     const value = Number((event.target as HTMLSelectElement).value), other = axis === "xFeature" ? customDraft.yFeature : customDraft.xFeature;
     if (value === other) { showToast("두 축에는 서로 다른 특징을 골라 주세요."); return rerender(); }
     stopFeatureAuto(); customDraft[axis] = value; syncCustomStore(store); showToast("새 특징으로 분포를 바꾸었습니다. 여기서 다시 학습하세요.");
+    recordResearch('feature_change',{featureX:String(customDraft.xFeature),featureY:String(customDraft.yFeature)});
   });
   uiRerender = rerender;
   store.subscribe(rerender); featureStore.subscribe(rerender);
   document.querySelectorAll<HTMLButtonElement>("[data-preset]").forEach((card) => card.addEventListener("click", () => {
+    teachableSelected=false;teachable?.close();
     const preset = card.dataset.preset as PresetName;
     boundarySelectedPoint = null; featureSelectedPoint = null; boundaryProbe=false;featureProbe=false;customClassPage=0; customSelectedClass=0; customLesson.reset();penaltyCollection.reset();penaltyLesson.reset();
     if (preset === "custom") { customDraft = createCustomDraft(); featureStore.setHiddenUnits(1); syncCustomPreset("custom"); imageWorkspace.configure("custom"); }
     else if (isPixelPreset(preset) || preset === "webcam") imageWorkspace.configure(preset);
     store.setPreset(preset, { restartLesson: true }); if (preset === "custom") syncCustomStore(store);
   }));
-  document.querySelectorAll<HTMLButtonElement>("[data-go-step]").forEach((button) => button.addEventListener("click", () => { const step = Number(button.dataset.goStep) as LabState["lessonStep"]; if (step <= store.snapshot.furthestLessonStep) { if (usesImages(store.snapshot.preset)) goImageStep(step); else { if(isCustomPreset(store.snapshot.preset)&&step>=3){const error=validateCustomDataset(customDraft);if(error)return showToast(error);} if(step===5&&!featureStore.snapshot.model.epoch&&isCustomPreset(store.snapshot.preset))return showToast("먼저 학습해 주세요."); store.setLessonStep(step); } } }));
+  document.querySelectorAll<HTMLButtonElement>("[data-go-step]").forEach((button) => button.addEventListener("click", () => { const step = Number(button.dataset.goStep) as LabState["lessonStep"]; if(teachable?.isOpen){if(step===1){teachable.close();store.setLessonStep(1);}else if(step!==3)teachable.navigate(step===2?0:step===4?1:2);return;} if (step <= store.snapshot.furthestLessonStep) { if (usesImages(store.snapshot.preset)) goImageStep(step); else { if(isCustomPreset(store.snapshot.preset)&&step>=3){const error=validateCustomDataset(customDraft);if(error)return showToast(error);} if(step===5&&!featureStore.snapshot.model.epoch&&isCustomPreset(store.snapshot.preset))return showToast("먼저 학습해 주세요."); store.setLessonStep(step); } } }));
   document.querySelectorAll<HTMLButtonElement>("[data-back]").forEach((button) => button.addEventListener("click", () => {
     store.previousLesson();
   }));
-  element<HTMLButtonElement>("#scenarioNext").addEventListener("click", () => store.setLessonStep(2));
+  element<HTMLButtonElement>("#scenarioNext").addEventListener("click", () => {if(teachableSelected){teachable??=new ComparisonWorkspace(showToast,rerender);teachable.open();}else store.setLessonStep(2);});
   element<HTMLButtonElement>("#dataNext").addEventListener("click", () => {
     if(store.snapshot.preset==='xor'){store.setLessonStep(3);return;}
     if (usesImages(store.snapshot.preset)) { const error = imageWorkspace.ready(); if (error) return showToast(error); store.setLessonStep(3); return; }
@@ -519,8 +549,8 @@ export function mountApp(store = createInitialStore()): LabStore {
   element<HTMLButtonElement>("#resetModel").addEventListener("click", () => { store.resetModel(); showToast("연습 전 상태로 되돌렸습니다."); });
   element<HTMLInputElement>("#boundaryNeuronLayer").addEventListener("change", (event) => store.setLayers({ showNeuronBoundaries: (event.currentTarget as HTMLInputElement).checked }));
   element<HTMLInputElement>("#boundaryDecisionLayer").addEventListener("change", (event) => store.setLayers({ showDecisionBoundary: (event.currentTarget as HTMLInputElement).checked }));
-  ([["#trainOne", 1], ["#trainTen", 10], ["#trainHundred", 100]] as const).forEach(([selector, count]) => element<HTMLButtonElement>(selector).addEventListener("click", () => { const error = store.trainEpochs(count); if (error) showToast(error); }));
-  element<HTMLButtonElement>("#autoTrain").addEventListener("click", () => { const error = store.toggleAuto(); if (error) showToast(error); });
+  ([["#trainOne", 10], ["#trainTen", 10], ["#trainHundred", 100]] as const).forEach(([selector, count]) => element<HTMLButtonElement>(selector).addEventListener("click", () => { if(!trainingAllowed(store.snapshot.model.epoch,count))return;const error = store.trainEpochs(count); if (error) showToast(error); }));
+  element<HTMLButtonElement>("#autoTrain").addEventListener("click", () => { if(!trainingAllowed(store.snapshot.model.epoch,'auto'))return;const error = store.toggleAuto(); if (error) showToast(error); });
   element<HTMLCanvasElement>("#dataCanvas").addEventListener("click", (event) => addPointFromCanvas(event, store));
   document.querySelectorAll<HTMLButtonElement>("[data-custom-input]").forEach((button) => button.addEventListener("click", () => {
     const kind = button.dataset.customInput as CustomInputKind; if (kind === customDraft.inputKind) return;
@@ -580,7 +610,7 @@ export function mountApp(store = createInitialStore()): LabStore {
   element<HTMLButtonElement>("#exportScratch").addEventListener("click", () => downloadText("neural-lab-turbowarp.js", generateScratchExtension(store.snapshot.model), "text/javascript"));
   element<HTMLButtonElement>("#exportScratchProject").addEventListener("click", () => { downloadBlob("neural-lab-scratch.sb3", createScratchProject(store.snapshot.model)); showToast("Scratch에서 열 수 있는 블록 파일을 만들었습니다."); });
   element<HTMLInputElement>("#importJson").addEventListener("change", async (event) => { const input = event.currentTarget as HTMLInputElement; const file = input.files?.[0]; if (!file) return; try { store.importModel(deserializeModel(await file.text())); store.setLessonStep(5); showToast("보관한 모델을 열었습니다."); } catch (error) { showToast(error instanceof Error ? error.message : "파일을 열지 못했습니다."); } finally { input.value = ""; } });
-  ([ ["#featureTrainOne", 1], ["#featureTrainTen", 10], ["#featureTrainHundred", 100] ] as const).forEach(([selector, epochs]) => element<HTMLButtonElement>(selector).addEventListener("click", () => featureStore.train(epochs)));
+  ([ ["#featureTrainOne", 10], ["#featureTrainTen", 10], ["#featureTrainHundred", 100] ] as const).forEach(([selector, epochs]) => element<HTMLButtonElement>(selector).addEventListener("click", () => {if(trainingAllowed(featureStore.snapshot.model.epoch,epochs))featureStore.train(epochs);}));
   element<HTMLButtonElement>("#featureResetModel").addEventListener("click", () => { featureStore.resetModel(); showToast("연습 전 상태로 되돌렸습니다."); });
   element<HTMLInputElement>("#featureHiddenUnits").addEventListener("input", (event) => featureStore.setHiddenUnits(Number((event.currentTarget as HTMLInputElement).value)));
   element<HTMLSelectElement>("#featureActivation").addEventListener("change", (event) => featureStore.setActivation((event.currentTarget as HTMLSelectElement).value as ActivationName));
@@ -593,11 +623,15 @@ export function mountApp(store = createInitialStore()): LabStore {
   bindPracticeProbe(element('#modelCanvas'),()=>store.snapshot.data,()=>store.snapshot.testInput,(i,x,y)=>{boundarySelectedPoint=i;boundaryProbe=i===null;store.setTestInput(x,y);});
   bindPracticeProbe(element('#featureModelCanvas'),()=>featureStore.snapshot.data.map(row=>({x:row.pixels[0]!,y:row.pixels[1]!})),()=>featureStore.snapshot.testInput,(i,x,y)=>{featureSelectedPoint=i;featureProbe=i===null;featureStore.setTestInput(x,y);});
   const updateFeatureUse = () => featureStore.setTestInput(Number(element<HTMLInputElement>("#featureUseX").value), Number(element<HTMLInputElement>("#featureUseY").value)); element<HTMLInputElement>("#featureUseX").addEventListener("input", updateFeatureUse); element<HTMLInputElement>("#featureUseY").addEventListener("input", updateFeatureUse);
-  element<HTMLButtonElement>("#featureAutoTrain").addEventListener("click", () => { if (featureAutoTimer) { stopFeatureAuto(); rerender(); return; } featureAutoTimer = window.setInterval(() => { if (!isCustomPreset(store.snapshot.preset) || store.snapshot.lessonStep !== 4 || featureStore.snapshot.model.epoch >= 1000) { stopFeatureAuto(); rerender(); return; } featureStore.train(5); }, 100); featureStore.train(1); });
+  element<HTMLButtonElement>("#featureAutoTrain").addEventListener("click", () => { if (featureAutoTimer) { stopFeatureAuto(); rerender(); return; } if(!trainingAllowed(featureStore.snapshot.model.epoch,'auto'))return;featureAutoTimer = window.setInterval(() => { if (!isCustomPreset(store.snapshot.preset) || store.snapshot.lessonStep !== 4 || featureStore.snapshot.model.epoch >= 1000) { stopFeatureAuto(); rerender(); return; } featureStore.train(5); }, 100); featureStore.train(1); });
   element<HTMLButtonElement>("#featureExportScratch").addEventListener("click", () => { const state = featureStore.snapshot; if(!state.model.epoch)return showToast("먼저 학습해 주세요."); downloadBlob("neural-lab-feature-scratch.sb3", createPixelScratchProject(state.model, state.classes, [], { blockName: "특징 두 개로 예측하기", inputListName: "특징 값", stageTitle: "Neural Lab 특징 모델", inputSummary: "특징 2개" })); showToast("학습 자료 없이 예측 모델만 내보냈습니다."); });
   element<HTMLButtonElement>("#featureExportExtension").addEventListener("click",()=>{const state=featureStore.snapshot;if(!state.model.epoch)return showToast("먼저 학습해 주세요.");downloadText("neural-lab-model.js",generateInferenceExtension(state.model,state.classes,{kind:customDraft.inputKind==="text"?"text":"numbers",featureCount:customDraft.features.length,axes:[customDraft.xFeature,customDraft.yFeature],ranges:[customDraft.xFeature,customDraft.yFeature].map(i=>[Math.min(...customDraft.rows.map(row=>row.values[i]!)),Math.max(...customDraft.rows.map(row=>row.values[i]!))])}),"text/javascript");});
   element<HTMLButtonElement>("#featureExportJson").addEventListener("click", () => { const state = featureStore.snapshot; downloadText("neural-lab-feature-model.json", JSON.stringify({ format: "neural-lab/feature-model-v1", axes: projectCustomDataset(customDraft).axes, inputSpace: "normalized-map", normalization: [customDraft.xFeature, customDraft.yFeature].map((index) => ({ minimum: Math.min(...customDraft.rows.map((row) => row.values[index]!)), maximum: Math.max(...customDraft.rows.map((row) => row.values[index]!)), range: [-.9, .9] })), classes: state.classes, model: state.model }, null, 2), "application/json"); });
   const dialog = element<HTMLDialogElement>("#guideDialog"); element<HTMLButtonElement>("#openGuide").addEventListener("click", () => dialog.showModal());
+  new ResearchUI(element('#openGuide'));
+  instrumentSurface(document,{image:imageWorkspace.store,feature:featureStore,binary:store});
+  instrumentInteractions(document);
+  element('[data-teachable]').addEventListener('click',()=>{teachableSelected=true;recordResearch('task_select',{operation:'teachable-select'});renderScenario(store.snapshot);});
   return store;
 }
 

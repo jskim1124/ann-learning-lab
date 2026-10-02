@@ -28,7 +28,7 @@ export function renderSignalNetwork(panel:HTMLElement,model:PixelModel,input:num
   const selector=focused?.matches('[data-network-neuron]')?`[data-network-neuron="${focused.dataset.networkNeuron}"]`:focused?.matches('[data-network-output]')?`[data-network-output="${focused.dataset.networkOutput}"]`:null;
   panel.innerHTML=signalNetwork(model,input,labels,selected,neuron,output,panel.dataset.values==='true');
   if(previous&&model.epoch>previous.epoch&&parameters!==previous.parameters&&hidden.length===previous.hidden.length){
-    incoming.forEach((value,h)=>{if(value!==previous.incoming[h])panel.querySelector(`[data-input-wire="${h}"]`)?.classList.add('is-changed');});
+    incoming.forEach((value,h)=>{if(value!==previous.incoming[h])panel.querySelectorAll(`[data-input-wire="${h}"]`).forEach(w=>w.classList.add('is-changed'));});
     outgoing.forEach((row,c)=>row.forEach((value,h)=>{if(value!==previous.outgoing[c]?.[h])panel.querySelector(`[data-output-wire="${h}-${c}"]`)?.classList.add('is-changed');}));
     model.hiddenBias.forEach((value,h)=>{if(value!==previous.hiddenBias[h])panel.querySelector(`[data-network-neuron="${h}"]`)?.classList.add('is-changed');});
     model.outputBias.forEach((value,c)=>{if(value!==previous.outputBias[c])panel.querySelector(`[data-network-output="${c}"]`)?.classList.add('is-changed');});

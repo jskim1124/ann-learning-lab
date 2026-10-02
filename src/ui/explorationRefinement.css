@@ -96,7 +96,7 @@
   .image-collection .image-pager { margin-top:6px; }
 }
 @media (min-width:601px) and (max-width:900px) {
-  .explore-body { grid-template-rows:minmax(280px,.9fr) minmax(350px,1.1fr); }
+  .explore-body { grid-template-rows:minmax(340px,1.1fr) minmax(350px,1fr); }
   .explore-network svg { max-height:125px; }
   .explore-content { display:block; }
   .exploration-journey:not([data-chapter="0"]) .explore-content { display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px 14px;align-content:start; }
@@ -156,4 +156,31 @@
 }
 @media (prefers-reduced-motion:reduce) {
   .explore-network .calc-wire { transition:none; }
+}
+.explore-weight-intro { grid-column:1/-1;grid-row:2;background:#f7f5fc;border-radius:12px;padding:9px 12px; }
+.explore-weight-intro>div { display:flex;gap:8px;margin:7px 0; }
+.explore-weight-intro button { flex:1; }
+.explore-weight-intro p { margin:0;line-height:1.4; }
+.exploration-journey[data-chapter="3"] .explore-controls>label:not(.explore-knob),.exploration-journey[data-chapter="3"] .explore-knob { grid-row:3; }
+.exploration-journey[data-chapter="3"] .explore-tools { grid-row:4; }
+.explore-weight-result { display:grid;gap:4px;font-size:var(--lesson-small);padding:8px 0; }
+.explore-weight-result strong { font-size:21px;color:var(--active-neuron);font-variant-numeric:tabular-nums; }
+.explore-weight-intro>div { margin-bottom:0; }
+.explore-weight-result>span:first-child { display:none; }
+.explore-weight-result strong { display:none; } /* The same arithmetic is already on the visible network wire. */
+.exploration-journey[data-chapter="3"] .explore-capacity { margin:4px 0; }
+.exploration-journey[data-chapter="3"] .explore-capacity b { display:inline;font-size:var(--lesson-text); }
+@media (min-width:901px) and (max-height:760px) {
+  .exploration-journey[data-chapter="3"] .explore-controls { gap:5px 10px;margin:6px 0; }
+  .explore-weight-intro { padding:7px 9px; }
+  .explore-weight-intro>div { margin-top:5px; }
+  .explore-weight-result { padding:3px 0;gap:2px; }
+}
+.explore-axes small { display:block;line-height:1.45;font-size:14px;color:#687284;margin-top:5px; }
+.explore-loss-comparison meter { width:100%;height:18px;accent-color:#1f6bd6; }
+/* Fit a stable 16:9 viewport inside the actual available row, not window guesses. */
+.plot-aspect-slot { min-width:0;min-height:0;container-type:size;display:grid;place-items:center;grid-row:2; }
+.plot-aspect-slot > .explore-map,
+.practice-stage .plot-aspect-slot > .practice-plot-viewport {
+  grid-row:auto;width:min(100cqw,calc(100cqh * 16 / 9));height:min(100cqh,calc(100cqw * 9 / 16));
 }

@@ -124,6 +124,6 @@ export function drawDecisionSurface(canvas: HTMLCanvasElement, model: NetworkMod
 function drawDataPoint(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, point: DataPoint): void {
   const [x, y] = canvasPoint(canvas, point.x, point.y);
   ctx.fillStyle = point.label === 0 ? PALETTE.zero : PALETTE.one; ctx.strokeStyle = "white"; ctx.lineWidth = 3; ctx.beginPath();
-  if (point.label === 0) ctx.arc(x, y, 7, 0, Math.PI * 2); else ctx.rect(x - 6, y - 6, 12, 12);
+  ctx.arc(x, y, 4.7, 0, Math.PI * 2);ctx.lineWidth=1.2;
   ctx.fill(); ctx.stroke();
 }
